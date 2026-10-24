@@ -1,0 +1,47 @@
+[transport-udp]
+type = transport
+protocol = udp
+bind = 0.0.0.0:5060
+local_net = ${LAN_CIDR}
+
+[sip-trunk-reg]
+type = registration
+transport = transport-udp
+outbound_auth = sip-trunk-auth
+server_uri = sip:${SIP_HOST}:${SIP_PORT}
+client_uri = sip:${SIP_USER}@${SIP_HOST}:${SIP_PORT}
+contact_user = ${SIP_USER}
+retry_interval = 60
+expiration = ${PJSIP_REG_EXPIRATION}
+
+[sip-trunk-auth]
+type = auth
+auth_type = userpass
+username = ${SIP_USER}
+password = ${SIP_PASSWORD}
+
+[sip-trunk-aor]
+type = aor
+contact = sip:${SIP_HOST}:${SIP_PORT}
+qualify_frequency = ${PJSIP_QUALIFY_FREQUENCY}
+
+[sip-trunk]
+type = endpoint
+transport = transport-udp
+context = from-sip-trunk
+outbound_auth = sip-trunk-auth
+aors = sip-trunk-aor
+from_user = ${SIP_USER}
+from_domain = ${SIP_HOST}
+disallow = all
+allow = alaw,ulaw
+dtmf_mode = rfc4733
+direct_media = no
+rtp_symmetric = yes
+force_rport = yes
+callerid = "${FERNRUF_CALLER_ID_NAME}" <${FERNRUF_CALLER_ID_NUMBER}>
+
+[sip-trunk-identify]
+type = identify
+endpoint = sip-trunk
+match = ${SIP_IP}

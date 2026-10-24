@@ -1,0 +1,5 @@
+# Loopback verification on Linux: host networking on the same machine as Asterisk.
+services:
+  asterisk:
+    container_name: fernruf-verify-asterisk
+    network_mode: host

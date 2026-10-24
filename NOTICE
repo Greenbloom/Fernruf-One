@@ -1,0 +1,14 @@
+Fernruf
+
+This product includes open-source software. Key runtime dependencies include
+MIT/BSD/Apache-licensed libraries (see `uv.lock`). Optional CUDA wheels
+(`[cuda]` extra) are proprietary — see the GPU vendor license if you install them.
+
+Build and CI tooling (not shipped in the runtime wheel): Astral `uv` and the
+`ghcr.io/astral-sh/uv` container image; GitHub Actions `astral-sh/setup-uv`.
+
+The Asterisk container is built from the upstream `andrius/asterisk` image
+(GPL-2.0); no Asterisk source is vendored in this repository.
+
+Whisper model weights and Silero VAD are subject to their upstream licenses.
+Fish Audio, OpenRouter, and your SIP provider impose separate terms of use.

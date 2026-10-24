@@ -1,0 +1,21 @@
+%% M1 CLI test call (local policy + ARI originate + one-way TTS)
+%% Rules (never):
+%% never Place call when policy rejects
+%% never Play agent audio before callee answers
+%% never Hang up before 30 seconds after answer on the M1 verification call
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> PolicyCheck: start m1-test-call
+  PolicyCheck --> Rejected: policy fail
+  PolicyCheck --> PrepareAudio: policy ok
+  Rejected --> [*]: exit rejected_by_policy
+  PrepareAudio --> Originating: TTS or fixture alaw ready
+  Originating --> Ringing: ARI channel created
+  Ringing --> Failed: busy / error
+  Ringing --> Answered: callee 200 OK
+  Failed --> [*]
+  Answered --> PlayingAgent: play disclosure + test sentence
+  PlayingAgent --> Holding: playback started
+  Holding --> CollectDtmf: keep call up
+  CollectDtmf --> Hangup: hold >= 30s
+  Hangup --> [*]: log DTMF, finalize

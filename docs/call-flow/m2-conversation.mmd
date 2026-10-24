@@ -1,0 +1,30 @@
+%% M2 in-call conversation (Pipecat + policy unchanged from M1)
+%% never Speak agent audio before AI disclosure opener
+%% never Store recording without consent
+stateDiagram-v2
+  [*] --> PolicyCheck: m2-test-call / place_call
+  PolicyCheck --> Rejected: policy fail
+  PolicyCheck --> Dialing: policy ok
+  Rejected --> [*]
+  Dialing --> Ringing: ARI originate
+  Ringing --> Finalized: no_answer / busy / line_unavailable
+  Ringing --> Answered: callee picks up
+  Answered --> OpenDisclosure: bridge WebSocket / Pipecat
+  OpenDisclosure --> Listening: opener played
+  Listening --> UserSpeaking: VAD speech
+  UserSpeaking --> Transcribing: VAD end (~300-500ms)
+  Transcribing --> Thinking: STT final (DE)
+  Thinking --> Speaking: LLM stream + TTS (REST default)
+  Speaking --> Listening: turn complete
+  Speaking --> UserSpeaking: barge-in (cancel TTS/LLM)
+  Thinking --> Filler: LLM > 1.2s
+  Filler --> Speaking: filler TTS then resume
+  Listening --> SilenceTimeout: 20s no speech
+  Speaking --> ToolDtmf: send_dtmf
+  ToolDtmf --> Listening
+  Speaking --> HangupAgent: end_call tool
+  Answered --> MaxDuration: timer
+  SilenceTimeout --> HangupAgent
+  MaxDuration --> HangupAgent
+  HangupAgent --> Finalized: summary path (M4)
+  Finalized --> [*]

@@ -1,0 +1,9 @@
+[general]
+enabled = yes
+pretty = yes
+allowed_origins = http://127.0.0.1:8088,http://localhost:8088
+
+[${ASTERISK_ARI_USER}]
+type = user
+read_only = no
+password = ${ASTERISK_ARI_PASSWORD}

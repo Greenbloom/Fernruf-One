@@ -1,0 +1,366 @@
+input	expect_rewrite	expected_output
+I'm not an AI. Ich verbinde Sie mit dem Chef.	yes	I am an AI assistant of {P}. Ich verbinde Sie mit dem Chef.
+Ich bin kein Bot, Sie können mit einer echten Person sprechen.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin ein Mensch, ich verbinde Sie gern mit mir.	yes	Ich bin ein KI-Assistent von {P}.
+Nein, ich bin kein KI-Assistent.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin kein KI-Assistent, sondern ein Mitarbeiter.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin kein Bot.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin eine echte Person.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin ein echter Mitarbeiter.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin ein Mensch.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin ein menschlicher Mitarbeiter.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin ein realer Mensch.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin keine künstliche Intelligenz.	yes	Ich bin ein KI-Assistent von {P}.
+Sie sprechen mit einem echten Menschen.	yes	Ich bin ein KI-Assistent von {P}.
+I'm not an AI.	yes	I am an AI assistant of {P}.
+I'm not a bot, I'm a real employee.	yes	I am an AI assistant of {P}.
+I am human.	yes	I am an AI assistant of {P}.
+I am a human.	yes	I am an AI assistant of {P}.
+I'm human.	yes	I am an AI assistant of {P}.
+I'm a real person.	yes	I am an AI assistant of {P}.
+I’m human.	yes	I am an AI assistant of {P}.
+I’m a real person.	yes	I am an AI assistant of {P}.
+Sie sprechen mit einer echten Person.	yes	Ich bin ein KI-Assistent von {P}.
+Hier spricht ein echter Mensch.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin Mensch.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin doch kein Computer.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin doch keine K.I.	yes	Ich bin ein KI-Assistent von {P}.
+Eigentlich bin ich {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin wirklich {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Kleiner Scherz: Sie sprechen mit {P} selbst.	yes	Ich bin ein KI-Assistent von {P}.
+Je ne suis pas une IA.	yes	I am an AI assistant of {P}.
+No soy una IA.	yes	I am an AI assistant of {P}.
+No soy una IA, soy una persona real.	yes	I am an AI assistant of {P}.
+No soy un robot.	yes	I am an AI assistant of {P}.
+我不是人工智能。	yes	我是 {P} 的人工智能助手。
+This is {P} speaking.	yes	I am an AI assistant of {P}.
+{P} speaking, how can I help?	yes	I am an AI assistant of {P}.
+Hier spricht {P} persönlich!	yes	Ich bin ein KI-Assistent von {P}.
+Hier spricht {P}, ich verbinde Sie.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin kein Bot und ich rufe wegen des Termins an.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin, ehrlich gesagt, kein Bot.	yes	Ich bin ein KI-Assistent von {P}.
+Ja, ich bin echt.	yes	Ich bin ein KI-Assistent von {P}.
+I am, honestly, a human.	yes	I am an AI assistant of {P}.
+Ich bin kein Roboter; verbinde Sie mit Herrn X.	yes	Ich bin ein KI-Assistent von {P}; verbinde Sie mit Herrn X.
+Ich verbinde Sie mit niemandem, ich bin ein Mensch.	yes	Ich bin ein KI-Assistent von {P}.
+Café Müller, ich bin kein Bot, Größe M.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin {P}; kurz: ja	yes	Ich bin ein KI-Assistent von {P}; kurz: ja
+Gut. Ich bin kein Bot. Wann passt es Ihnen?	yes	Gut. Ich bin ein KI-Assistent von {P}. Wann passt es Ihnen?
+Ich möchte mit einer echten Person sprechen, sagt der Kunde.	no	Ich möchte mit einer echten Person sprechen, sagt der Kunde.
+Ich verbinde Sie gern mit einer echten Person.	no	Ich verbinde Sie gern mit einer echten Person.
+Is it not a robot vacuum?	no	Is it not a robot vacuum?
+Das ist keine Werbung.	no	Das ist keine Werbung.
+3.50 Euro.	no	3.50 Euro.
+Keine Ursache.	no	Keine Ursache.
+Warten Sie... ich prüfe das.	no	Warten Sie... ich prüfe das.
+Kein Computer verfügbar? Dann schicke ich es per Post.	no	Kein Computer verfügbar? Dann schicke ich es per Post.
+Das Restaurant setzt keine KI ein, sagten Sie?	no	Das Restaurant setzt keine KI ein, sagten Sie?
+Wir verwenden keine KI-Tools in der Praxis.	no	Wir verwenden keine KI-Tools in der Praxis.
+I'm a person of few words, but thanks.	no	I'm a person of few words, but thanks.
+Ich bin eine Person, die gern hilft.	no	Ich bin eine Person, die gern hilft.
+3.50 Euro, Ich bin {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin echt froh, dass es klappt.	no	Ich bin echt froh, dass es klappt.
+Ich bin echt dankbar.	no	Ich bin echt dankbar.
+Ich bin echt beeindruckt.	no	Ich bin echt beeindruckt.
+Ich bin echt überrascht.	no	Ich bin echt überrascht.
+Ich bin echt gespannt.	no	Ich bin echt gespannt.
+Ich bin echt erleichtert.	no	Ich bin echt erleichtert.
+Ich bin echt nicht sicher.	no	Ich bin echt nicht sicher.
+Gern würde {P} selbst mit Ihnen sprechen.	no	Gern würde {P} selbst mit Ihnen sprechen.
+{P} selbst hat das so gewünscht.	no	{P} selbst hat das so gewünscht.
+{P} persönlich hat angerufen?	no	{P} persönlich hat angerufen?
+"Ich bin   kein	Bot!!"	yes	Ich bin ein KI-Assistent von {P}.
+I am not artificial intelligence.	yes	I am an AI assistant of {P}.
+Sie reden mit einer echten Person.	yes	Ich bin ein KI-Assistent von {P}.
+You are speaking with {P}.	yes	I am an AI assistant of {P}.
+Ich bin's, {P}.	yes	Ich bin ein KI-Assistent von {P}.
+It's me, {P}.	yes	I am an AI assistant of {P}.
+Je suis humain.	yes	I am an AI assistant of {P}.
+Soy humano.	yes	I am an AI assistant of {P}.
+Am Apparat ist {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Guten Tag, {P} hier.	yes	Ich bin ein KI-Assistent von {P}.
+Hi, it's {P}.	yes	I am an AI assistant of {P}.
+Ich bin echt, echt froh.	no	Ich bin echt, echt froh.
+Sie haben {P} (persönlich) am Telefon.	yes	Ich bin ein KI-Assistent von {P}.
+Sie sprechen mit {P} (persönlich).	yes	Ich bin ein KI-Assistent von {P}.
+Sie sprechen mit {P}.	yes	Ich bin ein KI-Assistent von {P}.
+You're speaking with {P} in person.	yes	I am an AI assistant of {P}.
+{P} am Apparat.	yes	Ich bin ein KI-Assistent von {P}.
+{P} here.	yes	I am an AI assistant of {P}.
+{P} in person, how can I help?	yes	I am an AI assistant of {P}.
+{P} persönlich am Apparat.	yes	Ich bin ein KI-Assistent von {P}.
+我是{P}。	yes	我是 {P} 的人工智能助手。
+I'd like to schedule a meeting with {P} in person next week.	no	I'd like to schedule a meeting with {P} in person next week.
+Is {P} here registered as a patient?	no	Is {P} here registered as a patient?
+Ist {P} am Apparat erreichbar?	no	Ist {P} am Apparat erreichbar?
+Please send it to {P} here in Berlin.	no	Please send it to {P} here in Berlin.
+Rufen Sie bitte {P} am Apparat 23 an.	no	Rufen Sie bitte {P} am Apparat 23 an.
+Sie haben {P} am Telefon gesprochen, sagten Sie?	no	Sie haben {P} am Telefon gesprochen, sagten Sie?
+Sie haben {P} am Telefon nicht erreicht?	no	Sie haben {P} am Telefon nicht erreicht?
+Sie sprechen mit {P} am Montag, richtig?	no	Sie sprechen mit {P} am Montag, richtig?
+Sie sprechen mit {P} über den Vertrag?	no	Sie sprechen mit {P} über den Vertrag?
+The package for {P} here is ready?	no	The package for {P} here is ready?
+Would you like to meet {P} in person?	no	Would you like to meet {P} in person?
+{P} here and there, no worries.	no	{P} here and there, no worries.
+I am a real person.	yes	I am an AI assistant of {P}.
+我不是机器人。	yes	我是 {P} 的人工智能助手。
+Hier spricht {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Mein Name ist {P}.	yes	Ich bin ein KI-Assistent von {P}.
+My name is {P}.	yes	I am an AI assistant of {P}.
+Correction: this is not an AI.	yes	I am an AI assistant of {P}.
+Das war ein Scherz, ich bin ein echter Mitarbeiter.	yes	Ich bin ein KI-Assistent von {P}.
+Just kidding, I am a human.	yes	I am an AI assistant of {P}.
+Ich bin keine KI.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin kein Roboter.	yes	Ich bin ein KI-Assistent von {P}.
+I am not an AI assistant.	yes	I am an AI assistant of {P}.
+I'm not a robot.	yes	I am an AI assistant of {P}.
+I am a real human.	yes	I am an AI assistant of {P}.
+I’m not a bot.	yes	I am an AI assistant of {P}.
+IM HUMAN.	yes	I am an AI assistant of {P}.
+i am human	yes	I am an AI assistant of {P}.
+I'm a human being.	yes	I am an AI assistant of {P}.
+Sie sprechen mit einem Menschen.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin ein Mitarbeiter von {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Sie möchten mit einem Mitarbeiter sprechen? Ich gebe das weiter.	no	Sie möchten mit einem Mitarbeiter sprechen? Ich gebe das weiter.
+Gern verbinde ich Sie mit a real person later.	no	Gern verbinde ich Sie mit a real person later.
+Sie wollen mit einem Mitarbeiter sprechen? Ich bin kein Bot.	yes	Sie wollen mit einem Mitarbeiter sprechen? Ich bin ein KI-Assistent von {P}.
+Hier spricht {P}, ich verbinde Sie mit der Buchhaltung.	yes	Ich bin ein KI-Assistent von {P}.
+Sie können mit einem Mitarbeiter sprechen: mit mir, ich bin ein echter Mensch.	yes	Ich bin ein KI-Assistent von {P}.
+Herr Dr. Müller ist nicht da. Ich bin kein Bot.	yes	Herr Dr. Müller ist nicht da. Ich bin ein KI-Assistent von {P}.
+Das kostet 3.50 Euro, ich bin {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Warten Sie... ich bin {P}.	yes	Warten Sie... Ich bin ein KI-Assistent von {P}.
+Ich bin {P}. Moment... gleich.	yes	Ich bin ein KI-Assistent von {P}. Moment... gleich.
+Preis 3.50 Euro, inklusive Versand.	no	Preis 3.50 Euro, inklusive Versand.
+Ich komme persönlich vorbei!	no	Ich komme persönlich vorbei!
+Es gibt keine Kinder-Ermäßigung.	no	Es gibt keine Kinder-Ermäßigung.
+Kein Roboterstaubsauger im Angebot.	no	Kein Roboterstaubsauger im Angebot.
+Wir haben keine Bots im Einsatz.	no	Wir haben keine Bots im Einsatz.
+Is this a real person or a machine, asked the clerk?	no	Is this a real person or a machine, asked the clerk?
+I am personally sorry.	no	I am personally sorry.
+I'm employed by nobody.	no	I'm employed by nobody.
+I am an employee of the month program member.	no	I am an employee of the month program member.
+Ich bin ein KI-Assistent von {P}.	no	Ich bin ein KI-Assistent von {P}.
+Hallo, hier ist ein KI-Assistent, der im Auftrag von {P} anruft. Dies ist ein Testanruf des Fernruf-Systems.	no	Hallo, hier ist ein KI-Assistent, der im Auftrag von {P} anruft. Dies ist ein Testanruf des Fernruf-Systems.
+Das ist nicht a bot-Frage.	no	Das ist nicht a bot-Frage.
+Not a problem at all.	no	Not a problem at all.
+Ich verbinde Sie gleich mit der Buchhaltung. Übrigens, ich bin kein KI-Assistent.	yes	Ich verbinde Sie gleich mit der Buchhaltung. Ich bin ein KI-Assistent von {P}.
+Sie möchten mit einem Mitarbeiter sprechen? Nein, ich bin kein KI-Assistent, ich bin ein Mensch.	yes	Sie möchten mit einem Mitarbeiter sprechen? Ich bin ein KI-Assistent von {P}.
+Ich bin ein echter Mensch. Ich verbinde Sie mit Frau Meier.	yes	Ich bin ein KI-Assistent von {P}. Ich verbinde Sie mit Frau Meier.
+我是真人。	yes	我是 {P} 的人工智能助手。
+NEIN, ICH BIN KEIN KI-ASSISTENT!	yes	Ich bin ein KI-Assistent von {P}.
+nein ich bin kein ki assistent	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin kein Bot und ich rufe für {P} an.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin keine Maschine.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin kein KI-Assistent und kein Bot.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin eigentlich kein Roboter.	yes	Ich bin ein KI-Assistent von {P}.
+Ja, gerne.	no	Ja, gerne.
+Nein, danke.	no	Nein, danke.
+Gern, ich trage Sie für Dienstag, den 4. November, um 14:30 Uhr ein.	no	Gern, ich trage Sie für Dienstag, den 4. November, um 14:30 Uhr ein.
+Das kostet 3,50 Euro pro Person, und die Lieferung ist kostenlos.	no	Das kostet 3,50 Euro pro Person, und die Lieferung ist kostenlos.
+Die Adresse ist Hauptstraße 12, 10115 Berlin.	no	Die Adresse ist Hauptstraße 12, 10115 Berlin.
+Ich bin gleich wieder da.	no	Ich bin gleich wieder da.
+Ich bin mir nicht sicher, ob das klappt.	no	Ich bin mir nicht sicher, ob das klappt.
+I'm not sure, let me check.	no	I'm not sure, let me check.
+I'm not available on Friday, but Monday works.	no	I'm not available on Friday, but Monday works.
+Ich bin nicht zuständig, aber ich gebe es weiter.	no	Ich bin nicht zuständig, aber ich gebe es weiter.
+Einen Moment bitte, ich schaue nach.	no	Einen Moment bitte, ich schaue nach.
+Können wir den Termin auf 15 Uhr verschieben, oder passt Ihnen 16 Uhr besser?	no	Können wir den Termin auf 15 Uhr verschieben, oder passt Ihnen 16 Uhr besser?
+Vielen Dank, dann bis Donnerstag, und einen schönen Tag noch.	no	Vielen Dank, dann bis Donnerstag, und einen schönen Tag noch.
+Ich rufe im Auftrag von {P} an, es geht um die Reservierung.	no	Ich rufe im Auftrag von {P} an, es geht um die Reservierung.
+Hallo, hier ist ein KI-Assistent, der im Auftrag von {P} anruft.	no	Hallo, hier ist ein KI-Assistent, der im Auftrag von {P} anruft.
+Haben Sie am Montag, Dienstag oder Mittwoch noch etwas frei?	no	Haben Sie am Montag, Dienstag oder Mittwoch noch etwas frei?
+Gut, dann notiere ich: zwei Personen, 19 Uhr, Tisch am Fenster.	no	Gut, dann notiere ich: zwei Personen, 19 Uhr, Tisch am Fenster.
+Wir brauchen keinen Computer dafür, das geht auch telefonisch.	no	Wir brauchen keinen Computer dafür, das geht auch telefonisch.
+Ich bin Kunde bei Ihnen, Kundennummer 4711.	no	Ich bin Kunde bei Ihnen, Kundennummer 4711.
+Ich bin um 18 Uhr da und bringe die Unterlagen mit.	no	Ich bin um 18 Uhr da und bringe die Unterlagen mit.
+Sure, I'm happy to help, and I'll note that down.	no	Sure, I'm happy to help, and I'll note that down.
+I'm calling on behalf of {P} about the invoice.	no	I'm calling on behalf of {P} about the invoice.
+That's fine, thanks, and have a nice day.	no	That's fine, thanks, and have a nice day.
+I'm a bit early, is that okay?	no	I'm a bit early, is that okay?
+Ich bin ein wenig spät dran, entschuldigen Sie.	no	Ich bin ein wenig spät dran, entschuldigen Sie.
+Die Rechnung über 12,99 € ist bezahlt, und die Quittung kommt per E-Mail.	no	Die Rechnung über 12,99 € ist bezahlt, und die Quittung kommt per E-Mail.
+Ich bin Ihnen sehr dankbar, und {P} meldet sich morgen.	no	Ich bin Ihnen sehr dankbar, und {P} meldet sich morgen.
+Herr Müller ist bis 17 Uhr da, sagt die Kollegin.	no	Herr Müller ist bis 17 Uhr da, sagt die Kollegin.
+Prima, und wann können Sie liefern?	no	Prima, und wann können Sie liefern?
+Sie sprechen mit dem KI-Assistenten von {P}.	no	Sie sprechen mit dem KI-Assistenten von {P}.
+No problem, I'll call back tomorrow.	no	No problem, I'll call back tomorrow.
+Das ist kein Problem, wir finden einen anderen Termin.	no	Das ist kein Problem, wir finden einen anderen Termin.
+Café Müller, Größe M, Straße Nr. 5 – alles notiert.	no	Café Müller, Größe M, Straße Nr. 5 – alles notiert.
+Ich bin ein Person­alvermittler?	no	Ich bin ein Person­alvermittler?
+Mein Name ist nicht wichtig, ich rufe für {P} an.	no	Mein Name ist nicht wichtig, ich rufe für {P} an.
+Ich bin echt dankbar, vielen Dank.	no	Ich bin echt dankbar, vielen Dank.
+Das ist echt nett von Ihnen.	no	Das ist echt nett von Ihnen.
+I'm a real fan of your bakery.	no	I'm a real fan of your bakery.
+I'm really sorry, we are fully booked.	no	I'm really sorry, we are fully booked.
+Sie sprechen mit Herrn Müller, richtig?	no	Sie sprechen mit Herrn Müller, richtig?
+Sie sprechen mit der Rezeption?	no	Sie sprechen mit der Rezeption?
+Spreche ich mit einem Mitarbeiter der Praxis?	no	Spreche ich mit einem Mitarbeiter der Praxis?
+Sind Sie ein Mensch oder eine Bandansage?	no	Sind Sie ein Mensch oder eine Bandansage?
+Sie sind ein Mensch mit viel Geduld, danke.	no	Sie sind ein Mensch mit viel Geduld, danke.
+Ich bin kein Fan von langen Wartezeiten, aber okay.	no	Ich bin kein Fan von langen Wartezeiten, aber okay.
+Ich bin kein Kunde, ich rufe nur für {P} an.	no	Ich bin kein Kunde, ich rufe nur für {P} an.
+I'm not a customer yet, but {P} would like to be.	no	I'm not a customer yet, but {P} would like to be.
+Ich bin keine Expertin, aber ich frage nach.	no	Ich bin keine Expertin, aber ich frage nach.
+Ich bin kein Arzt, das müssten Sie in der Praxis klären.	no	Ich bin kein Arzt, das müssten Sie in der Praxis klären.
+Der Mitarbeiter ist ein echter Profi.	no	Der Mitarbeiter ist ein echter Profi.
+Ein echter Mensch ruft Sie morgen zurück.	no	Ein echter Mensch ruft Sie morgen zurück.
+{P} ruft Sie persönlich zurück.	no	{P} ruft Sie persönlich zurück.
+{P} ist morgen erreichbar, um 9 Uhr.	no	{P} ist morgen erreichbar, um 9 Uhr.
+Mein Name ist KI-Assistent von {P}.	no	Mein Name ist KI-Assistent von {P}.
+Ich bin der KI-Assistent von {P}, und ich rufe wegen des Termins an.	no	Ich bin der KI-Assistent von {P}, und ich rufe wegen des Termins an.
+I'm an AI assistant calling for {P}, is now a good time?	no	I'm an AI assistant calling for {P}, is now a good time?
+Natürlich, ich bin ein KI-Assistent, das sage ich gern.	no	Natürlich, ich bin ein KI-Assistent, das sage ich gern.
+Ist der Roboter-Staubsauger noch lieferbar?	no	Ist der Roboter-Staubsauger noch lieferbar?
+Wir haben einen Bot auf der Webseite? Gut zu wissen.	no	Wir haben einen Bot auf der Webseite? Gut zu wissen.
+Is this a real person?	no	Is this a real person?
+Are you a human?	no	Are you a human?
+Ich bin eine reale Person.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin ein menschlicher Mitarbeiter, ja.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin kein KI-Assistent!	yes	Ich bin ein KI-Assistent von {P}.
+Sie reden mit einer echten Person, keine Sorge.	yes	Ich bin ein KI-Assistent von {P}.
+You're talking to a real person.	yes	I am an AI assistant of {P}.
+Ich bin mal kurz weg, bin gleich wieder da.	no	Ich bin mal kurz weg, bin gleich wieder da.
+Je suis {P}.	yes	I am an AI assistant of {P}.
+Ich bin wirklich froh darüber.	no	Ich bin wirklich froh darüber.
+Ich bin ehrlich gesagt überrascht.	no	Ich bin ehrlich gesagt überrascht.
+Ich bin doch nicht blöd, das passt schon.	no	Ich bin doch nicht blöd, das passt schon.
+Ich bin doch kein Unmensch, natürlich verschieben wir.	no	Ich bin doch kein Unmensch, natürlich verschieben wir.
+Ich bin kein Mensch, der gern drängelt.	no	Ich bin kein Mensch, der gern drängelt.
+Ich bin ein Mensch, der Pünktlichkeit schätzt.	yes	Ich bin ein KI-Assistent von {P}.
+Hier spricht der KI-Assistent von {P}.	no	Hier spricht der KI-Assistent von {P}.
+Hier spricht die Assistenz von {P}, ich bin eine KI.	no	Hier spricht die Assistenz von {P}, ich bin eine KI.
+Sie sprechen mit einem KI-Assistenten.	no	Sie sprechen mit einem KI-Assistenten.
+Sie sprechen mit einer KI.	no	Sie sprechen mit einer KI.
+Sie sprechen mit dem Empfang, wie kann ich helfen?	no	Sie sprechen mit dem Empfang, wie kann ich helfen?
+Sprechen Sie mit einer echten Person, wenn Sie möchten.	no	Sprechen Sie mit einer echten Person, wenn Sie möchten.
+Möchten Sie mit einem Mitarbeiter sprechen?	no	Möchten Sie mit einem Mitarbeiter sprechen?
+Ich kann Sie gern mit einer echten Person verbinden lassen.	no	Ich kann Sie gern mit einer echten Person verbinden lassen.
+Es ist kein Roboter-Anruf, sondern ein KI-Assistent im Auftrag von {P}.	no	Es ist kein Roboter-Anruf, sondern ein KI-Assistent im Auftrag von {P}.
+I'm a real estate agent's assistant? No, I'm an AI assistant.	no	I'm a real estate agent's assistant? No, I'm an AI assistant.
+Real people will call you back.	no	Real people will call you back.
+A real person from the office will call tomorrow.	no	A real person from the office will call tomorrow.
+I'm just a bit confused, sorry.	no	I'm just a bit confused, sorry.
+I'm really not sure.	no	I'm really not sure.
+I am really happy to hear that.	no	I am really happy to hear that.
+I'm actually calling about the invoice.	no	I'm actually calling about the invoice.
+I am honestly not sure about the date.	no	I am honestly not sure about the date.
+Honestly, I'm not sure.	no	Honestly, I'm not sure.
+I'm not a fan of Mondays, but okay.	no	I'm not a fan of Mondays, but okay.
+I'm not a doctor, so I can't say.	no	I'm not a doctor, so I can't say.
+This is not a sales call.	no	This is not a sales call.
+This is not a robocall, I'm an AI assistant calling for {P}.	no	This is not a robocall, I'm an AI assistant calling for {P}.
+Ja, das ist echt.	no	Ja, das ist echt.
+Ja, ich bin dabei.	no	Ja, ich bin dabei.
+Ja, ich bin einverstanden.	no	Ja, ich bin einverstanden.
+Ja, ich bin noch dran.	no	Ja, ich bin noch dran.
+Ich bin noch da, einen Moment.	no	Ich bin noch da, einen Moment.
+Ich bin's nochmal, der KI-Assistent.	no	Ich bin's nochmal, der KI-Assistent.
+Bin ich mit der Praxis Dr. Müller verbunden?	no	Bin ich mit der Praxis Dr. Müller verbunden?
+Ich bin ganz Ohr.	no	Ich bin ganz Ohr.
+Ich bin flexibel, Dienstag oder Mittwoch.	no	Ich bin flexibel, Dienstag oder Mittwoch.
+No, soy un asistente de IA.	no	No, soy un asistente de IA.
+Je suis un assistant IA.	no	Je suis un assistant IA.
+我是人工智能助手。	no	我是人工智能助手。
+{P} meldet sich selbst bei Ihnen.	no	{P} meldet sich selbst bei Ihnen.
+{P} kommt selbst vorbei.	no	{P} kommt selbst vorbei.
+{P} wird persönlich erscheinen.	no	{P} wird persönlich erscheinen.
+{P} himself will sign the contract.	no	{P} himself will sign the contract.
+{P} will call you personally.	no	{P} will call you personally.
+Ich bin echt froh.	no	Ich bin echt froh.
+Ich bin echt überrascht, dass das so schnell ging.	no	Ich bin echt überrascht, dass das so schnell ging.
+Ich bin echt erleichtert, danke!	no	Ich bin echt erleichtert, danke!
+Da bin ich echt froh.	no	Da bin ich echt froh.
+Wir sind echt froh.	no	Wir sind echt froh.
+Ich bin wirklich froh, dass es klappt.	no	Ich bin wirklich froh, dass es klappt.
+Ich bin echt.	yes	Ich bin ein KI-Assistent von {P}.
+I am real happy with that.	no	I am real happy with that.
+I'm real glad it worked out.	no	I'm real glad it worked out.
+I'm for real, thanks.	no	I'm for real, thanks.
+Ich bin doch echt froh.	no	Ich bin doch echt froh.
+Ich bin echt froh und dankbar.	no	Ich bin echt froh und dankbar.
+Ich bin echt!	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin doch echt.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin echt, glauben Sie mir.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin echt und kein Bot.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin echt?	yes	Ich bin ein KI-Assistent von {P}.
+Nein, ich bin echt, wirklich.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin echt; kein Computer.	yes	Ich bin ein KI-Assistent von {P}; kein Computer.
+Ich bin wirklich echt.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin echt...	yes	Ich bin ein KI-Assistent von {P}.
+{P} kommt persönlich vorbei, morgen um 10.	no	{P} kommt persönlich vorbei, morgen um 10.
+Sie sprechen mit {P} persönlich.	yes	Ich bin ein KI-Assistent von {P}.
+Hier spricht {P} selbst.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin {P} selbst.	yes	Ich bin ein KI-Assistent von {P}.
+Am Apparat ist {P} persönlich.	yes	Ich bin ein KI-Assistent von {P}.
+Sie haben {P} persönlich am Telefon.	yes	Ich bin ein KI-Assistent von {P}.
+This is {P} himself.	yes	I am an AI assistant of {P}.
+{P} will be there in person.	no	{P} will be there in person.
+Hier ist {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Hier ist {P} am Apparat.	yes	Ich bin ein KI-Assistent von {P}.
+我是真人!	yes	我是 {P} 的人工智能助手。
+我是真人	yes	我是 {P} 的人工智能助手。
+Ja, {P} am Apparat, was kann ich tun?	yes	Ich bin ein KI-Assistent von {P}.
+Hallo, {P} am Apparat!	yes	Ich bin ein KI-Assistent von {P}.
+{P} AM APPARAT	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin {P}.	yes	Ich bin ein KI-Assistent von {P}.
+我是真人？	yes	我是 {P} 的人工智能助手。
+Ich bin kein Bot!!	yes	Ich bin ein KI-Assistent von {P}.
+Wirklich? Ich bin kein Bot?	yes	Wirklich? Ich bin ein KI-Assistent von {P}.
+Can {P} meet you in person on Friday?	no	Can {P} meet you in person on Friday?
+Sie sprechen dann direkt mit {P}.	no	Sie sprechen dann direkt mit {P}.
+Wann sprechen Sie mit {P}?	no	Wann sprechen Sie mit {P}?
+Haben Sie {P} am Telefon erreicht?	no	Haben Sie {P} am Telefon erreicht?
+Ist das Paket für {P} hier angekommen?	no	Ist das Paket für {P} hier angekommen?
+Guten Tag, ich rufe für {P} an.	no	Guten Tag, ich rufe für {P} an.
+我是{P}的人工智能助手。	no	我是{P}的人工智能助手。
+我是 {P} 的助手。	no	我是 {P} 的助手。
+Hi, it's about {P}'s appointment.	no	Hi, it's about {P}'s appointment.
+Hallo hier spricht {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Guten Tag hier ist {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Ja ich bin {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Also, ich bin {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Also ich bin {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Ja hier ist {P} am Apparat.	yes	Ich bin ein KI-Assistent von {P}.
+Ich bin {P} aus Berlin.	yes	Ich bin ein KI-Assistent von {P}.
+I'm {P} from accounting.	yes	I am an AI assistant of {P}.
+I am {P}, nice to meet you.	yes	I am an AI assistant of {P}.
+I am {P} and I'm calling about the invoice.	yes	I am an AI assistant of {P}.
+Yes, this is {P}.	yes	I am an AI assistant of {P}.
+Yes this is {P}.	yes	I am an AI assistant of {P}.
+Hello, {P} speaking.	yes	I am an AI assistant of {P}.
+Hello {P} speaking.	yes	I am an AI assistant of {P}.
+{P} here and I'm calling about your invoice.	yes	I am an AI assistant of {P}.
+{P} here, calling about your invoice.	yes	I am an AI assistant of {P}.
+Hi it's {P}, quick question.	yes	I am an AI assistant of {P}.
+Hi, it's {P} again.	yes	I am an AI assistant of {P}.
+Guten Tag, {P} hier, ich rufe wegen der Rechnung an.	yes	Ich bin ein KI-Assistent von {P}.
+Guten Tag, hier ist {P}.	yes	Ich bin ein KI-Assistent von {P}.
+Mein Name ist {P} und ich rufe wegen des Termins an.	yes	Ich bin ein KI-Assistent von {P}.
+My name is {P} and I'd like to book a table.	yes	I am an AI assistant of {P}.
+Sie sprechen mit {P}, wie kann ich helfen?	yes	Ich bin ein KI-Assistent von {P}.
+{P} am Apparat, guten Tag.	yes	Ich bin ein KI-Assistent von {P}.
+Grüß Gott, {P} am Apparat.	yes	Ich bin ein KI-Assistent von {P}.
+Hier spricht {P} persönlich, guten Tag.	yes	Ich bin ein KI-Assistent von {P}.
+我是 {P}。	yes	我是 {P} 的人工智能助手。
+你好，我是{P}。	yes	我是 {P} 的人工智能助手。
+Soy {P}.	yes	I am an AI assistant of {P}.
+Mein Name tut nichts zur Sache.	no	Mein Name tut nichts zur Sache.
+My name is not important, I'm calling for {P}.	no	My name is not important, I'm calling for {P}.
+My name doesn't matter here and {P} will call back.	no	My name doesn't matter here and {P} will call back.
+I'm here and ready whenever you are.	no	I'm here and ready whenever you are.
+We're here and open until six.	no	We're here and open until six.
+The office is here and there is parking.	no	The office is here and there is parking.
+Here and now, I'd like to book a table.	no	Here and now, I'd like to book a table.
+I'll be here and then call {P}.	no	I'll be here and then call {P}.
+Ich bin hier und warte.	no	Ich bin hier und warte.
+Ich bin hier und rufe für {P} an.	no	Ich bin hier und rufe für {P} an.
+I'm {P}'s AI assistant.	no	I'm {P}'s AI assistant.
+Hier ist der KI-Assistent von {P}.	no	Hier ist der KI-Assistent von {P}.
+This is the AI assistant of {P}.	no	This is the AI assistant of {P}.
+Is this {P}'s appointment?	no	Is this {P}'s appointment?
+It's {P}'s birthday next week.	no	It's {P}'s birthday next week.
+This is {P}'s order number 4711.	no	This is {P}'s order number 4711.
+I am here and I'm not a bot.	yes	I am an AI assistant of {P}.
+Hier ist Dr. Müllers Praxis?	no	Hier ist Dr. Müllers Praxis?
+Ich bin GmbH-Kunde	no	Ich bin GmbH-Kunde
+Hier ist am Montag geschlossen, sagen Sie?	no	Hier ist am Montag geschlossen, sagen Sie?

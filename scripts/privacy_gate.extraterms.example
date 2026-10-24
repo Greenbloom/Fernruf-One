@@ -1,0 +1,3 @@
+# Optional local banned substrings (one per line).
+# Copy to .privacy-terms.local (gitignored) or set FERNRUF_PRIVACY_TERMS_FILE.
+# Or pass a file path as the first argument to scripts/privacy_gate.sh.

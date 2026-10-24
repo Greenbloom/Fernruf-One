@@ -1,0 +1,17 @@
+[Unit]
+Description=Fernruf MCP phone-call service
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/fernruf
+Environment=FERNRUF_BIND_HOST=127.0.0.1
+Environment=FERNRUF_BIND_PORT=8787
+ExecStart=/usr/local/bin/uv run fernruf serve
+Restart=on-failure
+User=fernruf
+Group=fernruf
+
+[Install]
+WantedBy=multi-user.target

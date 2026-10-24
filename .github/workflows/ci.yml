@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install ripgrep for privacy_gate.sh
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+      - run: uv sync --group dev
+      - run: uv run pytest -q
+      - run: chmod +x scripts/privacy_gate.sh && ./scripts/privacy_gate.sh
+      - name: Verify .env.verify policy pchecks
+        run: |
+          chmod +x scripts/verify/run_policy_pchecks.sh
+          ./scripts/verify/run_policy_pchecks.sh
+
+  sipp-scenario:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: SIPp loopback (UAS + UAC REGISTER/INVITE)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sip-tester
+          uv sync --group dev
+          chmod +x scripts/verify/check_sipp_scenario.sh
+          ./scripts/verify/check_sipp_scenario.sh
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          GITLEAKS_VERSION=8.24.2
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp
+          sudo install -m 755 /tmp/gitleaks /usr/local/bin/gitleaks
+      - name: Scan repository history
+        run: gitleaks detect --source . --no-banner --redact

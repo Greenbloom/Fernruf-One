@@ -1,0 +1,13 @@
+[general]
+static=yes
+writeprotect=no
+clearglobalvars=no
+
+[from-sip-trunk]
+; Outbound-only LAN IP phone: reject unexpected inbound INVITEs.
+exten => _X.,1,Verbose(1,Fernruf: rejected unexpected inbound to ${EXTEN} from SIP trunk (outbound-only))
+ same => n,Hangup()
+
+[fernruf-ari]
+exten => s,1,NoOp(fernruf ARI placeholder)
+ same => n,Hangup()
