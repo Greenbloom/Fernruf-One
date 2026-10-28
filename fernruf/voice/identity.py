@@ -103,28 +103,37 @@ def normalize_for_match(text: str) -> str:
     return t.casefold()
 
 
+def _esc_guard(token: str, principal: str) -> str:
+    """After a principal name token: block possessives and name continuations."""
+    tn = normalize_for_match(token)
+    pn = normalize_for_match(principal)
+    parts = pn.split()
+    if parts and tn == parts[0] and len(parts) > 1:
+        nxt = re.escape(parts[1])
+        return rf"(?!'s|\s+{nxt}|s(?:\s+\w))"
+    return r"(?!'s|'s\b|s(?:\s+\w))"
+
+
 def _principal_rules(principal: str) -> tuple[tuple[str, re.Pattern[str]], ...]:
     rules: list[tuple[str, re.Pattern[str]]] = []
     title = r"(?:dr|prof|mr|mrs|ms|herr|frau)\.?\s+"
     end = r"(?:[.!?]|…)?"
     greet = r"(?:(?:hallo|guten\s+tag|ja|also|yes|hello|hi|so|ok|well)\s*,?\s*)?"
     tokens = principal_tokens(principal)
-    primary = max(tokens, key=lambda t: len(normalize_for_match(t))) if tokens else ""
     for token in tokens:
         n = normalize_for_match(token)
         if not n:
             continue
         esc = re.escape(n)
-        no_pos = rf"(?!'s)"
-        full_name = token == primary
+        guard = _esc_guard(token, principal)
         batch: list[tuple[str, re.Pattern[str]]] = [
-                ("de", re.compile(rf"^{greet}mein\s+name\s+ist\s+{esc}{no_pos}\b")),
-                ("de", re.compile(rf"^{greet}(?:ich\s+bin|bin\s+ich)\s+{esc}{no_pos}\b")),
-                ("de", re.compile(rf"^{greet}ich\s+bin\s+{title}{esc}{no_pos}\b")),
+                ("de", re.compile(rf"^{greet}mein\s+name\s+ist\s+{esc}{guard}\b")),
+                ("de", re.compile(rf"^{greet}(?:ich\s+bin|bin\s+ich)\s+{esc}{guard}\b")),
+                ("de", re.compile(rf"^{greet}ich\s+bin\s+{title}{esc}{guard}\b")),
                 (
                     "de",
                     re.compile(
-                        rf"^(?:{greet}|(?:guten\s+tag\s+)?)hier\s+(?:ist|spricht)\s+{esc}{no_pos}\b"
+                        rf"^(?:{greet}|(?:guten\s+tag\s+)?)hier\s+(?:ist|spricht)\s+{esc}{guard}\b"
                     ),
                 ),
                 (
@@ -175,18 +184,14 @@ def _principal_rules(principal: str) -> tuple[tuple[str, re.Pattern[str]], ...]:
                     "de",
                     re.compile(rf"^guten\s+tag\s*,?\s*{esc}\s+hier\s*,?\s*ich\b"),
                 ),
-        ]
-        if full_name:
-            batch.extend(
-                [
-                ("en", re.compile(rf"^{greet}my\s+name\s+is\s+{esc}{no_pos}\b")),
-                ("en", re.compile(rf"^(?:i\s+am|i'm)\s+{esc}{no_pos}\b")),
-                ("en", re.compile(rf"^{greet}this\s+is\s+{esc}{no_pos}\b")),
+                ("en", re.compile(rf"^{greet}my\s+name\s+is\s+{esc}{guard}\b")),
+                ("en", re.compile(rf"^(?:i\s+am|i'm)\s+{esc}{guard}\b")),
+                ("en", re.compile(rf"^{greet}this\s+is\s+{esc}{guard}\b")),
+                ("en", re.compile(rf"^{greet}this\s+is\s+{esc}{guard}\s+speaking\b")),
                 ("fr", re.compile(rf"^je\s+suis\s+{esc}\s*{end}$")),
                 ("es", re.compile(rf"^soy\s+{esc}\s*{end}$")),
-                ("zh", re.compile(rf"^(?:你好\s*,?\s*)?我是\s*{esc}\s*[。！？]?$")),
-                ]
-            )
+                ("zh", re.compile(rf"^(?:你好\s*,?\s*)?我是\s*{esc}{guard}\s*[。！？]?$")),
+        ]
         batch.extend(
             [
                 (
@@ -220,11 +225,13 @@ def _principal_rules(principal: str) -> tuple[tuple[str, re.Pattern[str]], ...]:
                 ),
                 (
                     "en",
-                    re.compile(rf"^{esc}\s+here\s+and\s+(?:i\s*'?m|i\s+am)\b"),
+                    re.compile(
+                        rf"^{esc}\s+here\s+and\s+(?:i\s*'?m|i\s+am)\s+(?!sure\b)\w"
+                    ),
                 ),
-                ("en", re.compile(rf"^hi\s*,?\s*it\s*'?s\s+{esc}(?:\s+again)?\b")),
-                ("de", re.compile(rf"^ich\s+bin\s*'?s\s*,?\s*{esc}{no_pos}\b")),
-                ("en", re.compile(rf"^it\s*'?s\s+me\s*,?\s*{esc}{no_pos}\b")),
+                ("en", re.compile(rf"^hi\s*,?\s*it\s*'?s\s+{esc}{guard}(?:\s+again)?\b")),
+                ("de", re.compile(rf"^ich\s+bin\s*'?s\s*,?\s*{esc}{guard}\b")),
+                ("en", re.compile(rf"^it\s*'?s\s+me\s*,?\s*{esc}{guard}\b")),
             ]
         )
         rules.extend(batch)

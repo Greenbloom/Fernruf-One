@@ -364,3 +364,20 @@ I am here and I'm not a bot.	yes	I am an AI assistant of {P}.
 Hier ist Dr. Müllers Praxis?	no	Hier ist Dr. Müllers Praxis?
 Ich bin GmbH-Kunde	no	Ich bin GmbH-Kunde
 Hier ist am Montag geschlossen, sagen Sie?	no	Hier ist am Montag geschlossen, sagen Sie?
+I'm Jordan.	yes	{EN}
+I am Jordan.	yes	{EN}
+This is Jordan.	yes	{EN}
+This is Jordan speaking.	yes	{EN}
+My name is Jordan.	yes	{EN}
+I'm {P}.	yes	{EN}
+I am {P}.	yes	{EN}
+This is {P}.	yes	{EN}
+This is {P} speaking.	yes	{EN}
+My name is {P}.	yes	{EN}
+我是Jordan。	yes	{ZH}
+我是{P}。	yes	{ZH}
+Hi, it's {P}'s appointment I'm calling about.	no	Hi, it's {P}'s appointment I'm calling about.
+Hi it's {P}'s office?	no	Hi it's {P}'s office?
+{P} here and I'm sure he'll call you back.	no	{P} here and I'm sure he'll call you back.
+Ja, ich bin Jordan Lees Kollege.	no	Ja, ich bin Jordan Lees Kollege.
+Ich bin {P}.	yes	{DE}

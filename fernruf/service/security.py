@@ -24,18 +24,29 @@ DEFAULT_BIND_PORT = 8787
 TRUSTED_PROXY = "127.0.0.1"
 AUTH_LOG_LINE = "fernruf auth failed ip=%s reason=%s"
 
-_PLACEHOLDER_SNIPPETS = (
-    "change-me",
-    "changeme",
-    "placeholder",
-    "example-token",
-    "your-token",
-    "insert-token",
-    "replace-me",
-    "fernruf-dev",
-    "password",
-    "todo",
-    "fixme",
+_PLACEHOLDER_EXACT = frozenset(
+    {
+        "change-me",
+        "changeme",
+        "placeholder",
+        "example-token",
+        "your-token",
+        "insert-token",
+        "replace-me",
+        "fernruf-dev",
+        "password",
+        "todo",
+        "fixme",
+    }
+)
+_PLACEHOLDER_PREFIX = re.compile(
+    r"^(?:todo|fixme|changeme|change-me|placeholder|replace-me|example-token|"
+    r"your-token|insert-token|ferrnuf-dev|password)(?:[-_.:]|$)",
+    re.IGNORECASE,
+)
+_PLACEHOLDER_SUFFIX = re.compile(
+    r"(?:[-_.:])(?:todo|fixme|changeme|change-me|placeholder|replace-me)(?:[-_.:]|$)",
+    re.IGNORECASE,
 )
 _HEX = re.compile(r"^[0-9a-fA-F]+$")
 
@@ -75,12 +86,15 @@ def validate_mcp_token(token: str | None) -> str:
         )
     if token != token.strip() or any(ch.isspace() for ch in token):
         raise McpTokenError("FERNRUF_MCP_TOKEN must be a single token with no whitespace")
-    lowered = token.casefold()
-    for snippet in _PLACEHOLDER_SNIPPETS:
-        if snippet in lowered:
-            raise McpTokenError(
-                "FERNRUF_MCP_TOKEN is a placeholder. Generate one with: fernruf gen-token"
-            )
+    lowered = token.casefold().strip()
+    if lowered in _PLACEHOLDER_EXACT:
+        raise McpTokenError(
+            "FERNRUF_MCP_TOKEN is a placeholder. Generate one with: fernruf gen-token"
+        )
+    if _PLACEHOLDER_PREFIX.match(token) or _PLACEHOLDER_SUFFIX.search(token):
+        raise McpTokenError(
+            "FERNRUF_MCP_TOKEN is a placeholder. Generate one with: fernruf gen-token"
+        )
     if token_byte_length(token) < 32:
         raise McpTokenError(
             "FERNRUF_MCP_TOKEN must be at least 32 random bytes. "

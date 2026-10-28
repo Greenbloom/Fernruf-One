@@ -29,6 +29,10 @@ from tests.m3_support import fresh_token, service_settings
 def test_token_must_be_32_bytes_and_not_a_placeholder() -> None:
     generated = generate_mcp_token()
     assert validate_mcp_token(generated) == generated
+    embedded_todo = (
+        "0123456789abcdef" * 2 + "todo" + "fedcba9876543210" * 2
+    )
+    assert validate_mcp_token(embedded_todo) == embedded_todo
     with pytest.raises(McpTokenError):
         validate_mcp_token("")
     with pytest.raises(McpTokenError):
