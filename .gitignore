@@ -12,6 +12,9 @@ data/asterisk-sounds/*
 !data/asterisk-sounds/.gitkeep
 data/asterisk-generated/*
 !data/asterisk-generated/.gitkeep
+!data/asterisk-monitor/
+data/asterisk-monitor/*
+!data/asterisk-monitor/.gitkeep
 var/
 *.log
 *.db

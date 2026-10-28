@@ -12,11 +12,11 @@ On a **home router with IP-phone / SIP registrar support** (or any SIP provider)
 ## 2. Asterisk container
 
 ```bash
-mkdir -p data/asterisk-sounds data/asterisk-generated
+mkdir -p data/asterisk-sounds data/asterisk-generated data/asterisk-monitor
 docker compose up -d asterisk
 ```
 
-Create those directories before Compose. They are empty placeholders in the repo (`data/.gitkeep` and the two subdirectories). Docker creates a missing `./data` as root when it bind-mounts `./data/asterisk-sounds` and `./data/asterisk-generated`, and Fernruf then cannot write `data/audit.jsonl`, `data/latency.jsonl`, or generated sounds. If a write still fails with permission denied, the audit and latency logs name this `mkdir` command.
+Create those directories before Compose. They are empty placeholders in the repo (`data/.gitkeep` and the subdirectories). Docker creates a missing `./data` as root when it bind-mounts `./data/asterisk-sounds`, `./data/asterisk-generated`, and `./data/asterisk-monitor`, and Fernruf then cannot write `data/audit.jsonl`, `data/latency.jsonl`, or generated sounds. If a write still fails with permission denied, the audit and latency logs name this `mkdir` command.
 
 Generate `ASTERISK_ARI_PASSWORD`: `openssl rand -hex 16`
 

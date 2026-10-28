@@ -8,7 +8,9 @@ from pathlib import Path
 
 # Docker bind-mounts these. If they are missing, the daemon creates ``./data``
 # as root and later writes (audit, latency, generated sounds) fail.
-DATA_DIR_FIX = "mkdir -p data/asterisk-sounds data/asterisk-generated"
+DATA_DIR_FIX = (
+    "mkdir -p data/asterisk-sounds data/asterisk-generated data/asterisk-monitor"
+)
 
 
 def permission_message(path: Path) -> str:

@@ -420,6 +420,7 @@ async def run_m2_test_call_with_signals(
     llm_model_override: str | None,
     llm_reasoning_override: str | None = None,
     skip_llm_preflight: bool = False,
+    call_id: str | None = None,
 ) -> dict[str, Any]:
     shutdown = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -446,6 +447,7 @@ async def run_m2_test_call_with_signals(
             llm_reasoning_override=llm_reasoning_override,
             skip_llm_preflight=skip_llm_preflight,
             shutdown=shutdown,
+            call_id=call_id,
         )
     finally:
         for sig in (signal.SIGINT, signal.SIGTERM):

@@ -7,3 +7,13 @@ connection_timeout = 2000
 reconnect_interval = 1000
 reconnect_attempts = 3
 tls_enabled = no
+
+[fernruf-callee]
+type = websocket_client
+uri = ${FERNRUF_DEMO_CALLEE_WS_URI}
+protocols = media
+connection_type = per_call_config
+connection_timeout = 2000
+reconnect_interval = 1000
+reconnect_attempts = 3
+tls_enabled = no

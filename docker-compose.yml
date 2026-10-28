@@ -24,9 +24,11 @@ services:
       FERNRUF_CALLER_ID_NAME: ${FERNRUF_CALLER_ID_NAME:-Fernruf}
       FERNRUF_CALLER_ID_NUMBER: ${FERNRUF_CALLER_ID_NUMBER:-100}
       FERNRUF_WS_URI: ${FERNRUF_WS_URI:-ws://127.0.0.1:8765/media}
+      FERNRUF_DEMO_CALLEE_WS_URI: ${FERNRUF_DEMO_CALLEE_WS_URI:-ws://127.0.0.1:8766/media}
     volumes:
       - ./data/asterisk-sounds:/var/lib/asterisk/sounds/custom
       - ./data/asterisk-generated:/etc/asterisk/generated
+      - ./data/asterisk-monitor:/var/spool/asterisk/monitor
     restart: unless-stopped
 
   # Host network so the app can bind 127.0.0.1 alongside Asterisk on the same machine.

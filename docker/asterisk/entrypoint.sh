@@ -17,6 +17,7 @@ export ASTERISK_ARI_PASSWORD="${ASTERISK_ARI_PASSWORD:?ASTERISK_ARI_PASSWORD req
 export FERNRUF_CALLER_ID_NAME="${FERNRUF_CALLER_ID_NAME:-Fernruf}"
 export FERNRUF_CALLER_ID_NUMBER="${FERNRUF_CALLER_ID_NUMBER:-100}"
 export FERNRUF_WS_URI="${FERNRUF_WS_URI:-ws://127.0.0.1:8765/media}"
+export FERNRUF_DEMO_CALLEE_WS_URI="${FERNRUF_DEMO_CALLEE_WS_URI:-ws://127.0.0.1:8766/media}"
 
 if [ -z "$ASTERISK_ARI_PASSWORD" ] || [ "$ASTERISK_ARI_PASSWORD" = "change-me-ari-secret" ] || [ "$ASTERISK_ARI_PASSWORD" = "fernruf-dev" ]; then
   echo "FATAL: set ASTERISK_ARI_PASSWORD to a strong secret (e.g. openssl rand -hex 16), not a placeholder." >&2
@@ -28,6 +29,9 @@ mkdir -p "$GEN"
 for f in pjsip.conf extensions.conf ari.conf http.conf websocket_client.conf; do
   envsubst <"$TPL/${f}.template" >"$GEN/$f"
 done
+# Append after envsubst so Asterisk ${EXTEN:4} is not emptied.
+cat "$TPL/extensions.demo.conf" >>"$GEN/extensions.conf"
+mkdir -p /var/spool/asterisk/monitor
 cp "$TPL/rtp.conf" "$GEN/rtp.conf"
 
 # Include generated snippets from main configs shipped in the image.

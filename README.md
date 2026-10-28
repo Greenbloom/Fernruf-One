@@ -23,11 +23,11 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [docs/call-flow.md](docs/call-flow.md), 
 3. Create the Asterisk bind-mount directories, then start Asterisk:
 
    ```bash
-   mkdir -p data/asterisk-sounds data/asterisk-generated
+   mkdir -p data/asterisk-sounds data/asterisk-generated data/asterisk-monitor
    docker compose up -d asterisk
    ```
 
-   Those directories ship as empty placeholders. Create them before Compose when they are missing. Docker creates a missing `./data` as root, and Fernruf then cannot write `data/audit.jsonl`, `data/latency.jsonl`, or generated sounds.
+   Those directories ship as empty placeholders. Create them before Compose when they are missing. Docker creates a missing `./data` as root, and Fernruf then cannot write `data/audit.jsonl`, `data/latency.jsonl`, generated sounds, or the demo MixMonitor wav.
 4. CLI test (mock): `FERNRUF_LLM_MOCK=true FERNRUF_VOICE_MOCK=true uv run fernruf m2-test-call --simulate --to +493023125123 --task "Kurzer Test"`
 5. MCP service: `uv run fernruf serve` (default `127.0.0.1:8787`; set `FERNRUF_MCP_TOKEN` or configure GitHub OAuth)
 

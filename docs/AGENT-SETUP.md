@@ -88,7 +88,7 @@ Have the human edit `.env` (you may suggest keys, not values). Minimum for real 
 
 ```bash
 cd /srv/fernruf
-mkdir -p data/asterisk-sounds data/asterisk-generated
+mkdir -p data/asterisk-sounds data/asterisk-generated data/asterisk-monitor
 docker compose up -d asterisk
 docker compose ps asterisk
 ```

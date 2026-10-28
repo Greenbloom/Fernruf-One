@@ -134,6 +134,7 @@ class Settings(BaseSettings):
     fish_audio_api_key: str = Field(default="", alias="FISH_AUDIO_API_KEY")
     fish_audio_model: str = Field(default="s2.1-pro-free", alias="FISH_AUDIO_MODEL")
     fish_voice_id: str = Field(default="", alias="FISH_VOICE_ID")
+    demo_callee_voice_id: str = Field(default="", alias="FERNRUF_DEMO_CALLEE_VOICE_ID")
     fish_tts_use_websocket: bool = Field(default=False, alias="FISH_TTS_USE_WEBSOCKET")
     fish_tts_rest_fixture: str = Field(default="", alias="FERNRUF_FISH_TTS_REST_FIXTURE")
     fish_latency: str = Field(default="balanced", alias="FERNRUF_FISH_LATENCY")
@@ -305,6 +306,7 @@ class Settings(BaseSettings):
 
     ws_listen_host: str = Field(default="127.0.0.1", alias="FERNRUF_WS_HOST")
     ws_listen_port: int = Field(default=8765, alias="FERNRUF_WS_PORT")
+    demo_callee_ws_port: int = Field(default=8766, alias="FERNRUF_DEMO_CALLEE_WS_PORT")
 
     latency_log_path: str = Field(default="data/latency.jsonl", alias="FERNRUF_LATENCY_LOG")
     silence_timeout_s: float = Field(default=20.0, alias="FERNRUF_SILENCE_TIMEOUT_S")
