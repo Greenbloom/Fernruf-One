@@ -484,7 +484,11 @@ async def prepare_call_settings(
         spoken,
         phrases["whisper_initial_prompt"],
     )
-    voice, voice_source = fish_voice_id_for(settings, spoken)
+    pinned_voice = str(getattr(settings, "_pinned_fish_voice_id", "") or "").strip()
+    if pinned_voice:
+        voice, voice_source = pinned_voice, "FERNRUF_DEMO_CALLER_VOICE_ID"
+    else:
+        voice, voice_source = fish_voice_id_for(settings, spoken)
     LOG.info("call fish voice source=%s language=%s", voice_source, spoken)
     from fernruf.disclosure import spoken_privacy_line
 
@@ -502,4 +506,6 @@ async def prepare_call_settings(
     )
     object.__setattr__(prepared, "_language_ready", True)
     object.__setattr__(prepared, "_detected_language_label", detected_label)
+    if pinned_voice:
+        object.__setattr__(prepared, "_pinned_fish_voice_id", pinned_voice)
     return prepared

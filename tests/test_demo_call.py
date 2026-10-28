@@ -6,18 +6,24 @@ import asyncio
 import wave
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from fernruf.cli import main
 from fernruf.demo.captions import FERNRUF_CAPTION, PRAXIS_CAPTION, transcript_to_srt
 from fernruf.demo.dialplan import demo_extensions_conf, monitor_id_from_endpoint
 from fernruf.demo.guard import DemoTrunkError, assert_local_demo_endpoint
+from fernruf.demo.callee import settings_for_callee
 from fernruf.demo.persona import (
     DEFAULT_DEMO_PERSONA,
     DEFAULT_DEMO_TASK,
     DEFAULT_MAX_SECONDS,
-    resolve_callee_voice,
+    DemoVoiceError,
+    apply_demo_caller_voice,
+    require_demo_voices,
 )
+from fernruf.language import prepare_call_settings
+from fernruf.settings import Settings
 from fernruf.demo.plan import plan_demo_call
 from fernruf.demo.summary import build_demo_summary
 from fernruf.demo.phone_screen import (
@@ -136,16 +142,93 @@ def test_summary_uses_the_final_agent_line() -> None:
     assert summary["local_only"] is True
 
 
-def test_default_persona_and_voice_fallback() -> None:
+def _demo_settings(**overrides: str) -> Settings:
+    fields = {
+        "fish_voice_id": "operator-voice",
+        "demo_caller_voice_id": "library-caller",
+        "demo_callee_voice_id": "library-callee",
+    }
+    fields.update(overrides)
+    return Settings(_env_file=None, **fields)
+
+
+def test_default_persona_is_short() -> None:
     assert "Praxis Beispiel" in DEFAULT_DEMO_PERSONA
     assert "Dienstag" in DEFAULT_DEMO_PERSONA
     assert "end_call" in DEFAULT_DEMO_TASK
     assert len(DEFAULT_DEMO_TASK) < 220
     assert len(DEFAULT_DEMO_PERSONA) < 180
     assert DEFAULT_MAX_SECONDS == 30
-    assert resolve_callee_voice("", "caller-voice") == "caller-voice"
-    assert resolve_callee_voice("  ", "caller-voice") == "caller-voice"
-    assert resolve_callee_voice("callee-voice", "caller-voice") == "callee-voice"
+
+
+def test_demo_voices_are_required_and_not_the_operator_voice() -> None:
+    caller, callee = require_demo_voices(_demo_settings())
+    assert caller == "library-caller"
+    assert callee == "library-callee"
+
+    missing_caller = _demo_settings(demo_caller_voice_id="  ")
+    with pytest.raises(DemoVoiceError, match="FERNRUF_DEMO_CALLER_VOICE_ID"):
+        require_demo_voices(missing_caller)
+
+    missing_callee = _demo_settings(demo_callee_voice_id="")
+    with pytest.raises(DemoVoiceError, match="FERNRUF_DEMO_CALLEE_VOICE_ID"):
+        require_demo_voices(missing_callee)
+
+    both_missing = _demo_settings(demo_caller_voice_id="", demo_callee_voice_id="")
+    with pytest.raises(DemoVoiceError, match="FERNRUF_DEMO_CALLER_VOICE_ID and FERNRUF_DEMO_CALLEE_VOICE_ID"):
+        require_demo_voices(both_missing)
+
+    same_caller = _demo_settings(demo_caller_voice_id="operator-voice")
+    with pytest.raises(DemoVoiceError, match="FERNRUF_DEMO_CALLER_VOICE_ID"):
+        require_demo_voices(same_caller)
+
+    same_callee = _demo_settings(demo_callee_voice_id=" operator-voice ")
+    with pytest.raises(DemoVoiceError, match="FERNRUF_DEMO_CALLEE_VOICE_ID"):
+        require_demo_voices(same_callee)
+
+    callee_settings = settings_for_callee(_demo_settings())
+    assert callee_settings.fish_voice_id == "library-callee"
+    with pytest.raises(DemoVoiceError, match="FERNRUF_DEMO_CALLEE_VOICE_ID"):
+        settings_for_callee(_demo_settings(demo_callee_voice_id=""))
+
+
+def test_demo_caller_voice_is_not_replaced_by_the_operator_voice(monkeypatch) -> None:
+    monkeypatch.setenv("FERNRUF_FISH_VOICE_ID_DE", "operator-de")
+    monkeypatch.setenv("FISH_VOICE_ID", "operator-voice")
+    settings = _demo_settings()
+
+    async def _run() -> None:
+        prepared = await prepare_call_settings(settings, "Dienstag", language="de")
+        assert prepared.fish_voice_id == "operator-de"
+        pinned = apply_demo_caller_voice(prepared)
+        assert pinned.fish_voice_id == "library-caller"
+        again = await prepare_call_settings(pinned, "Dienstag", language="de")
+        assert again.fish_voice_id == "library-caller"
+        fresh = apply_demo_caller_voice(_demo_settings())
+        from_pin = await prepare_call_settings(fresh, "Dienstag", language="de")
+        assert from_pin.fish_voice_id == "library-caller"
+        assert settings_for_callee(from_pin).fish_voice_id == "library-callee"
+        replaced = await prepare_call_settings(
+            _demo_settings(demo_caller_voice_id="operator-voice"),
+            "Dienstag",
+            language="de",
+        )
+        assert replaced.fish_voice_id == "operator-de"
+        with pytest.raises(DemoVoiceError, match="matches FISH_VOICE_ID"):
+            apply_demo_caller_voice(replaced)
+
+    asyncio.run(_run())
+
+
+def test_demo_call_refuses_without_library_voices(monkeypatch) -> None:
+    monkeypatch.setenv("FERNRUF_ENV_FILE", "none")
+    monkeypatch.delenv("FERNRUF_DEMO_CALLER_VOICE_ID", raising=False)
+    monkeypatch.delenv("FERNRUF_DEMO_CALLEE_VOICE_ID", raising=False)
+    monkeypatch.setenv("FISH_VOICE_ID", "operator-voice")
+    result = CliRunner().invoke(main, ["demo-call", "--out", "data/demo/voice-check"])
+    assert result.exit_code == 2
+    assert "FERNRUF_DEMO_CALLER_VOICE_ID" in result.output
+    assert "does not fall back to FISH_VOICE_ID" in result.output
 
 
 def test_video_command_assembles_phone_frames() -> None:

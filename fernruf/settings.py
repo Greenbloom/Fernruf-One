@@ -134,6 +134,7 @@ class Settings(BaseSettings):
     fish_audio_api_key: str = Field(default="", alias="FISH_AUDIO_API_KEY")
     fish_audio_model: str = Field(default="s2.1-pro-free", alias="FISH_AUDIO_MODEL")
     fish_voice_id: str = Field(default="", alias="FISH_VOICE_ID")
+    demo_caller_voice_id: str = Field(default="", alias="FERNRUF_DEMO_CALLER_VOICE_ID")
     demo_callee_voice_id: str = Field(default="", alias="FERNRUF_DEMO_CALLEE_VOICE_ID")
     fish_tts_use_websocket: bool = Field(default=False, alias="FISH_TTS_USE_WEBSOCKET")
     fish_tts_rest_fixture: str = Field(default="", alias="FERNRUF_FISH_TTS_REST_FIXTURE")
@@ -398,6 +399,13 @@ class Settings(BaseSettings):
         if self.privacy_minimal:
             object.__setattr__(self, "typesafe_enabled", False)
             object.__setattr__(self, "mood_enabled", False)
+        return self
+
+    @model_validator(mode="after")
+    def _snapshot_operator_fish_voice(self) -> Settings:
+        """Remember the loaded FISH_VOICE_ID. Language setup may replace the field."""
+        if getattr(self, "_operator_fish_voice_id", None) is None:
+            object.__setattr__(self, "_operator_fish_voice_id", (self.fish_voice_id or "").strip())
         return self
 
     def typesafe_requests_enabled(self) -> bool:

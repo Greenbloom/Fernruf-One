@@ -35,7 +35,9 @@ Allowlist must include the target number or the check returns `REJECT`.
 
 `fernruf demo-call` places a normal Fernruf call on a local Asterisk extension. It does not use the SIP trunk, a phone number, or the allowlist. The command refuses to start if the dial string would touch the trunk.
 
-The callee is a second Pipecat bot (same STT and LLM stack, its own prompt and Fish voice). The default persona is one sentence: the fictional Praxis Beispiel confirms Tuesday at ten. `--persona` replaces that prompt. `FERNRUF_DEMO_CALLEE_VOICE_ID` selects the callee voice and falls back to `FISH_VOICE_ID` when unset.
+The callee is a second Pipecat bot (same STT and LLM stack, its own prompt and Fish voice). The default persona is one sentence: the fictional Praxis Beispiel confirms Tuesday at ten. `--persona` replaces that prompt.
+
+`FERNRUF_DEMO_CALLER_VOICE_ID` and `FERNRUF_DEMO_CALLEE_VOICE_ID` are both required. demo-call exits if either is unset, and it refuses if either equals `FISH_VOICE_ID`. It never falls back to the operator voice. Use public Fish Audio library voices for both, not personal clones. The Fernruf side speaks with the caller id; the practice speaks with the callee id.
 
 The default task is one short question, then `end_call`. `--max-seconds` (default 30) starts that same goodbye when the answered call reaches the limit, and hangs up after it has played. The Fernruf side is otherwise a normal call: the fixed AI notice first (using `FERNRUF_PRINCIPAL_NAME`), the identity guard, then the summary.
 

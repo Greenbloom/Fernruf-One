@@ -12,6 +12,7 @@ from fernruf.ari.m2 import M2AriSession, run_m2_test_call_with_signals
 from fernruf.demo.artifacts import write_demo_texts
 from fernruf.demo.callee import callee_listen_uri, serve_demo_callee
 from fernruf.demo.guard import assert_local_demo_endpoint
+from fernruf.demo.persona import apply_demo_caller_voice
 from fernruf.demo.plan import DemoCallPlan
 from fernruf.demo.recording import publish_recording
 from fernruf.demo.video import render_demo_video, wav_duration_seconds
@@ -59,6 +60,7 @@ async def run_demo_call(
     llm_reasoning_override: str | None,
     video: bool,
 ) -> dict[str, Any]:
+    settings = apply_demo_caller_voice(settings)
     endpoint = assert_local_demo_endpoint(plan.endpoint)
     if settings.demo_callee_ws_port == settings.ws_listen_port:
         raise RuntimeError(

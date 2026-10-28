@@ -22,7 +22,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.workers.runner import WorkerRunner
 
 from fernruf.call_settings.resolver import resolve_llm_endpoint_for_call
-from fernruf.demo.persona import callee_system_prompt, resolve_callee_voice
+from fernruf.demo.persona import DemoVoiceError, callee_system_prompt
 from fernruf.llm.service_factory import create_fernruf_llm_service
 from fernruf.settings import Settings
 from fernruf.voice.asterisk_transport import FernrufAsteriskTransport
@@ -39,8 +39,16 @@ LOG = logging.getLogger("fernruf.demo")
 
 
 def settings_for_callee(settings: Settings) -> Settings:
-    voice = resolve_callee_voice(settings.demo_callee_voice_id, settings.fish_voice_id)
-    return settings.model_copy(update={"fish_voice_id": voice})
+    voice = (settings.demo_callee_voice_id or "").strip()
+    if not voice:
+        raise DemoVoiceError(
+            "demo-call requires FERNRUF_DEMO_CALLEE_VOICE_ID. "
+            "Set it to a public Fish Audio library voice. "
+            "demo-call does not fall back to FISH_VOICE_ID."
+        )
+    copied = settings.model_copy(update={"fish_voice_id": voice})
+    object.__setattr__(copied, "_pinned_fish_voice_id", voice)
+    return copied
 
 
 def callee_listen_uri(settings: Settings) -> str:

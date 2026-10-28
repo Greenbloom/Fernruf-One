@@ -377,7 +377,13 @@ def demo_call(
 ) -> None:
     """Local AI-to-AI call. Dials a local Asterisk extension, never the SIP trunk."""
     from fernruf.demo.guard import DemoTrunkError
-    from fernruf.demo.persona import DEFAULT_DEMO_PERSONA, DEFAULT_DEMO_TASK
+    from fernruf.demo.persona import (
+        DEFAULT_DEMO_PERSONA,
+        DEFAULT_DEMO_TASK,
+        DemoVoiceError,
+        pin_demo_caller_voice,
+        require_demo_voices,
+    )
     from fernruf.demo.plan import plan_demo_call
     from fernruf.demo.run import run_demo_call
 
@@ -393,6 +399,11 @@ def demo_call(
         raise SystemExit(2) from None
 
     settings = load_settings(require_principal=True)
+    try:
+        caller_voice, _callee_voice = require_demo_voices(settings)
+    except DemoVoiceError as exc:
+        LOG.error("%s", exc)
+        raise SystemExit(2) from None
     validate_ari_password(settings.asterisk_ari_password)
     if settings.llm_mock or settings.voice_mock:
         LOG.error(
@@ -430,7 +441,10 @@ def demo_call(
     hooks = M2CallHooks(send_dtmf=_noop, hangup=_noop, session=session)
 
     async def _boot():
-        prepared = await prepare_call_settings(settings, spoken_task)
+        prepared = pin_demo_caller_voice(
+            await prepare_call_settings(settings, spoken_task),
+            caller_voice,
+        )
         system_prompt = build_system_prompt(prepared, spoken_task)
         preflight_tools = _llm_tools(hooks, session, prepared)
         resolved_model = resolve_call_llm_model(prepared)
@@ -461,6 +475,9 @@ def demo_call(
                 video=video,
             )
         )
+    except DemoVoiceError as exc:
+        LOG.error("%s", exc)
+        raise SystemExit(2) from None
     except DemoTrunkError as exc:
         LOG.error("%s", exc)
         raise SystemExit(2) from None
