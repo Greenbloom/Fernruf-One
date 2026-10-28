@@ -12,6 +12,7 @@ dependencies = [
   "faster-whisper>=1.2.1",
   "httpx>=0.28",
   "numpy>=2.5.4",
+  "pillow>=12",
   "openai>=3.37.0",
   "pipecat-ai[silero]>=1.14.0",
   "pipecat-asterisk>=0.1.4",

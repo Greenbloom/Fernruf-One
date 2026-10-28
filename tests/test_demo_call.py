@@ -20,6 +20,22 @@ from fernruf.demo.persona import (
 )
 from fernruf.demo.plan import plan_demo_call
 from fernruf.demo.summary import build_demo_summary
+from fernruf.demo.phone_screen import (
+    AVATAR,
+    BG,
+    CONTACT_NAME,
+    DEMO_CALL_LABEL,
+    FERNRUF_BUBBLE,
+    HEIGHT,
+    LABEL_BOTTOM,
+    LABEL_TOP,
+    PRAXIS_BUBBLE,
+    SPEAK,
+    WIDTH,
+    cues_from_srt,
+    format_timer,
+    render_phone_frame,
+)
 from fernruf.demo.video import (
     DEMO_VIDEO_DISCLAIMER,
     demo_video_ffmpeg_args,
@@ -132,24 +148,63 @@ def test_default_persona_and_voice_fallback() -> None:
     assert resolve_callee_voice("callee-voice", "caller-voice") == "callee-voice"
 
 
-def test_video_command_is_portrait_with_disclaimer() -> None:
+def test_video_command_assembles_phone_frames() -> None:
     args = demo_video_ffmpeg_args(
+        frames_pattern="frames/%05d.png",
         wav=Path("data/demo/launch/call.wav"),
-        srt=Path("data/demo/launch/captions.srt"),
         mp4=Path("data/demo/launch/demo.mp4"),
-        duration_s=12.5,
+        fps=12,
     )
     joined = " ".join(args)
-    graph = args[args.index("-filter_complex") + 1]
-    assert "1080x1920" in joined
-    assert "showwaves" in joined
-    assert DEMO_VIDEO_DISCLAIMER in joined
-    assert graph.startswith("[0:v]drawtext=")
-    assert "enable='gte(t,0)'" in graph
-    assert graph.index("drawtext=") < graph.index("overlay=")
-    assert "captions.srt" in joined
+    assert "showwaves" not in joined
+    assert "drawtext" not in joined
+    assert "frames/%05d.png" in joined
+    assert "libx264" in args
+    assert args[args.index("-framerate") + 1] == "12"
     assert args[-1].endswith("demo.mp4")
     assert "sip-trunk" not in joined
+    assert DEMO_VIDEO_DISCLAIMER == DEMO_CALL_LABEL
+
+
+def test_phone_screen_shows_the_label_from_the_first_frame() -> None:
+    quiet = render_phone_frame(0, [])
+    assert quiet.size == (WIDTH, HEIGHT)
+    assert quiet.getpixel((WIDTH // 2, 168)) != BG
+    assert _band_is_lit(quiet, LABEL_TOP, LABEL_BOTTOM)
+    assert format_timer(0) == "00:00"
+    assert format_timer(65) == "01:05"
+    assert CONTACT_NAME == "Praxis Beispiel"
+    assert "·" in DEMO_CALL_LABEL
+
+
+def test_chat_bubbles_follow_the_captions() -> None:
+    srt = transcript_to_srt(
+        [
+            {"t_ms": 1000, "speaker": "agent", "text": "Passt Dienstag?"},
+            {"t_ms": 2500, "speaker": "callee", "text": "Dienstag um zehn Uhr passt."},
+        ]
+    )
+    cues = cues_from_srt(srt)
+    assert [cue.side for cue in cues] == ["fernruf", "praxis"]
+    before = render_phone_frame(0.2, cues)
+    during = render_phone_frame(1.2, cues, frame_index=2)
+    both = render_phone_frame(3.0, cues, frame_index=4)
+    assert not _has_color(before, FERNRUF_BUBBLE)
+    assert not _has_color(before, PRAXIS_BUBBLE)
+    assert not _has_color(before, SPEAK)
+    assert _has_color(during, FERNRUF_BUBBLE)
+    assert not _has_color(during, PRAXIS_BUBBLE)
+    assert _has_color(during, SPEAK)
+    assert _color_on_side(during, FERNRUF_BUBBLE, "left")
+    assert _has_color(both, FERNRUF_BUBBLE)
+    assert _has_color(both, PRAXIS_BUBBLE)
+    assert _color_on_side(both, PRAXIS_BUBBLE, "right")
+    assert _band_is_lit(before, LABEL_TOP, LABEL_BOTTOM)
+    assert quiet_avatar_is_generic(during)
+
+
+def quiet_avatar_is_generic(image) -> bool:
+    return image.getpixel((WIDTH // 2, 168)) in {AVATAR, (198, 206, 196)}
 
 
 def test_video_clip_starts_at_the_ai_notice(tmp_path: Path) -> None:
@@ -209,3 +264,26 @@ def test_time_limit_ends_via_end_call() -> None:
         assert armed == ["hangup"]
 
     asyncio.run(_run())
+
+
+def _band_is_lit(image, top: int, bottom: int) -> bool:
+    crop = image.crop((0, top, image.width, bottom))
+    extrema = crop.getextrema()
+    return max(channel[1] for channel in extrema) > 150
+
+
+def _has_color(image, color: tuple[int, int, int]) -> bool:
+    return color in _palette(image)
+
+
+def _color_on_side(image, color: tuple[int, int, int], side: str) -> bool:
+    half = image.width // 2
+    box = (0, 0, half, image.height) if side == "left" else (half, 0, image.width, image.height)
+    return color in _palette(image.crop(box))
+
+
+def _palette(image) -> set[tuple[int, int, int]]:
+    found = image.getcolors(maxcolors=image.width * image.height)
+    if not found:
+        return set()
+    return {entry[1] for entry in found}

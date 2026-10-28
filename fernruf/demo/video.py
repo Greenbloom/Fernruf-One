@@ -10,8 +10,14 @@ from pathlib import Path
 
 from fernruf.demo.captions import transcript_to_srt
 
-DEMO_VIDEO_DISCLAIMER = "Both voices are AI. Demo call."
-_FONT = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+from fernruf.demo.phone_screen import (
+    DEMO_CALL_LABEL,
+    FPS,
+    cues_from_srt,
+    render_phone_frame,
+)
+
+DEMO_VIDEO_DISCLAIMER = DEMO_CALL_LABEL
 
 
 def notice_offset_ms(turns: list[dict]) -> int:
@@ -65,72 +71,34 @@ def wav_duration_seconds(path: Path) -> float | None:
         return None
 
 
-def _escape_filter_path(path: Path) -> str:
-    text = str(path)
-    return (
-        text.replace("\\", "\\\\")
-        .replace(":", "\\:")
-        .replace("'", "\\'")
-        .replace(",", "\\,")
-    )
-
-
-def _drawtext_font_option() -> str:
-    if _FONT.is_file():
-        return f"fontfile={_escape_filter_path(_FONT)}:"
-    return ""
-
-
 def demo_video_ffmpeg_args(
     *,
+    frames_pattern: str,
     wav: Path,
-    srt: Path,
     mp4: Path,
-    duration_s: float,
+    fps: int = FPS,
 ) -> list[str]:
-    duration = max(0.5, float(duration_s))
-    color = f"color=c=0x141414:s=1080x1920:r=30:d={duration:.3f}"
-    srt_path = _escape_filter_path(srt)
-    # Draw the disclaimer on the background plate, enabled at t=0, before the
-    # waveform is overlaid. The text is then on frame 0, not only after the
-    # first wave sample.
-    draw = (
-        f"drawtext={_drawtext_font_option()}text='{DEMO_VIDEO_DISCLAIMER}':"
-        "fontsize=32:fontcolor=white:x=(w-text_w)/2:y=150:enable='gte(t,0)'"
-    )
-    style = (
-        "FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H00FFFFFF,"
-        "OutlineColour=&H00141414,BorderStyle=3,Alignment=2,MarginV=360"
-    )
-    graph = (
-        f"[0:v]{draw}[bg];"
-        "[1:a]aformat=channel_layouts=mono,"
-        "showwaves=s=1080x480:mode=line:rate=30:colors=0xE6E6E6[wave];"
-        "[bg][wave]overlay=(W-w)/2:(H-h)/2:eof_action=pass,"
-        f"subtitles=filename='{srt_path}':force_style='{style}'[vout]"
-    )
+    """Assemble pre-rendered phone-screen frames. No drawtext and no waveform."""
     return [
         "ffmpeg",
         "-y",
         "-hide_banner",
         "-loglevel",
         "error",
-        "-f",
-        "lavfi",
+        "-framerate",
+        str(fps),
+        "-start_number",
+        "0",
         "-i",
-        color,
+        frames_pattern,
         "-i",
         str(wav),
-        "-filter_complex",
-        graph,
-        "-map",
-        "[vout]",
-        "-map",
-        "1:a:0",
         "-c:v",
         "libx264",
         "-pix_fmt",
         "yuv420p",
+        "-r",
+        str(fps),
         "-c:a",
         "aac",
         "-b:a",
@@ -145,7 +113,7 @@ def demo_video_ffmpeg_args(
 def render_demo_video(*, wav: Path, mp4: Path, turns: list[dict]) -> Path:
     if shutil.which("ffmpeg") is None:
         raise FileNotFoundError(
-            "ffmpeg is required for --video (libx264, aac, subtitles, drawtext)"
+            "ffmpeg is required for --video (libx264 and aac)"
         )
     offset = notice_offset_ms(turns)
     with tempfile.TemporaryDirectory(prefix="fernruf-demo-") as tmp:
@@ -161,19 +129,23 @@ def render_demo_video(*, wav: Path, mp4: Path, turns: list[dict]) -> Path:
         duration = wav_duration_seconds(source)
         if duration is None or duration <= 0:
             duration = 30.0
-        srt = work / "captions.srt"
-        srt.write_text(
-            transcript_to_srt(
-                shift_turns(turns, offset),
-                duration_ms=int(duration * 1000),
-            ),
-            encoding="utf-8",
+        srt_text = transcript_to_srt(
+            shift_turns(turns, offset),
+            duration_ms=int(duration * 1000),
         )
+        (work / "captions.srt").write_text(srt_text, encoding="utf-8")
+        cues = cues_from_srt(srt_text)
+        frames = work / "frames"
+        frames.mkdir()
+        count = max(1, int(round(duration * FPS)))
+        for index in range(count):
+            frame = render_phone_frame(index / FPS, cues, frame_index=index)
+            frame.save(frames / f"{index:05d}.png")
         args = demo_video_ffmpeg_args(
+            frames_pattern=str(frames / "%05d.png"),
             wav=source,
-            srt=srt,
             mp4=mp4,
-            duration_s=duration,
+            fps=FPS,
         )
         completed = subprocess.run(args, check=False, capture_output=True, text=True)
     if completed.returncode != 0:

@@ -52,7 +52,7 @@ The callee listens on `ws://127.0.0.1:8766/media` (`FERNRUF_DEMO_CALLEE_WS_PORT`
 uv run fernruf demo-call --out data/demo/launch --video
 ```
 
-`--video` needs ffmpeg with libx264, aac, the subtitles filter, and drawtext. The mp4 drops the leading ring and silence and starts at the AI notice. `Both voices are AI. Demo call.` is on the picture from the first frame. `call.wav` and `captions.srt` still match the full MixMonitor, including that lead-in.
+`--video` needs ffmpeg (libx264 and aac) and Pillow. It draws a 1080x1920 phone screen: the fictional contact Praxis Beispiel, a plain avatar circle, a running timer, chat bubbles for `Fernruf (AI)` and `Praxis (AI)` timed from `captions.srt`, and a small speaking dot on the active bubble. `Both voices are AI · Demo call` is on every frame, including the first. The mp4 drops the leading ring and silence and starts at the AI notice. `call.wav` and `captions.srt` still match the full MixMonitor, including that lead-in.
 
 Outputs in `--out`:
 
@@ -60,4 +60,4 @@ Outputs in `--out`:
 - `transcript.json` — turns with `t_ms` counted from answer, matching the wav
 - `captions.srt` — the same times, labelled `Fernruf (AI)` and `Praxis (AI)`
 - `summary.json` — `one_line` and `task_status`
-- `demo.mp4` — only with `--video`: 1080x1920, dark background, waveform, burned-in captions, and the line `Both voices are AI. Demo call.`
+- `demo.mp4` — only with `--video`: 1080x1920 phone screen, chat bubbles, and the line `Both voices are AI · Demo call`
