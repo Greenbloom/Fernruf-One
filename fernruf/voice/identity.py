@@ -106,8 +106,9 @@ def normalize_for_match(text: str) -> str:
 def _esc_guard(token: str, principal: str) -> str:
     """After a principal name token: block possessives and name continuations."""
     tn = normalize_for_match(token)
-    pn = normalize_for_match(principal)
-    parts = pn.split()
+    toks = principal_tokens(principal)
+    bare = toks[1] if len(toks) >= 3 else (toks[0] if toks else "")
+    parts = normalize_for_match(bare).split()
     if parts and tn == parts[0] and len(parts) > 1:
         nxt = re.escape(parts[1])
         return rf"(?!'s|\s+{nxt}|s(?:\s+\w))"

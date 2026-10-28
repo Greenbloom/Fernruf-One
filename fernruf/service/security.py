@@ -41,7 +41,7 @@ _PLACEHOLDER_EXACT = frozenset(
 )
 _PLACEHOLDER_PREFIX = re.compile(
     r"^(?:todo|fixme|changeme|change-me|placeholder|replace-me|example-token|"
-    r"your-token|insert-token|ferrnuf-dev|password)(?:[-_.:]|$)",
+    r"your-token|insert-token|fernruf-dev|my-password|password)(?:[-_.:]|$)",
     re.IGNORECASE,
 )
 _PLACEHOLDER_SUFFIX = re.compile(

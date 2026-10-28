@@ -42,6 +42,10 @@ def test_token_must_be_32_bytes_and_not_a_placeholder() -> None:
     with pytest.raises(McpTokenError):
         validate_mcp_token("change-me-" + "a" * 40)
     with pytest.raises(McpTokenError):
+        validate_mcp_token("fernruf-dev-" + "a" * 40)
+    with pytest.raises(McpTokenError):
+        validate_mcp_token("my-password-" + "a" * 40)
+    with pytest.raises(McpTokenError):
         validate_mcp_token("a" * 64)
 
 
