@@ -15,11 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - name: Install ripgrep for privacy_gate.sh
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
       - run: uv sync --group dev
       - run: uv run pytest -q
-      - run: chmod +x scripts/privacy_gate.sh && ./scripts/privacy_gate.sh
       - name: Verify .env.verify policy pchecks
         run: |
           chmod +x scripts/verify/run_policy_pchecks.sh

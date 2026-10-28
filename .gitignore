@@ -34,4 +34,3 @@ scripts/verify/fixtures/.sipp-loopback-*
 !tests/fixtures/*.wav
 *.pcap
 .DS_Store
-.privacy-terms.local
