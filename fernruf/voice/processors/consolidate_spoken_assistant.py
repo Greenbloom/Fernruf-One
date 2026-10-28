@@ -4,6 +4,8 @@ import logging
 
 from pipecat.frames.frames import (
     BotStoppedSpeakingFrame,
+    CancelFrame,
+    EndFrame,
     Frame,
     InterruptionFrame,
     LLMFullResponseEndFrame,
@@ -32,6 +34,11 @@ class ConsolidateSpokenAssistantProcessor(FrameProcessor):
         self._collecting = False
         self._response_complete = False
         self._parts = []
+
+    def _stash_uncommitted(self) -> None:
+        if self._session is None:
+            return
+        self._session.uncommitted_agent_text = self._join_parts(self._parts)
 
     @staticmethod
     def _join_parts(parts: list[str]) -> str:
@@ -64,6 +71,7 @@ class ConsolidateSpokenAssistantProcessor(FrameProcessor):
             return
         if self._session is not None:
             self._session.note_transcript_line("agent", combined)
+            self._session.uncommitted_agent_text = ""
         LOG.debug("Consolidated spoken assistant text (%s chars)", len(combined))
         await self.push_frame(
             LLMMessagesAppendFrame(
@@ -77,14 +85,24 @@ class ConsolidateSpokenAssistantProcessor(FrameProcessor):
         if isinstance(frame, InterruptionFrame):
             await self._append_to_context(direction, force=True)
             self._reset()
+            self._stash_uncommitted()
         elif isinstance(frame, LLMFullResponseStartFrame):
+            # A new reply starts. Keep the previous spoken turn if its
+            # BotStoppedSpeaking frame never arrived.
+            await self._append_to_context(direction, force=True)
             self._reset()
             self._collecting = True
+            self._stash_uncommitted()
+        elif isinstance(frame, (EndFrame, CancelFrame)):
+            # Hangup tears the pipeline down on QUEUE_DRAINED, before
+            # BotStoppedSpeaking can commit the final agent turn.
+            await self._append_to_context(direction, force=True)
 
         if isinstance(frame, TTSTextFrame) and self._collecting and frame.append_to_context:
             text = (frame.text or "").strip()
             if text and (not self._parts or self._parts[-1] != text):
                 self._parts.append(frame.text)
+                self._stash_uncommitted()
             return
 
         if isinstance(frame, LLMFullResponseEndFrame):

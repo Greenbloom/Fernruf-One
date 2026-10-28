@@ -43,6 +43,8 @@ def _transcript_from_session(session: Any) -> list[dict[str, Any]]:
         pending = session.in_flight_assistant_completion()
     if hasattr(session, "flush_unrecorded_assistant"):
         session.flush_unrecorded_assistant(pending)
+    if hasattr(session, "append_final_spoken_lines"):
+        session.append_final_spoken_lines()
     recorded = list(getattr(session, "transcript_lines", None) or [])
     if recorded:
         return recorded

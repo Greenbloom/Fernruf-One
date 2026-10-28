@@ -7,12 +7,17 @@ import time
 
 from pipecat.frames.frames import (
     BotStoppedSpeakingFrame,
+    EndFrame,
     Frame,
     LLMFullResponseEndFrame,
     LLMFullResponseStartFrame,
     LLMTextFrame,
     StartFrame,
+    TextType,
+    TTSSpeakFrame,
+    TTSStartedFrame,
     TTSStoppedFrame,
+    TTSTextFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
@@ -31,6 +36,9 @@ from fernruf.service.manager import CallManager
 from fernruf.service.runner import CallJob, CallRunResult
 from fernruf.settings import Settings
 from fernruf.voice.call_session import M2CallSession
+from fernruf.voice.hooks import M2CallHooks
+from fernruf.voice.m2_pipeline import _llm_tools
+from fernruf.voice.processors.call_hangup import CallHangup
 from fernruf.voice.processors.consolidate_spoken_assistant import (
     ConsolidateSpokenAssistantProcessor,
 )
@@ -140,6 +148,110 @@ def test_end_call_farewell_is_flushed_before_finalize() -> None:
     assert lines[-1]["text"] == FAREWELL
     assert lines[-2]["speaker"] == "callee"
     assert _transcript_from_session(session) == lines
+
+
+GOODBYE = "Vielen Dank, dann meldet sich der Auftraggeber. Auf Wiederhören."
+
+
+def test_end_call_goodbye_is_the_last_transcript_line() -> None:
+    """end_call speaks the goodbye, then hangs up without BotStoppedSpeaking.
+
+    The consolidator only commits TTSTextFrame when append_to_context is set,
+    and only on BotStoppedSpeaking. The goodbye is a TTSSpeakFrame
+    (append_to_context false) and hangup follows QUEUE_DRAINED, so that frame
+    never commits the line. The spoken goodbye still has to be the last entry.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from pipecat.processors.frame_processor import FrameDirection
+
+    session = M2CallSession()
+    session.mark_answered(time.monotonic() - 1.0)
+    session.note_user_transcript("Montag um zehn Uhr passt.")
+    session.note_transcript_line("callee", "Montag um zehn Uhr passt.")
+    settings = Settings(
+        _env_file=None,
+        min_user_turns_before_hangup=1,
+        min_call_duration_before_hangup_s=0.0,
+        hangup_after_bot_stopped_margin_s=0.05,
+    )
+    hangup = AsyncMock()
+    hooks = M2CallHooks(send_dtmf=AsyncMock(), hangup=hangup, session=session)
+    end_call = _llm_tools(hooks, session, settings)[1]
+    params = MagicMock()
+    params.tool_call_id = "call-end"
+    params.context = None
+    params.result_callback = AsyncMock()
+
+    async def run() -> None:
+        await end_call(params, reason="Termin steht", goodbye=GOODBYE)
+        guard = CallHangup(hooks=hooks, session=session, settings=settings)
+        consolidator = ConsolidateSpokenAssistantProcessor(session=session)
+        pushed: list = []
+
+        async def capture(frame, direction=FrameDirection.DOWNSTREAM):  # noqa: ANN001
+            pushed.append(frame)
+
+        guard.push_frame = capture  # type: ignore[method-assign]
+        consolidator.push_frame = capture  # type: ignore[method-assign]
+
+        await guard.process_frame(TTSStoppedFrame(), FrameDirection.DOWNSTREAM)
+        speaks = [frame for frame in pushed if isinstance(frame, TTSSpeakFrame)]
+        assert len(speaks) == 1
+        assert speaks[0].append_to_context is False
+
+        spoken = TTSTextFrame(GOODBYE, TextType.SENTENCE)
+        spoken.append_to_context = False
+        await consolidator.process_frame(spoken, FrameDirection.DOWNSTREAM)
+        await consolidator.process_frame(EndFrame(), FrameDirection.DOWNSTREAM)
+        assert session.transcript_lines[-1]["speaker"] == "callee"
+
+        await guard.process_frame(
+            TTSStartedFrame(context_id="bye"), FrameDirection.DOWNSTREAM
+        )
+        await guard.process_frame(spoken, FrameDirection.DOWNSTREAM)
+        await guard.process_frame(TTSStoppedFrame(), FrameDirection.DOWNSTREAM)
+        await guard.process_frame(BotStoppedSpeakingFrame(), FrameDirection.DOWNSTREAM)
+        await asyncio.sleep(0.3)
+
+    asyncio.run(run())
+    assert session.hung_up
+    lines = _transcript_from_session(session)
+    assert lines[-1]["speaker"] == "agent"
+    assert lines[-1]["text"] == GOODBYE
+    assert lines[-2]["speaker"] == "callee"
+    assert _transcript_from_session(session) == lines
+
+
+def test_pipeline_end_records_final_agent_turn_without_bot_stopped() -> None:
+    """QUEUE_DRAINED hangup ends the pipeline before BotStoppedSpeaking."""
+    from pipecat.processors.frame_processor import FrameDirection
+
+    farewell = "Vielen Dank. Auf Wiederhören."
+    session = M2CallSession()
+    session.mark_answered(time.monotonic() - 1.0)
+    session.note_transcript_line("callee", "Ja, das passt.")
+    proc = ConsolidateSpokenAssistantProcessor(session=session)
+
+    async def capture(frame, direction=FrameDirection.DOWNSTREAM):  # noqa: ANN001
+        return None
+
+    proc.push_frame = capture  # type: ignore[method-assign]
+
+    async def run() -> None:
+        await proc.process_frame(LLMFullResponseStartFrame(), FrameDirection.DOWNSTREAM)
+        await proc.process_frame(
+            TTSTextFrame(farewell, TextType.SENTENCE),
+            FrameDirection.DOWNSTREAM,
+        )
+        await proc.process_frame(LLMFullResponseEndFrame(), FrameDirection.DOWNSTREAM)
+        await proc.process_frame(EndFrame(), FrameDirection.DOWNSTREAM)
+
+    asyncio.run(run())
+    lines = _transcript_from_session(session)
+    assert lines[-1]["speaker"] == "agent"
+    assert lines[-1]["text"] == farewell
+    assert lines[-2]["speaker"] == "callee"
 
 
 def test_t_ms_is_milliseconds_since_answer_and_monotonic() -> None:

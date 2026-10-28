@@ -487,6 +487,9 @@ class CallHangup(FrameProcessor):
         self._fallback_task = None
         self._cap_task = None
         reason = self._session.phase.hangup_reason or "end_call"
+        phrase = (self._wait_phrase or self._session.phase.goodbye_tts or "").strip()
+        if phrase and (self._speak_pushed or self._phrase_seen or self._goodbye_sealed):
+            self._session.spoken_goodbye = phrase
         LOG.info("end_call: hanging up (%s)%s", reason[:120], self._hangup_timing())
         try:
             await self._hooks.hangup()
@@ -538,6 +541,11 @@ class CallHangup(FrameProcessor):
             self._speak_pushed = True
             phrase = self._wait_phrase
             LOG.info("end_call: speaking goodbye via TTS (%s chars)", len(phrase))
+            # Remember the sentence now. TTSTextFrame for this speak has
+            # append_to_context=False, so the transcript consolidator never
+            # stores it, and hangup follows QUEUE_DRAINED rather than
+            # BotStoppedSpeaking.
+            self._session.spoken_goodbye = phrase.strip()
             await self.push_frame(
                 TTSSpeakFrame(text=phrase, append_to_context=False),
                 FrameDirection.UPSTREAM,

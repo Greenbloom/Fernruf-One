@@ -229,3 +229,8 @@ def test_end_call_goodbye_tts_then_hangup_no_second_llm(tmp_path: Path, caplog: 
     tts_starts = [r.message for r in caplog.records if r.message.startswith("TTS start:")]
     assert any("Vielen Dank für den Test" in msg for msg in tts_starts), tts_starts
     assert hangup.await_count >= 1
+    from fernruf.ari.m2 import _transcript_from_session
+
+    lines = _transcript_from_session(session)
+    assert lines[-1]["speaker"] == "agent"
+    assert lines[-1]["text"] == "Vielen Dank für den Test. Auf Wiederhören!"

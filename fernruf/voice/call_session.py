@@ -61,6 +61,11 @@ class M2CallSession:
     llm_used_fallback: bool = False
     answered_mono: float | None = None
     transcript_lines: list[dict[str, Any]] = field(default_factory=list)
+    # Spoken assistant text collected by the pipeline but not yet committed.
+    # BotStoppedSpeaking is the usual commit point; the final end_call turn
+    # often hangs up on QUEUE_DRAINED before that frame is processed.
+    uncommitted_agent_text: str = ""
+    spoken_goodbye: str = ""
 
     @property
     def pending_hangup(self) -> bool:
@@ -173,6 +178,29 @@ class M2CallSession:
             if line["speaker"] == "agent":
                 return
         self.note_transcript_line("agent", text)
+
+    def ensure_agent_line(self, text: str) -> None:
+        """Append ``text`` when the current turn's agent tail does not already include it."""
+        text = (text or "").strip()
+        if not text:
+            return
+        for line in reversed(self.transcript_lines):
+            if line["speaker"] == "callee":
+                break
+            if line["speaker"] != "agent":
+                continue
+            existing = str(line["text"])
+            if existing == text or text in existing:
+                return
+        self.note_transcript_line("agent", text)
+
+    def append_final_spoken_lines(self) -> None:
+        """Keep the last spoken agent turn when the commit frame never arrived."""
+        self.ensure_agent_line(self.uncommitted_agent_text)
+        goodbye = (self.spoken_goodbye or "").strip()
+        if not goodbye and self.phase.is_hung_up:
+            goodbye = (self.phase.goodbye_tts or "").strip()
+        self.ensure_agent_line(goodbye)
 
     def note_user_transcript(self, text: str) -> None:
         text = text.strip()
