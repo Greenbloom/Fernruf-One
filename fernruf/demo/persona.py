@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-DEFAULT_DEMO_PERSONA = (
-    "Du bist die freundliche Rezeption der fiktiven Praxis Beispiel. "
-    "Du sprichst Deutsch, höflich und kurz. "
-    "Jemand ruft an, um einen Termin zu vereinbaren. "
-    "Prüfe, ob der Dienstag passt. "
-    "Dienstagvormittag ist frei. Wenn kein genauer Zeitpunkt genannt wird, "
-    "schlage Dienstag um zehn Uhr vor und bestätige den Termin, "
-    "sobald der Anrufer einverstanden ist."
+DEFAULT_DEMO_TASK = (
+    "Frag in einem Satz, ob Dienstag für einen Termin passt. "
+    "Sobald die Praxis zustimmt, sofort end_call mit einem kurzen Abschied. "
+    "Keine weitere Frage."
 )
+
+DEFAULT_DEMO_PERSONA = (
+    "Du bist die Rezeption der fiktiven Praxis Beispiel. "
+    "Antworte in einem Satz: Dienstag um zehn Uhr passt."
+)
+
+DEFAULT_MAX_SECONDS = 30
 
 
 def resolve_callee_voice(callee_voice_id: str, caller_voice_id: str) -> str:

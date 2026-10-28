@@ -344,11 +344,15 @@ def m2_test_call(
 
 
 @main.command("demo-call")
-@click.option("--task", required=True, help="What Fernruf should accomplish on the call")
+@click.option(
+    "--task",
+    default=None,
+    help="What Fernruf should accomplish. Default: one short Tuesday question, then end_call",
+)
 @click.option(
     "--persona",
     default=None,
-    help="Callee system prompt. Default: receptionist at Praxis Beispiel",
+    help="Callee system prompt. Default: Praxis Beispiel confirms Tuesday in one sentence",
 )
 @click.option(
     "--out",
@@ -357,20 +361,30 @@ def m2_test_call(
     help="Directory for call.wav, transcript.json, captions.srt, summary.json",
 )
 @click.option("--video", is_flag=True, help="Also render <out>/demo.mp4 with ffmpeg")
-@click.option("--max-minutes", default=None, type=int, help="Cap the call length")
+@click.option(
+    "--max-seconds",
+    default=30,
+    show_default=True,
+    type=int,
+    help="Speak the goodbye via end_call this many seconds after answer",
+)
 def demo_call(
-    task: str,
+    task: str | None,
     persona: str | None,
     out: Path,
     video: bool,
-    max_minutes: int | None,
+    max_seconds: int,
 ) -> None:
     """Local AI-to-AI call. Dials a local Asterisk extension, never the SIP trunk."""
     from fernruf.demo.guard import DemoTrunkError
-    from fernruf.demo.persona import DEFAULT_DEMO_PERSONA
+    from fernruf.demo.persona import DEFAULT_DEMO_PERSONA, DEFAULT_DEMO_TASK
     from fernruf.demo.plan import plan_demo_call
     from fernruf.demo.run import run_demo_call
 
+    if max_seconds < 5:
+        LOG.error("--max-seconds must be at least 5")
+        raise SystemExit(2)
+    spoken_task = (task or "").strip() or DEFAULT_DEMO_TASK
     spoken_persona = (persona or "").strip() or DEFAULT_DEMO_PERSONA
     try:
         plan = plan_demo_call(out)
@@ -416,8 +430,8 @@ def demo_call(
     hooks = M2CallHooks(send_dtmf=_noop, hangup=_noop, session=session)
 
     async def _boot():
-        prepared = await prepare_call_settings(settings, task)
-        system_prompt = build_system_prompt(prepared, task)
+        prepared = await prepare_call_settings(settings, spoken_task)
+        system_prompt = build_system_prompt(prepared, spoken_task)
         preflight_tools = _llm_tools(hooks, session, prepared)
         resolved_model = resolve_call_llm_model(prepared)
         preflight_result = await preflight_llm(
@@ -438,10 +452,10 @@ def demo_call(
         payload = asyncio.run(
             run_demo_call(
                 settings,
-                task=task,
+                task=spoken_task,
                 persona=spoken_persona,
                 plan=plan,
-                max_minutes=max_minutes or settings.max_minutes,
+                max_seconds=max_seconds,
                 llm_model_override=preflight_result.model_override,
                 llm_reasoning_override=preflight_result.reasoning_override,
                 video=video,

@@ -110,6 +110,7 @@ class M2AriSession(AriSession):
         skip_llm_preflight: bool = False,
         shutdown: asyncio.Event | None = None,
         call_id: str | None = None,
+        max_seconds: float | None = None,
         language: str | None = None,
         detection_text: str | None = None,
         goal: str = "",
@@ -351,9 +352,33 @@ class M2AriSession(AriSession):
             self.active_channel_id = channel_id
             self.subscribe_channel(channel_id)
             _sync_ari_channel_state()
-            deadline = start + max_minutes * 60
+            deadline = start + (
+                float(max_seconds) if max_seconds is not None else max_minutes * 60
+            )
+            polite_sent = False
+            goodbye_grace_s = 20.0
             try:
-                while not done.is_set() and time.monotonic() < deadline:
+                while not done.is_set():
+                    now = time.monotonic()
+                    if max_seconds is not None and answered_at is not None:
+                        if not polite_sent and now >= answered_at + float(max_seconds):
+                            from fernruf.demo.limit import end_demo_politely
+                            from fernruf.language import phrase as call_phrase
+
+                            armed = await end_demo_politely(
+                                session,
+                                hooks,
+                                call_phrase(settings, "goodbye"),
+                            )
+                            if armed:
+                                polite_sent = True
+                                LOG.info("demo time limit; ending via end_call")
+                        if now >= answered_at + float(max_seconds) + goodbye_grace_s:
+                            await ari_teardown(reason="deadline")
+                            done.set()
+                            break
+                    elif now >= deadline:
+                        break
                     if shutdown and shutdown.is_set():
                         LOG.info("shutdown requested; hanging up M2 call")
                         await ari_teardown(reason="signal")
@@ -421,6 +446,7 @@ async def run_m2_test_call_with_signals(
     llm_reasoning_override: str | None = None,
     skip_llm_preflight: bool = False,
     call_id: str | None = None,
+    max_seconds: float | None = None,
 ) -> dict[str, Any]:
     shutdown = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -448,6 +474,7 @@ async def run_m2_test_call_with_signals(
             skip_llm_preflight=skip_llm_preflight,
             shutdown=shutdown,
             call_id=call_id,
+            max_seconds=max_seconds,
         )
     finally:
         for sig in (signal.SIGINT, signal.SIGTERM):

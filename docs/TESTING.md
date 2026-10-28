@@ -35,9 +35,9 @@ Allowlist must include the target number or the check returns `REJECT`.
 
 `fernruf demo-call` places a normal Fernruf call on a local Asterisk extension. It does not use the SIP trunk, a phone number, or the allowlist. The command refuses to start if the dial string would touch the trunk.
 
-The callee is a second Pipecat bot (same STT and LLM stack, its own prompt and Fish voice). The default persona is a German receptionist at the fictional Praxis Beispiel, checking whether Tuesday works for an appointment. `--persona` replaces that prompt. `FERNRUF_DEMO_CALLEE_VOICE_ID` selects the callee voice and falls back to `FISH_VOICE_ID` when unset.
+The callee is a second Pipecat bot (same STT and LLM stack, its own prompt and Fish voice). The default persona is one sentence: the fictional Praxis Beispiel confirms Tuesday at ten. `--persona` replaces that prompt. `FERNRUF_DEMO_CALLEE_VOICE_ID` selects the callee voice and falls back to `FISH_VOICE_ID` when unset.
 
-The Fernruf side is the normal pipeline: the fixed AI notice first (using `FERNRUF_PRINCIPAL_NAME`), the identity guard, `end_call` and the goodbye, then a summary.
+The default task is one short question, then `end_call`. `--max-seconds` (default 30) starts that same goodbye when the answered call reaches the limit, and hangs up after it has played. The Fernruf side is otherwise a normal call: the fixed AI notice first (using `FERNRUF_PRINCIPAL_NAME`), the identity guard, then the summary.
 
 Recreate Asterisk once so it loads the `fernruf-demo` context, the `fernruf-callee` websocket client, and the monitor volume:
 
@@ -49,13 +49,10 @@ docker compose up -d --force-recreate asterisk
 The callee listens on `ws://127.0.0.1:8766/media` (`FERNRUF_DEMO_CALLEE_WS_PORT`). Asterisk uses `FERNRUF_DEMO_CALLEE_WS_URI` (the same default). Restart Asterisk after changing either one. Run the command from the repo root so it can read `data/asterisk-monitor`.
 
 ```bash
-uv run fernruf demo-call \
-  --task "Frag, ob Dienstag für einen Termin passt." \
-  --out data/demo/launch \
-  --video
+uv run fernruf demo-call --out data/demo/launch --video
 ```
 
-`--video` needs ffmpeg with libx264, aac, the subtitles filter, and drawtext.
+`--video` needs ffmpeg with libx264, aac, the subtitles filter, and drawtext. The mp4 drops the leading ring and silence and starts at the AI notice. `Both voices are AI. Demo call.` is on the picture from the first frame. `call.wav` and `captions.srt` still match the full MixMonitor, including that lead-in.
 
 Outputs in `--out`:
 

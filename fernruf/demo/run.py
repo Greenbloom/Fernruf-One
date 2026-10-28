@@ -54,7 +54,7 @@ async def run_demo_call(
     task: str,
     persona: str,
     plan: DemoCallPlan,
-    max_minutes: int,
+    max_seconds: int,
     llm_model_override: str | None,
     llm_reasoning_override: str | None,
     video: bool,
@@ -92,7 +92,8 @@ async def run_demo_call(
                 caller_id=settings.ari_caller_id,
                 settings=settings,
                 task=task,
-                max_minutes=max_minutes,
+                max_minutes=max(1, (int(max_seconds) + 59) // 60),
+                max_seconds=float(max_seconds),
                 llm_model_override=llm_model_override,
                 llm_reasoning_override=llm_reasoning_override,
                 skip_llm_preflight=True,
@@ -141,8 +142,8 @@ async def run_demo_call(
             try:
                 rendered = render_demo_video(
                     wav=wav,
-                    srt=texts["captions"],
                     mp4=plan.out / "demo.mp4",
+                    turns=transcript,
                 )
                 video_path = str(rendered)
             except (FileNotFoundError, RuntimeError) as exc:
