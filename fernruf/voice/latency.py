@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from fernruf.data_dir import open_append, prepare_parent
+
 
 @dataclass
 class TurnLatency:
@@ -68,7 +70,7 @@ class TurnLatency:
 class LatencyLog:
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        prepare_parent(self.path)
         self._turns: list[TurnLatency] = []
 
     def start_turn(
@@ -85,7 +87,7 @@ class LatencyLog:
 
     def append(self, row: TurnLatency) -> None:
         row.finalize_deltas()
-        with self.path.open("a", encoding="utf-8") as fh:
+        with open_append(self.path) as fh:
             fh.write(json.dumps(row.to_json(), ensure_ascii=False) + "\n")
 
     @classmethod

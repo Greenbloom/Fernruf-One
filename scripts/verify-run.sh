@@ -3,7 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EVIDENCE="${VERIFY_EVIDENCE_DIR:-$ROOT/verify-evidence}"
-mkdir -p "$EVIDENCE" "$ROOT/data/asterisk-sounds"
+mkdir -p "$EVIDENCE" "$ROOT/data/asterisk-sounds" "$ROOT/data/asterisk-generated"
 : >"$EVIDENCE/run.log"
 exec > >(tee -a "$EVIDENCE/run.log") 2>&1
 

@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from fernruf.data_dir import open_append
 from fernruf.policy import PolicyDecision
 
 
@@ -21,13 +22,12 @@ _SECRET_KEYS = frozenset(
 
 def append_audit_event(path: Path, event: dict) -> None:
     """Append one JSONL audit record. Drops secret-looking keys."""
-    path.parent.mkdir(parents=True, exist_ok=True)
     record = {"at": datetime.now(tz=timezone.utc).isoformat()}
     for key, value in event.items():
         if key.lower() in _SECRET_KEYS:
             continue
         record[key] = value
-    with path.open("a", encoding="utf-8") as handle:
+    with open_append(path) as handle:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
@@ -39,7 +39,6 @@ def append_call_audit(
     quiet_hours: str,
     extra: dict | None = None,
 ) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     record = {
         "at": datetime.now(tz=timezone.utc).isoformat(),
         "to": to_e164,
@@ -49,5 +48,5 @@ def append_call_audit(
     }
     if extra:
         record.update(extra)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    with open_append(path) as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")

@@ -20,7 +20,14 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [docs/call-flow.md](docs/call-flow.md), 
    - `SIP_*`, `ASTERISK_ARI_PASSWORD`
    - `FERNRUF_ALLOWLIST` or use `fernruf settings allow-number +493023125123`
    - `FERNRUF_LLM_MODEL`, `OPENROUTER_API_KEY`, `FISH_AUDIO_API_KEY`, `FISH_VOICE_ID`
-3. Start Asterisk: `docker compose up -d asterisk`
+3. Create the Asterisk bind-mount directories, then start Asterisk:
+
+   ```bash
+   mkdir -p data/asterisk-sounds data/asterisk-generated
+   docker compose up -d asterisk
+   ```
+
+   Those directories ship as empty placeholders. Create them before Compose when they are missing. Docker creates a missing `./data` as root, and Fernruf then cannot write `data/audit.jsonl`, `data/latency.jsonl`, or generated sounds.
 4. CLI test (mock): `FERNRUF_LLM_MOCK=true FERNRUF_VOICE_MOCK=true uv run fernruf m2-test-call --simulate --to +493023125123 --task "Kurzer Test"`
 5. MCP service: `uv run fernruf serve` (default `127.0.0.1:8787`; set `FERNRUF_MCP_TOKEN` or configure GitHub OAuth)
 

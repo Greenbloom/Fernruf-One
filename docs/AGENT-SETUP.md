@@ -88,9 +88,12 @@ Have the human edit `.env` (you may suggest keys, not values). Minimum for real 
 
 ```bash
 cd /srv/fernruf
+mkdir -p data/asterisk-sounds data/asterisk-generated
 docker compose up -d asterisk
 docker compose ps asterisk
 ```
+
+Create the bind-mount directories before Compose. They ship as empty placeholders. Docker creates a missing `./data` as root, and Fernruf then cannot write `data/audit.jsonl`, `data/latency.jsonl`, or generated sounds.
 
 **Expected:** Container `running`. ARI reachable (after password set in `.env`):
 
