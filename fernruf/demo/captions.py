@@ -35,12 +35,14 @@ def transcript_to_srt(
         start = int(turn.get("t_ms") or 0)
         text = " ".join(str(turn.get("text") or "").split())
         if index + 1 < len(usable):
-            end = max(start + 400, int(usable[index + 1].get("t_ms") or 0) - 80)
+            # Stay up until the next line. A short copied wav must not
+            # collapse that gap to a flash.
+            end = int(usable[index + 1].get("t_ms") or 0) - 80
+        elif duration_ms is not None and int(duration_ms) > start:
+            end = int(duration_ms)
         else:
             end = start + max(1200, len(text) * 80)
-        if duration_ms is not None:
-            end = min(end, int(duration_ms))
-        if end <= start:
+        if end < start + 400:
             end = start + 400
         label = speaker_caption(str(turn.get("speaker") or ""))
         cues.append(f"{index + 1}\n{_fmt(start)} --> {_fmt(end)}\n{label}: {text}\n")

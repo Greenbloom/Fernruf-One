@@ -57,3 +57,30 @@ def test_opener_privacy_line_is_spoken_but_not_in_llm_context() -> None:
     assert speaks[1].text == privacy
     assert len(appends) == 1
     assert appends[0].messages[0]["content"] == disclosure
+
+
+def test_opener_speaks_the_notice_and_the_request_together() -> None:
+    disclosure = "Hallo, hier ist ein KI-Assistent."
+    request = "Passt Dienstag für einen Termin?"
+    opener = DisclosureOpenerProcessor(disclosure=disclosure, request=request)
+    pushed: list = []
+
+    async def capture(frame, direction) -> None:  # noqa: ANN001
+        pushed.append(frame)
+
+    opener.push_frame = capture  # type: ignore[method-assign]
+
+    async def run() -> None:
+        await opener.process_frame(
+            InputTransportMessageFrame(message={"event": "MEDIA_START"}),
+            FrameDirection.DOWNSTREAM,
+        )
+
+    asyncio.run(run())
+    speaks = [f for f in pushed if isinstance(f, TTSSpeakFrame)]
+    appends = [f for f in pushed if isinstance(f, LLMMessagesAppendFrame)]
+    spoken = f"{disclosure} {request}"
+    assert len(speaks) == 1
+    assert speaks[0].text == spoken
+    assert len(appends) == 1
+    assert appends[0].messages[0]["content"] == spoken

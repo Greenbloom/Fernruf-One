@@ -32,6 +32,11 @@ done
 # Append after envsubst so Asterisk ${EXTEN:4} is not emptied.
 cat "$TPL/extensions.demo.conf" >>"$GEN/extensions.conf"
 mkdir -p /var/spool/asterisk/monitor
+# ARI bridge recordings use this directory. Keep them on the monitor mount.
+if [ ! -L /var/spool/asterisk/recording ]; then
+  rm -rf /var/spool/asterisk/recording
+  ln -s /var/spool/asterisk/monitor /var/spool/asterisk/recording
+fi
 cp "$TPL/rtp.conf" "$GEN/rtp.conf"
 
 # Include generated snippets from main configs shipped in the image.

@@ -59,7 +59,9 @@ def test_demo_dialplan_records_locally_and_matches_the_shipped_file() -> None:
     shipped = (ROOT / "docker/asterisk/templates/extensions.demo.conf").read_text()
     assert generated == shipped
     assert "[fernruf-demo]" in generated
+    assert "Set(AUDIOHOOK_INHERIT(MixMonitor)=yes)" in generated
     assert "MixMonitor(/var/spool/asterisk/monitor/${EXTEN:4}.wav)" in generated
+    assert "exten => h,1,StopMixMonitor()" in generated
     assert "Dial(WebSocket/fernruf-callee/c(slin16)f(json)d(both))" in generated
     assert "sip-trunk" not in generated
     assert "PJSIP" not in generated
@@ -77,6 +79,9 @@ def test_rendered_demo_context_has_no_trunk_route() -> None:
     entry = (ROOT / "docker/asterisk/entrypoint.sh").read_text()
     assert "extensions.demo.conf" in entry
     assert "FERNRUF_DEMO_CALLEE_WS_URI" in entry
+    assert "ln -s /var/spool/asterisk/monitor /var/spool/asterisk/recording" in entry
+    testing = (ROOT / "docs/TESTING.md").read_text()
+    assert "docker compose up -d --build --force-recreate asterisk" in testing
     compose = (ROOT / "docker-compose.yml").read_text()
     assert "./data/asterisk-monitor:/var/spool/asterisk/monitor" in compose
 
@@ -106,6 +111,7 @@ def test_planned_endpoint_stays_on_the_local_extension() -> None:
     assert monitor_id_from_endpoint(plan.endpoint) == "abc12345"
     assert plan.monitor_container_path == "/var/spool/asterisk/monitor/abc12345.wav"
     assert plan.monitor_host_path == Path("data/asterisk-monitor/abc12345.wav")
+    assert plan.bridge_recording_host_path == Path("data/asterisk-monitor/demo-abc12345.wav")
 
 
 def test_srt_labels_and_timestamps_follow_the_recording() -> None:
@@ -121,7 +127,7 @@ def test_srt_labels_and_timestamps_follow_the_recording() -> None:
         f"{FERNRUF_CAPTION}: Hier ist ein KI-Assistent.\n"
     )
     assert f"{PRAXIS_CAPTION}: Praxis Beispiel, guten Tag." in srt
-    assert "00:00:03,200 -->" in srt
+    assert "00:00:03,200 --> 00:00:08,000" in srt
 
 
 def test_summary_uses_the_final_agent_line() -> None:
@@ -347,6 +353,135 @@ def test_time_limit_ends_via_end_call() -> None:
         assert armed == ["hangup"]
 
     asyncio.run(_run())
+
+
+def test_captions_cover_the_spoken_line_not_a_flash() -> None:
+    turns = [
+        {"t_ms": 98, "speaker": "agent", "text": "Hier ist ein KI-Assistent. Passt Dienstag?"},
+        {"t_ms": 12934, "speaker": "callee", "text": "Dienstag um 10 Uhr passt."},
+        {"t_ms": 17369, "speaker": "agent", "text": "Auf Wiederhören."},
+    ]
+    full = transcript_to_srt(turns, duration_ms=25000)
+    assert "00:00:00,098 --> 00:00:12,854" in full
+    assert "00:00:12,934 --> 00:00:17,289" in full
+    assert "00:00:17,369 --> 00:00:25,000" in full
+    short = transcript_to_srt(turns, duration_ms=11200)
+    assert "00:00:12,934 --> 00:00:13,334" not in short
+    assert "00:00:17,369 --> 00:00:17,769" not in short
+    assert "00:00:12,934 --> 00:00:17,289" in short
+
+
+def test_opening_asks_the_tuesday_question() -> None:
+    from fernruf.demo.persona import (
+        DEFAULT_DEMO_REQUEST,
+        callee_system_prompt,
+        spoken_demo_request,
+    )
+    from fernruf.voice.must_say import goal_needs_answer
+
+    assert spoken_demo_request(DEFAULT_DEMO_TASK) == DEFAULT_DEMO_REQUEST
+    assert DEFAULT_DEMO_REQUEST == "Passt Dienstag für einen Termin?"
+    assert goal_needs_answer(DEFAULT_DEMO_TASK) is True
+    prompt = callee_system_prompt(DEFAULT_DEMO_PERSONA)
+    assert "KI-Assistent" in prompt
+    assert "konkrete Frage" in prompt
+    custom = spoken_demo_request("Bitte fragen, ob der Termin passt. Ist Mittwoch frei?")
+    assert custom == "Ist Mittwoch frei?"
+
+
+def _silent_wav(path: Path, seconds: float, *, rate: int = 8000) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(rate)
+        handle.writeframes(b"\x00\x00" * int(round(seconds * rate)))
+
+
+def _recording_plan(tmp: Path) -> object:
+    from fernruf.demo.plan import DemoCallPlan
+
+    monitor = tmp / "monitor"
+    return DemoCallPlan(
+        call_id="abc12345",
+        endpoint="Local/600-abc12345@fernruf-demo/n",
+        out=tmp / "out",
+        monitor_container_path="/var/spool/asterisk/monitor/abc12345.wav",
+        monitor_host_path=monitor / "abc12345.wav",
+        bridge_recording_host_path=monitor / "demo-abc12345.wav",
+    )
+
+
+def test_publish_recording_waits_for_the_full_call(tmp_path: Path) -> None:
+    from fernruf.demo.recording import publish_recording, ready_recording, recording_sources
+
+    plan = _recording_plan(tmp_path)
+    _silent_wav(plan.monitor_host_path, 11.2)
+    _silent_wav(plan.bridge_recording_host_path, 18.0)
+    sources = recording_sources(plan)
+    growing = {plan.monitor_host_path: 2, plan.bridge_recording_host_path: 0}
+    assert ready_recording(sources, growing, min_seconds=17.0) is None
+    stable = {plan.monitor_host_path: 2, plan.bridge_recording_host_path: 2}
+    assert ready_recording(sources, stable, min_seconds=17.0) == plan.bridge_recording_host_path
+    copied = asyncio.run(publish_recording(plan, min_seconds=17.0, timeout_s=3))
+    assert wav_duration_seconds(copied) == pytest.approx(18.0, abs=0.05)
+
+
+def test_short_mix_is_not_published(tmp_path: Path) -> None:
+    from fernruf.demo.recording import publish_recording
+
+    plan = _recording_plan(tmp_path)
+    _silent_wav(plan.monitor_host_path, 11.2)
+    with pytest.raises(FileNotFoundError, match="Need at least 17.0s"):
+        asyncio.run(publish_recording(plan, min_seconds=17.0, timeout_s=0.6))
+    assert not (plan.out / "call.wav").exists()
+
+
+def test_unclosed_wav_header_is_repaired_from_the_payload(tmp_path: Path) -> None:
+    from fernruf.demo.recording import publish_recording, wav_duration_seconds as recorded
+
+    plan = _recording_plan(tmp_path)
+    _silent_wav(plan.bridge_recording_host_path, 18.0)
+    blob = bytearray(plan.bridge_recording_host_path.read_bytes())
+    blob[4:8] = (0).to_bytes(4, "little")
+    blob[40:44] = (0).to_bytes(4, "little")
+    plan.bridge_recording_host_path.write_bytes(blob)
+    assert recorded(plan.bridge_recording_host_path) == pytest.approx(18.0, abs=0.05)
+    copied = asyncio.run(publish_recording(plan, min_seconds=17.0, timeout_s=3))
+    assert wav_duration_seconds(copied) == pytest.approx(18.0, abs=0.05)
+
+
+def test_demo_call_returns_without_waiting_for_executor_threads(monkeypatch) -> None:
+    import threading
+    import time
+
+    from fernruf.demo.shutdown import exit_demo_process, run_until_done
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _block() -> None:
+        started.set()
+        release.wait(30)
+
+    async def _main() -> str:
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _block)
+        while not started.is_set():
+            await asyncio.sleep(0.01)
+        return "done"
+
+    t0 = time.monotonic()
+    try:
+        assert run_until_done(_main()) == "done"
+        assert time.monotonic() - t0 < 2.0
+    finally:
+        release.set()
+
+    monkeypatch.setenv("FERNRUF_DEMO_KEEP_PROCESS", "1")
+    with pytest.raises(SystemExit) as exc:
+        exit_demo_process(0)
+    assert exc.value.code == 0
 
 
 def _band_is_lit(image, top: int, bottom: int) -> bool:

@@ -147,6 +147,7 @@ def build_m2_pipeline(
     verify_state: VerifyFlowState | None = None,
     goal: str = "",
     must_say: tuple[str, ...] | None = None,
+    opening_request: str = "",
 ) -> BuiltM2Pipeline:
     parsed_goal, parsed_must = brief_requirements(task)
     session.phase.must_say = parsed_must if must_say is None else tuple(must_say)
@@ -231,6 +232,7 @@ def build_m2_pipeline(
     opener = DisclosureOpenerProcessor(
         disclosure=disclosure_text,
         privacy_line=settings.spoken_privacy_line,
+        request=opening_request,
         session=session,
     )
     filler_state = LlmFillerState()

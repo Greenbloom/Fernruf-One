@@ -386,6 +386,7 @@ def demo_call(
     )
     from fernruf.demo.plan import plan_demo_call
     from fernruf.demo.run import run_demo_call
+    from fernruf.demo.shutdown import exit_demo_process, run_until_done
 
     if max_seconds < 5:
         LOG.error("--max-seconds must be at least 5")
@@ -463,7 +464,7 @@ def demo_call(
         raise SystemExit(1) from None
 
     try:
-        payload = asyncio.run(
+        payload = run_until_done(
             run_demo_call(
                 settings,
                 task=spoken_task,
@@ -477,16 +478,15 @@ def demo_call(
         )
     except DemoVoiceError as exc:
         LOG.error("%s", exc)
-        raise SystemExit(2) from None
+        exit_demo_process(2)
     except DemoTrunkError as exc:
         LOG.error("%s", exc)
-        raise SystemExit(2) from None
+        exit_demo_process(2)
     except (RuntimeError, OSError) as exc:
         LOG.error("%s", exc)
-        raise SystemExit(1) from None
+        exit_demo_process(1)
     click.echo(json.dumps(payload, indent=2, ensure_ascii=False))
-    if not payload.get("ok"):
-        raise SystemExit(1)
+    exit_demo_process(0 if payload.get("ok") else 1)
 
 
 @main.group("settings")

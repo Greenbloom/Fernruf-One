@@ -45,7 +45,7 @@ Recreate Asterisk once so it loads the `fernruf-demo` context, the `fernruf-call
 
 ```bash
 mkdir -p data/asterisk-sounds data/asterisk-generated data/asterisk-monitor
-docker compose up -d --force-recreate asterisk
+docker compose up -d --build --force-recreate asterisk
 ```
 
 The callee listens on `ws://127.0.0.1:8766/media` (`FERNRUF_DEMO_CALLEE_WS_PORT`). Asterisk uses `FERNRUF_DEMO_CALLEE_WS_URI` (the same default). Restart Asterisk after changing either one. Run the command from the repo root so it can read `data/asterisk-monitor`.
@@ -54,11 +54,11 @@ The callee listens on `ws://127.0.0.1:8766/media` (`FERNRUF_DEMO_CALLEE_WS_PORT`
 uv run fernruf demo-call --out data/demo/launch --video
 ```
 
-`--video` needs ffmpeg (libx264 and aac) and Pillow. It draws a 1080x1920 phone screen: the fictional contact Praxis Beispiel, a plain avatar circle, a running timer, chat bubbles for `Fernruf (AI)` and `Praxis (AI)` timed from `captions.srt`, and a small speaking dot on the active bubble. `Both voices are AI · Demo call` is on every frame, including the first. The mp4 drops the leading ring and silence and starts at the AI notice. `call.wav` and `captions.srt` still match the full MixMonitor, including that lead-in.
+`--video` needs ffmpeg (libx264 and aac) and Pillow. It draws a 1080x1920 phone screen: the fictional contact Praxis Beispiel, a plain avatar circle, a running timer, chat bubbles for `Fernruf (AI)` and `Praxis (AI)` timed from `captions.srt`, and a small speaking dot on the active bubble. `Both voices are AI · Demo call` is on every frame, including the first. The mp4 drops the leading ring and silence and starts at the AI notice. `call.wav` and `captions.srt` still match the full call, including that lead-in. The opening the practice hears is the AI notice and the Tuesday question in one utterance.
 
 Outputs in `--out`:
 
-- `call.wav` — MixMonitor of both voices, started when the extension answers
+- `call.wav` — the full mix of both voices: the longer of the extension MixMonitor and the ARI bridge recording, copied only after it includes the last spoken line
 - `transcript.json` — turns with `t_ms` counted from answer, matching the wav
 - `captions.srt` — the same times, labelled `Fernruf (AI)` and `Praxis (AI)`
 - `summary.json` — `one_line` and `task_status`

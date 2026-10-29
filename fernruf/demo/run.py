@@ -12,7 +12,7 @@ from fernruf.ari.m2 import M2AriSession, run_m2_test_call_with_signals
 from fernruf.demo.artifacts import write_demo_texts
 from fernruf.demo.callee import callee_listen_uri, serve_demo_callee
 from fernruf.demo.guard import assert_local_demo_endpoint
-from fernruf.demo.persona import apply_demo_caller_voice
+from fernruf.demo.persona import apply_demo_caller_voice, spoken_demo_request
 from fernruf.demo.plan import DemoCallPlan
 from fernruf.demo.recording import publish_recording
 from fernruf.demo.video import render_demo_video, wav_duration_seconds
@@ -100,6 +100,8 @@ async def run_demo_call(
                 llm_reasoning_override=llm_reasoning_override,
                 skip_llm_preflight=True,
                 call_id=plan.call_id,
+                opening_request=spoken_demo_request(task),
+                bridge_recording_name=f"demo-{plan.call_id}",
             )
         finally:
             ari.close()
@@ -114,8 +116,16 @@ async def run_demo_call(
     answered = bool(result.get("answered"))
     recording_error: str | None = None
     wav = None
+    last_ms = 0
+    for turn in transcript:
+        try:
+            last_ms = max(last_ms, int(turn.get("t_ms") or 0))
+        except (TypeError, ValueError):
+            continue
+    # The published mix has to include the last spoken line, not only the opener.
+    min_seconds = max(0.0, last_ms / 1000.0 - 0.25)
     try:
-        wav = await publish_recording(plan)
+        wav = await publish_recording(plan, min_seconds=min_seconds)
     except FileNotFoundError as exc:
         recording_error = str(exc)
         LOG.error("%s", exc)

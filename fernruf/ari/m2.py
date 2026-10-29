@@ -84,6 +84,20 @@ class M2AriSession(AriSession):
         r.raise_for_status()
         return r.json()["id"]
 
+    def record_bridge(self, bridge_id: str, name: str) -> None:
+        """Mix both bridge legs into the Asterisk recording spool. Never raises."""
+        r = self._client.post(
+            f"/bridges/{quote(bridge_id)}/record",
+            params={"name": name, "format": "wav", "ifExists": "overwrite"},
+        )
+        LOG.info("ARI bridge record %s -> %s", name, r.status_code)
+        if r.status_code not in (200, 201, 204):
+            LOG.warning(
+                "bridge recording was not started (%s): %s",
+                r.status_code,
+                (r.text or "").strip().replace("\n", " ")[:200],
+            )
+
     def add_to_bridge(self, bridge_id: str, channel_id: str) -> None:
         r = self._client.post(
             f"/bridges/{quote(bridge_id)}/addChannel",
@@ -115,6 +129,8 @@ class M2AriSession(AriSession):
         detection_text: str | None = None,
         goal: str = "",
         must_say: tuple[str, ...] | None = None,
+        opening_request: str = "",
+        bridge_recording_name: str = "",
     ) -> dict[str, Any]:
         from fernruf.language import prepare_call_settings
 
@@ -260,6 +276,7 @@ class M2AriSession(AriSession):
                     external_shutdown=shutdown,
                     goal=goal,
                     must_say=must_say,
+                    opening_request=opening_request,
                 )
             finally:
                 pipeline_finished.set()
@@ -329,6 +346,8 @@ class M2AriSession(AriSession):
                             _sync_ari_channel_state()
                             await ready.wait()
                             self.add_to_bridge(bridge_id, ws_channel_id)
+                            if bridge_recording_name:
+                                self.record_bridge(bridge_id, bridge_recording_name)
                             await asyncio.sleep(0.3)
                     elif et == "ChannelDtmfReceived" and cid == channel_id:
                         dtmf.append(str(ev.get("digit", "")))
@@ -447,6 +466,8 @@ async def run_m2_test_call_with_signals(
     skip_llm_preflight: bool = False,
     call_id: str | None = None,
     max_seconds: float | None = None,
+    opening_request: str = "",
+    bridge_recording_name: str = "",
 ) -> dict[str, Any]:
     shutdown = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -475,6 +496,8 @@ async def run_m2_test_call_with_signals(
             shutdown=shutdown,
             call_id=call_id,
             max_seconds=max_seconds,
+            opening_request=opening_request,
+            bridge_recording_name=bridge_recording_name,
         )
     finally:
         for sig in (signal.SIGINT, signal.SIGTERM):

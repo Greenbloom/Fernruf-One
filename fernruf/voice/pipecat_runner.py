@@ -44,6 +44,7 @@ async def run_pipecat_on_websocket(
     external_shutdown: asyncio.Event | None = None,
     goal: str = "",
     must_say: tuple[str, ...] | None = None,
+    opening_request: str = "",
 ) -> VerifyFlowState | None:
     transport = FernrufAsteriskTransport(websocket=websocket)
     latency_log = LatencyLog(Path(settings.latency_log_path))
@@ -62,6 +63,7 @@ async def run_pipecat_on_websocket(
         verify_state=verify_state,
         goal=goal,
         must_say=must_say,
+        opening_request=opening_request,
     )
     await built.stt.preload()
 

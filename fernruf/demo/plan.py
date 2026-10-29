@@ -19,6 +19,7 @@ class DemoCallPlan:
     out: Path
     monitor_container_path: str
     monitor_host_path: Path
+    bridge_recording_host_path: Path | None = None
 
 
 def plan_demo_call(out: Path, call_id: str | None = None) -> DemoCallPlan:
@@ -31,4 +32,5 @@ def plan_demo_call(out: Path, call_id: str | None = None) -> DemoCallPlan:
         out=out,
         monitor_container_path=f"{MONITOR_DIR}/{monitor_name}",
         monitor_host_path=HOST_MONITOR_DIR / monitor_name,
+        bridge_recording_host_path=HOST_MONITOR_DIR / f"demo-{cid}.wav",
     )

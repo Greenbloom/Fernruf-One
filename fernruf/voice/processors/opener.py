@@ -25,11 +25,14 @@ class DisclosureOpenerProcessor(FrameProcessor):
         *,
         disclosure: str,
         privacy_line: str = "",
+        request: str = "",
         session: M2CallSession | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self._disclosure = disclosure
+        self._request = (request or "").strip()
+        self._spoken = disclosure if not self._request else f"{disclosure} {self._request}"
         self._privacy_line = (privacy_line or "").strip()
         self._session = session
         self._queued = False
@@ -45,9 +48,9 @@ class DisclosureOpenerProcessor(FrameProcessor):
         ):
             self._queued = True
             self._segments_left = 1 + (1 if self._privacy_line else 0)
-            LOG.info("Queuing AI disclosure opener (%s chars)", len(self._disclosure))
+            LOG.info("Queuing AI disclosure opener (%s chars)", len(self._spoken))
             await self.push_frame(
-                TTSSpeakFrame(text=self._disclosure, append_to_context=False),
+                TTSSpeakFrame(text=self._spoken, append_to_context=False),
                 direction,
             )
             if self._privacy_line:
@@ -58,12 +61,12 @@ class DisclosureOpenerProcessor(FrameProcessor):
             if not self._context_logged:
                 self._context_logged = True
                 if self._session is not None:
-                    self._session.note_transcript_line("agent", self._disclosure)
+                    self._session.note_transcript_line("agent", self._spoken)
                     if self._privacy_line:
                         self._session.note_transcript_line("agent", self._privacy_line)
                 await self.push_frame(
                     LLMMessagesAppendFrame(
-                        messages=[{"role": "assistant", "content": self._disclosure}],
+                        messages=[{"role": "assistant", "content": self._spoken}],
                         run_llm=False,
                     ),
                     direction,

@@ -24,9 +24,11 @@ def demo_extensions_conf() -> str:
         "; Local AI-to-AI demo. This context never dials the SIP trunk.\n"
         f"exten => _{DEMO_EXTEN_PREFIX}.,1,NoOp(Fernruf demo callee ${{EXTEN}})\n"
         " same => n,Answer()\n"
+        " same => n,Set(AUDIOHOOK_INHERIT(MixMonitor)=yes)\n"
         f" same => n,MixMonitor({MONITOR_DIR}/${{EXTEN:{offset}}}.wav)\n"
         f" same => n,Dial({CALLEE_WS_DIAL})\n"
         " same => n,Hangup()\n"
+        "exten => h,1,StopMixMonitor()\n"
     )
 
 

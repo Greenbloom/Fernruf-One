@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from fernruf.settings import Settings
 
+DEFAULT_DEMO_REQUEST = "Passt Dienstag für einen Termin?"
+
 DEFAULT_DEMO_TASK = (
-    "Frag in einem Satz, ob Dienstag für einen Termin passt. "
-    "Sobald die Praxis zustimmt, sofort end_call mit einem kurzen Abschied. "
-    "Keine weitere Frage."
+    "Die Frage, ob Dienstag passt, wurde schon im Gesprächseinstieg gestellt. "
+    "Warte auf die Antwort der Praxis. Sobald sie zustimmt, sofort end_call "
+    "mit einem kurzen Abschied. Keine weitere Frage."
 )
 
 DEFAULT_DEMO_PERSONA = (
     "Du bist die Rezeption der fiktiven Praxis Beispiel. "
-    "Antworte in einem Satz: Dienstag um zehn Uhr passt."
+    "Warte auf die Frage, ob Dienstag passt. "
+    "Antworte dann in einem Satz: Dienstag um zehn Uhr passt."
 )
 
 DEFAULT_MAX_SECONDS = 30
@@ -86,11 +89,24 @@ def apply_demo_caller_voice(settings: Settings) -> Settings:
     return pin_demo_caller_voice(settings, caller)
 
 
+def spoken_demo_request(task: str) -> str:
+    """The sentence Fernruf speaks in the opening, after the AI notice."""
+    text = (task or "").strip()
+    if not text or text == DEFAULT_DEMO_TASK:
+        return DEFAULT_DEMO_REQUEST
+    for part in text.replace("!", ".").split("."):
+        sentence = part.strip()
+        if sentence.endswith("?"):
+            return sentence
+    return text
+
+
 def callee_system_prompt(persona: str) -> str:
     role = (persona or "").strip() or DEFAULT_DEMO_PERSONA
     return (
         "Du bist die angerufene Seite eines Telefonats. "
-        "Warte, bis die anrufende Seite ausgesprochen hat, und antworte dann. "
+        "Schweige, solange die anrufende Seite nur sagt, dass sie ein KI-Assistent ist. "
+        "Antworte erst, wenn du eine konkrete Frage gehört hast. "
         "Sprich ausschließlich in der folgenden Rolle. "
         "Keine Aufzählungen, ein oder zwei Sätze.\n\n"
         f"{role}"
