@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
+import json
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -25,7 +28,14 @@ from fernruf.service.policy_gate import (
     SpendSnapshot,
     evaluate_service_policy,
 )
-from fernruf.service.records import get_stored_call, list_stored_calls, spend_snapshot, upsert_call
+from fernruf.service.records import (
+    get_stored_call,
+    list_stored_calls,
+    list_webhooks,
+    spend_snapshot,
+    upsert_call,
+)
+from fernruf.service.summary import summarize_completed_call
 from fernruf.service.runner import CallJob, CallRunResult, run_m2_or_simulate
 from fernruf.service.settings_update import monthly_ceiling, per_call_ceiling
 from fernruf.principal import dial_blocked_placeholder_reason
@@ -134,6 +144,8 @@ class CallManager:
         runner: Runner | None = None,
         now: Callable[[], datetime] | None = None,
         keepalive_s: float = 5.0,
+        summarize: Callable[..., Awaitable[dict[str, Any]]] | None = None,
+        poster: Callable[[str, dict[str, Any]], Awaitable[bool]] | None = None,
     ) -> None:
         self.settings = settings
         validate_operational_settings(settings)
@@ -141,6 +153,8 @@ class CallManager:
         self.runner = runner or run_m2_or_simulate
         self.now = now or (lambda: datetime.now(tz=BERLIN))
         self.keepalive_s = keepalive_s
+        self._summarize = summarize or summarize_completed_call
+        self._poster = poster
         self._lock = asyncio.Lock()
         self._active: dict[str, Any] | None = None
 
@@ -425,9 +439,10 @@ class CallManager:
                 call_language=result.call_language or row.get("call_language") or "de",
                 llm_model=result.llm_model or row.get("llm_model") or "",
                 llm_model_source=result.llm_model_source or row.get("llm_model_source") or "",
-                summary=None,
+                summary=await self._summary_for(result, job),
                 counts_toward_caps=True,
             )
+            await self._deliver_finalized(call_id)
             LOG.info(
                 "call finished id=%s outcome=%s duration_s=%.1f model=%s",
                 call_id,
@@ -446,6 +461,7 @@ class CallManager:
                 summary=None,
                 counts_toward_caps=True,
             )
+            await self._deliver_finalized(call_id)
         finally:
             active["done"].set()
 
@@ -477,6 +493,51 @@ class CallManager:
             break
         await report(limit if task.done() else elapsed, "finalized" if task.done() else "wait_timeout")
         return self.get_call(active["call_id"])
+
+    async def _summary_for(self, result: CallRunResult, job: CallJob) -> dict[str, Any] | None:
+        """Structured summary for a completed call. Other outcomes stay unset."""
+        if result.outcome != "completed" or not result.answered:
+            return None
+        try:
+            summary = await self._summarize(
+                settings=self.settings,
+                transcript=list(result.transcript or []),
+                task=job.task_text,
+                outcome=result.outcome,
+            )
+        except Exception:
+            LOG.warning("call summary failed id=%s", job.call_id)
+            return None
+        return summary if isinstance(summary, dict) else None
+
+    async def _deliver_finalized(self, call_id: str) -> None:
+        """POST call.finalized, including the summary, to stored webhooks."""
+        poster = self._poster
+        if poster is None:
+            return
+        row = get_stored_call(self.settings, call_id)
+        if not row:
+            return
+        data = public_call(row)
+        body: dict[str, Any] = {
+            "event": "call.finalized",
+            "at": row.get("ended_at"),
+            "data": data,
+        }
+        secret = (self.settings.webhook_secret or "").strip()
+        if secret:
+            raw = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
+            body["signature"] = "sha256=" + hmac.new(
+                secret.encode(), raw, hashlib.sha256
+            ).hexdigest()
+        for hook in list_webhooks(self.settings):
+            events = hook.get("events") or []
+            if "call.finalized" not in events:
+                continue
+            try:
+                await poster(str(hook.get("url") or ""), body)
+            except Exception:
+                LOG.info("call.finalized delivery failed id=%s", hook.get("webhook_id"))
 
     async def hangup(self, call_id: str) -> dict[str, Any]:
         row = get_stored_call(self.settings, call_id)

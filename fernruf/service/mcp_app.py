@@ -308,7 +308,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
 
     @mcp.tool()
     def get_call(call_id: str) -> dict[str, Any]:
-        """Status, timings, outcome, transcript, and cost. Summary is null until a later version."""
+        """Status, timings, outcome, transcript, cost, and the post-call summary."""
         try:
             return runtime.manager.get_call(call_id)
         except CallError as exc:
@@ -327,7 +327,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
 
     @mcp.tool()
     def list_calls(limit: int = 20, since: str | None = None) -> list[dict[str, Any]]:
-        """Recent calls. since is an ISO timestamp. summary fields are null until summaries exist."""
+        """Recent calls. since is an ISO timestamp. summary is set once the call completed."""
         try:
             return runtime.manager.list_calls(limit=limit, since=since)
         except ValueError as exc:
@@ -360,9 +360,10 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
         ctx: Context,
         events: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Store a webhook URL and send a test event. Signed call.finalized delivery is later.
+        """Store a webhook URL and send a test event.
 
-        The test body is only `{event: webhook.test}`. Call content is not posted yet.
+        The test body is `{event: webhook.test}`. When a call ends, `call.finalized`
+        is posted with the call snapshot, including the summary when the call completed.
         """
         require_guide(ctx)
         problem = webhook_url_error(url)
@@ -493,6 +494,7 @@ def create_app(
         runner=runner,
         now=now,
         keepalive_s=keepalive_s,
+        poster=poster or _default_poster,
     )
     auth_lock = lockout or AuthLockout(
         max_failures=settings.auth_fail_max,

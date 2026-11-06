@@ -254,6 +254,7 @@ def build_m2_pipeline(
         seal_playout=getattr(output, "seal_playout", None),
         output_pending=getattr(output, "output_audio_pending", None),
         note_queued_audio=getattr(output, "note_audio_queued", None),
+        playout_done=getattr(output, "playback_idle", None),
     )
 
     async def _schedule_hangup_from_tool() -> None:

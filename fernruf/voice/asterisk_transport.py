@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import WebSocket
-from pipecat.frames.frames import CancelFrame, Frame, InterruptionFrame, StopFrame
+from pipecat.frames.frames import CancelFrame, EndFrame, Frame, InterruptionFrame, StopFrame
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
 from pipecat_asterisk.frames import AsteriskCommandFrame
@@ -84,6 +84,45 @@ class FernrufAsteriskOutputTransport(AsteriskWebsocketOutputTransport):
         """Drop any audio handed over after the goodbye has been written."""
         self._sealed = True
 
+    def playback_idle(self) -> bool:
+        """True once the sealed goodbye has been played out.
+
+        The playout clock sums audio from the moment it was accepted, which
+        stays ahead of the phone when TTS is faster than realtime. The flow
+        controller's remote-buffer estimate is when that audio has actually
+        been played. Hangup uses this instead of waiting out the clock.
+        """
+        if not self._sealed:
+            return False
+        fc = self._flow_controller
+        if fc is None:
+            return False
+        local = int(getattr(fc, "_local_buffer_size", 0) or 0)
+        remote = float(getattr(fc, "_remote_buffer_utilization", 0.0) or 0.0)
+        fence = getattr(fc, "bot_stopped_speaking_fence", None)
+        if fence is None or not fence.is_set():
+            return False
+        return local <= 0 and remote <= 0.5
+
+    def _release_playout_wait(self) -> None:
+        """Unblock a TTSStopped hold so the output tasks can exit."""
+        fc = self._flow_controller
+        if fc is None:
+            return
+        fence = getattr(fc, "bot_stopped_speaking_fence", None)
+        if fence is not None:
+            fence.set()
+
+    async def _close_flow(self) -> None:
+        fc = self._flow_controller
+        close = getattr(fc, "close", None) if fc is not None else None
+        if close is None:
+            return
+        try:
+            await close(gracefully=False)
+        except Exception:
+            LOG.warning("flow controller close failed", exc_info=True)
+
     def _reset_playout(self) -> None:
         self.playout_clock.reset()
         self._owed_s = 0.0
@@ -129,8 +168,14 @@ class FernrufAsteriskOutputTransport(AsteriskWebsocketOutputTransport):
         # Flush (FLUSH_MEDIA / drop_buffer) discards audio the phone will
         # never play. Reset before the parent runs so a failed interrupt
         # still drops the clock.
-        if isinstance(frame, (InterruptionFrame, CancelFrame, StopFrame)):
+        if isinstance(frame, (InterruptionFrame, CancelFrame, StopFrame, EndFrame)):
             self._reset_playout()
+            # End/cancel must not sit behind the playout fence. The audio task
+            # holds TTSStopped until that fence, and stop() waits on the audio
+            # task, so the clock task would otherwise still be running.
+            self._release_playout_wait()
+        if isinstance(frame, (CancelFrame, StopFrame, EndFrame)):
+            await self._close_flow()
         await super().process_frame(frame, direction)
 
     async def write_audio_frame(self, frame) -> bool:

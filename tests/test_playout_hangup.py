@@ -86,6 +86,7 @@ def _hangup(
     seal=None,
     output_pending=None,
     note_queued=None,
+    playout_done=None,
 ) -> tuple[CallHangup, AsyncMock]:
     settings = Settings(
         _env_file=None,
@@ -102,6 +103,7 @@ def _hangup(
         seal_playout=seal,
         output_pending=output_pending,
         note_queued_audio=note_queued,
+        playout_done=playout_done,
     )
     proc.push_frame = AsyncMock()  # type: ignore[method-assign]
     return proc, called
@@ -609,3 +611,55 @@ def test_fast_tts_burst_plays_the_whole_final_turn(
     assert "drain +" in hangup_logs[0]
     assert "hangup +" in hangup_logs[0]
     assert "n/a" not in hangup_logs[0]
+
+
+def test_playout_done_signal_hangs_up_without_the_cap(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A finished playout hangs up within the margin, not at the 20s cap.
+
+    The summed clock can still show the whole burst. The transport signal is
+    what the phone has actually played.
+    """
+
+    async def run() -> None:
+        clock = PlayoutClock()
+        clock.add_chunk(len(_pcm(20.0)), _RATE)
+        session = M2CallSession()
+        session.phase.begin_ending(
+            reason="done",
+            goodbye="Thank you. Goodbye.",
+            await_playback=True,
+        )
+        proc, called = _hangup(
+            session=session,
+            clock=clock,
+            margin_s=0.05,
+            playout_done=lambda: True,
+        )
+        started = time.monotonic()
+        await _arm_goodbye(proc)
+        await proc.process_frame(BotStoppedSpeakingFrame(), FrameDirection.DOWNSTREAM)
+        await asyncio.sleep(0.4)
+        assert called.await_count == 1
+        assert time.monotonic() - started < 1.5
+        assert session.hung_up
+
+    caplog.set_level(logging.INFO)
+    asyncio.run(run())
+    assert any("Playout done" in r.message for r in caplog.records)
+    assert not any("20s cap" in r.message or "20.0s cap" in r.message for r in caplog.records)
+
+
+def test_playback_idle_tracks_the_sealed_remote_buffer() -> None:
+    out, flow, _client = _output()
+    fence = asyncio.Event()
+    flow.bot_stopped_speaking_fence = fence  # type: ignore[attr-defined]
+    flow._remote_buffer_utilization = 0.0  # type: ignore[attr-defined]
+    assert out.playback_idle() is False
+    out.seal_playout()
+    assert out.playback_idle() is False
+    fence.set()
+    assert out.playback_idle() is True
+    flow._remote_buffer_utilization = 8000  # type: ignore[attr-defined]
+    assert out.playback_idle() is False

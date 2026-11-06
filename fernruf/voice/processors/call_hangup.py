@@ -101,6 +101,7 @@ class CallHangup(FrameProcessor):
         seal_playout: Callable[[], None] | None = None,
         output_pending: Callable[[], bool] | None = None,
         note_queued_audio: Callable[[float], None] | None = None,
+        playout_done: Callable[[], bool] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -113,6 +114,7 @@ class CallHangup(FrameProcessor):
         self._seal_playout = seal_playout
         self._output_pending = output_pending
         self._note_queued_audio = note_queued_audio
+        self._playout_done = playout_done
         self._armed = False
         self._done = False
         self._need_speak = False
@@ -247,6 +249,16 @@ class CallHangup(FrameProcessor):
 
     def _margin_s(self) -> float:
         return self._settings.hangup_margin_s
+
+    def _playout_finished(self) -> bool:
+        """True when the output transport has played the sealed goodbye."""
+        if not self._goodbye_sealed or self._playout_done is None:
+            return False
+        try:
+            return bool(self._playout_done())
+        except Exception:
+            LOG.warning("playout_done failed", exc_info=True)
+            return False
 
     def _output_still_pending(self) -> bool:
         fn = self._output_pending
@@ -384,6 +396,19 @@ class CallHangup(FrameProcessor):
                 # phone still has the burst to play, must not hang up early.
                 # Once the summed audio has reached real time, wait the margin
                 # (and never less than the frozen deadline).
+                if self._playout_finished():
+                    # The transport has finished the sealed audio. The summed
+                    # clock can still be seconds ahead (audio written faster
+                    # than the phone played it, or a buffer that already
+                    # drained). Hang up on this signal; the 20s cap stays a
+                    # backstop for when the signal never arrives.
+                    LOG.info("Playout done; hangup in %.0fms", margin * 1000)
+                    if margin > 0:
+                        await asyncio.sleep(margin)
+                    if self._done:
+                        return
+                    await self._execute_hangup()
+                    return
                 if self._queue_drained and now + 1e-4 >= play_end:
                     LOG.info("Asterisk queue drained; hangup in %.0fms", margin * 1000)
                     target = max(deadline, now + margin)
