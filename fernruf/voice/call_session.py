@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+
+LOG = logging.getLogger("fernruf.voice.session")
 
 from fernruf.settings import Settings
 from fernruf.voice.call_phase import CallPhase
@@ -66,6 +70,7 @@ class M2CallSession:
     # often hangs up on QUEUE_DRAINED before that frame is processed.
     uncommitted_agent_text: str = ""
     spoken_goodbye: str = ""
+    transcript_sink: Callable[[str, str, int, bool], None] | None = None
 
     @property
     def pending_hangup(self) -> bool:
@@ -144,6 +149,12 @@ class M2CallSession:
         else:
             t_ms = self.ms_since_answer()
         self.transcript_lines.append({"t_ms": t_ms, "speaker": speaker, "text": text})
+        sink = self.transcript_sink
+        if sink is not None:
+            try:
+                sink(speaker, text, t_ms, True)
+            except Exception:
+                LOG.warning("transcript observer failed")
 
     def observe_committed_lines(self, pairs: list[tuple[str, str]]) -> None:
         """Backfill agent lines the spoken path has not stored yet.

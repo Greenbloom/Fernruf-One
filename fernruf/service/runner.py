@@ -26,6 +26,7 @@ class CallJob:
     detection_text: str = ""
     goal: str = ""
     must_say: tuple[str, ...] = ()
+    monitor: object | None = None
 
 
 @dataclass
@@ -58,6 +59,7 @@ async def _run_simulate(job: CallJob) -> CallRunResult:
         llm_model_override=job.model,
         language=job.language,
         detection_text=job.detection_text or None,
+        monitor=job.monitor,
     )
     sim.call_id = job.call_id
     task = asyncio.create_task(sim.run())
@@ -115,6 +117,7 @@ async def _run_live(job: CallJob) -> CallRunResult:
             detection_text=job.detection_text or None,
             goal=job.goal,
             must_say=job.must_say,
+            monitor=job.monitor,
         )
     finally:
         ari.close()

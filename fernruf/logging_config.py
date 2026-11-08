@@ -41,6 +41,7 @@ def collect_secret_literals(settings) -> tuple[str, ...]:
         getattr(settings, "sip_password", ""),
         getattr(settings, "typesafe_api_key", ""),
         getattr(settings, "mcp_token", ""),
+        getattr(settings, "monitor_token", ""),
         getattr(settings, "webhook_secret", ""),
         getattr(settings, "github_client_secret", ""),
     ):

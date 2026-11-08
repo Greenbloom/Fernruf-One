@@ -556,4 +556,5 @@ def create_app(
 
     app.state.runtime = runtime
     app.state.mcp = mcp
+    app.state.monitor = call_manager.monitor
     return app

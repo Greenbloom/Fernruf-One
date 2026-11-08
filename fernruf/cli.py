@@ -688,6 +688,28 @@ def m2_verify_loopback(to: str, task: str) -> None:
         raise SystemExit(1)
 
 
+@main.command("monitor")
+@click.option("--smoke", is_flag=True, help="Load the placeholder window and exit")
+def monitor_cmd(smoke: bool) -> None:
+    """Local call window. Audio stays off until the listen preference is on."""
+    from fernruf.desktop.app import main as desktop_main
+
+    if not smoke:
+        settings = load_settings()
+        _export_monitor_client_env(settings)
+    raise SystemExit(desktop_main(["--smoke"] if smoke else []))
+
+
+def _export_monitor_client_env(settings) -> None:
+    import os
+
+    token = (settings.monitor_token or settings.mcp_token or "").strip()
+    if token:
+        os.environ["FERNRUF_MONITOR_TOKEN"] = token
+    port = int(settings.monitor_port)
+    os.environ.setdefault("FERNRUF_MONITOR_URL", f"ws://127.0.0.1:{port}")
+
+
 @main.command("gen-token")
 def gen_token() -> None:
     """Print a new FERNRUF_MCP_TOKEN (32 random bytes). Nothing is stored."""
@@ -720,6 +742,7 @@ def serve() -> None:
             settings.github_client_secret,
         )
         host = validate_bind_host(settings.bind_host, override=settings.bind_override)
+        monitor_token = _monitor_token(settings, static)
     except (McpTokenError, BindError, AuthConfigError) as exc:
         click.echo(str(exc), err=True)
         raise SystemExit(1) from None
@@ -741,7 +764,19 @@ def serve() -> None:
         settings,
         github=github_login_configured(settings.github_client_id, settings.github_client_secret),
         static_token=static is not None,
+        monitor_token=monitor_token,
     ).run()
+
+
+def _monitor_token(settings, static: str | None) -> str:
+    from fernruf.service.security import validate_mcp_token
+
+    if not settings.monitor_enabled:
+        return ""
+    chosen = (settings.monitor_token or "").strip()
+    if chosen:
+        return validate_mcp_token(chosen)
+    return static or ""
 
 
 @main.group("auth")

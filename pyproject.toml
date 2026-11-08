@@ -25,6 +25,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+desktop = [
+  "PySide6>=6.8",
+]
 cuda = [
   "nvidia-cublas-cu12>=12.4.5.8; sys_platform == 'linux'",
   "nvidia-cudnn-cu12>=9.1.0.70; sys_platform == 'linux'",
@@ -39,6 +42,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["fernruf"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"fernruf/desktop/MonitorPlaceholder.qml" = "fernruf/desktop/MonitorPlaceholder.qml"
 
 [dependency-groups]
 dev = [

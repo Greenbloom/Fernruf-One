@@ -50,13 +50,37 @@ Setup details: [docs/SETUP.md](docs/SETUP.md). **AI agents (full host bootstrap)
 
 Use GitHub OAuth instead of a static token when configured (`FERNRUF_GITHUB_*`, `FERNRUF_OAUTH_*`).
 
+### Local call monitor (KDE)
+
+`fernruf serve` also listens on `127.0.0.1:8791` (override the port with `FERNRUF_MONITOR_PORT`). That socket is loopback only. It does not follow `FERNRUF_BIND_OVERRIDE`. Set `FERNRUF_MONITOR_ENABLED=false` to leave it closed. Auth is `FERNRUF_MONITOR_TOKEN` when that is set, otherwise the same static `FERNRUF_MCP_TOKEN`. An OAuth-only service has no monitor until one of those tokens is set.
+
+On the Plasma machine:
+
+```bash
+uv sync --extra desktop
+uv run --extra desktop fernruf monitor
+```
+
+The process sits in the tray and raises a window when a call starts. The window is a placeholder. Replace `fernruf/desktop/MonitorPlaceholder.qml` when the mockup arrives. The Python object behind it keeps the names `number`, `state`, `elapsed`, `listening`, `volume`, `muted`, and `summaryLine`. The transcript list is `lineModel`.
+
+Listening is off until you turn it on. The checkbox is stored in `~/.config/fernruf/listen.json` (`listen`, default false). Volume and mute affect only this computer's playback. The window cannot speak into the call or hang it up. Nothing from this socket leaves the machine.
+
+Text frames are JSON with `"v": 1`.
+
+- Client, if the handshake has no `Authorization: Bearer` header: `{"type":"auth","token":"..."}`. Server replies `{"type":"auth_ok"}`.
+- Client: `{"type":"listen","enabled":true}`. Audio is not sent until this is true. The server replies with the same shape.
+- Server lifecycle: `{"type":"lifecycle","call_id","state","at","to_masked","outcome","summary"}`. `state` is `dialing`, `ringing`, `answered`, `ended`, then `finalized`. `to_masked` keeps the last four digits. `summary` is present only on `finalized`.
+- Server transcript: `{"type":"transcript","call_id","speaker","text","t_ms","final"}`. `speaker` is `agent` or `callee`. Current calls send `final: true`.
+
+Binary frames are little-endian `FR1`. The direction byte is 1 for the callee and 2 for the bot's speech. Then the frame carries the sample rate, the channel count, a timestamp, the call id, and s16le PCM. A subscriber that falls behind loses frames. The call does not wait.
+
 Optional CUDA STT acceleration: `uv sync --extra cuda` (proprietary GPU vendor wheels).
 
 ## Legal & abuse notice
 
 **You are responsible for every call Fernruf places on your line.**
 
-- **Germany — §201 StGB:** Recording a call requires prior consent. Fernruf does **not** record calls in this version; it may produce local transcripts/summaries and send text to configured providers as described in [PRIVACY.md](PRIVACY.md). The optional consent question in prompts is a hint only until recording exists.
+- **Germany — §201 StGB:** Recording a call requires prior consent. Fernruf does **not** record calls in this version; it may produce local transcripts/summaries and send text to configured providers as described in [PRIVACY.md](PRIVACY.md). The optional consent question in prompts is a hint only until recording exists. The local monitor can play a live call on this computer. That switch defaults to off. It does not save audio. It does not change the disclosure or the consent question.
 - **Germany — UWG §7(2):** Unsolicited advertising calls to consumers are prohibited; B2B calls require a legitimate interest or consent. Fernruf rejects marketing-style tasks and is **allowlist-only**.
 - **Transparency:** Every call begins with a mandatory fixed AI disclosure naming `FERNRUF_PRINCIPAL_NAME`. The model cannot skip or rewrite it. Optional `FERNRUF_SPOKEN_PRIVACY_ENABLED=true` adds a fixed per-language processing notice after the disclosure (off by default). See [PRIVACY.md](PRIVACY.md).
 - **Caller ID:** Follow BundesnetzAgentur rules; do not spoof numbers you do not legitimately use.

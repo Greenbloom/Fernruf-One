@@ -53,11 +53,13 @@ class SimulateConversation:
         llm_model_override: str | None = None,
         language: str | None = None,
         detection_text: str | None = None,
+        monitor: object | None = None,
     ) -> None:
         self.settings = settings
         self.task = task
         self.language = language
         self.detection_text = detection_text
+        self.monitor = monitor
         self.call_id = str(uuid.uuid4())[:8]
         self.bus = GLOBAL_EVENT_BUS
         self.endpoint, self.llm_resolution = resolve_llm_endpoint_for_call(
@@ -79,8 +81,51 @@ class SimulateConversation:
         return int((time.monotonic() - self._start) * 1000)
 
     def _say_agent(self, text: str) -> None:
-        self.transcript.append(TranscriptLine(self._t_ms(), "agent", text))
+        line = TranscriptLine(self._t_ms(), "agent", text)
+        self.transcript.append(line)
         self.bus.emit(self.call_id, "transcript", speaker="agent", text=text)
+        self._observe_line(line)
+
+    def _observe_line(self, line: TranscriptLine) -> None:
+        monitor = self.monitor
+        if monitor is None:
+            return
+        try:
+            monitor.note_transcript(
+                self.call_id,
+                speaker=line.speaker,
+                text=line.text,
+                t_ms=line.t_ms,
+                final=True,
+            )
+        except Exception:
+            LOG.warning("call monitor transcript failed")
+
+    def _observe_audio(self, direction: str, pcm: bytes, sample_rate: int) -> None:
+        monitor = self.monitor
+        if monitor is None or not pcm:
+            return
+        try:
+            monitor.offer_audio(
+                self.call_id,
+                direction=direction,
+                pcm=pcm,
+                sample_rate=sample_rate,
+                channels=1,
+            )
+        except Exception:
+            LOG.warning("call monitor audio failed")
+
+    def _observe_state(self, state: str) -> None:
+        monitor = self.monitor
+        if monitor is None:
+            return
+        from fernruf.monitor.state import CallLifecycle
+
+        try:
+            monitor.advance(self.call_id, CallLifecycle(state))
+        except Exception:
+            LOG.warning("call monitor state failed")
 
     async def run(self, callee_script: list[str] | None = None) -> SimulateResult:
         if not getattr(self.settings, "_language_ready", False):
@@ -101,6 +146,8 @@ class SimulateConversation:
             status="simulated",
         )
         script = callee_script or ["Hallo?", "Ja, Dienstag passt."]
+        self._observe_state("ringing")
+        self._observe_state("answered")
         self.bus.emit(self.call_id, "state", state="answered")
         from fernruf.disclosure import spoken_ai_disclosure
 
@@ -115,8 +162,11 @@ class SimulateConversation:
 
         for callee_text in script:
             await asyncio.sleep(0.05)
-            self.transcript.append(TranscriptLine(self._t_ms(), "callee", callee_text))
+            callee_line = TranscriptLine(self._t_ms(), "callee", callee_text)
+            self.transcript.append(callee_line)
             self.bus.emit(self.call_id, "transcript", speaker="callee", text=callee_text)
+            self._observe_line(callee_line)
+            self._observe_audio("inbound", b"\x00\x00" * 160, 16000)
             self._turn += 1
             row = self.latency.start_turn(
                 self.call_id,
@@ -149,6 +199,7 @@ class SimulateConversation:
             async for _pcm, _rate, _ttfa in stream_tts_sentences(
                 result.assistant_text, settings=self.settings
             ):
+                self._observe_audio("outbound", _pcm, _rate)
                 if row.tts_first_audio_ms is None:
                     row.mark("tts_first_audio")
                     row.mark("rtp_first_out")

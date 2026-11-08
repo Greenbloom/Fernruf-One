@@ -56,6 +56,22 @@ from fernruf.voice.services.mock_llm import MockLLMService
 LOG = logging.getLogger("fernruf.voice.pipeline")
 
 
+def _monitor_transcript(monitor: Any, call_id: str):
+    def sink(speaker: str, text: str, t_ms: int, final: bool) -> None:
+        try:
+            monitor.note_transcript(
+                call_id,
+                speaker=speaker,
+                text=text,
+                t_ms=t_ms,
+                final=final,
+            )
+        except Exception:
+            LOG.warning("transcript observer failed")
+
+    return sink
+
+
 @dataclass
 class BuiltM2Pipeline:
     pipeline: Pipeline
@@ -148,12 +164,15 @@ def build_m2_pipeline(
     goal: str = "",
     must_say: tuple[str, ...] | None = None,
     opening_request: str = "",
+    monitor: object | None = None,
 ) -> BuiltM2Pipeline:
     parsed_goal, parsed_must = brief_requirements(task)
     session.phase.must_say = parsed_must if must_say is None else tuple(must_say)
     session.phase.goal_needs_answer = goal_needs_answer(goal or parsed_goal)
     session.phase.call_language = (settings.call_language or "de").strip() or "de"
     session.phase.goodbye_phrase = call_phrase(settings, "goodbye")
+    if monitor is not None:
+        session.transcript_sink = _monitor_transcript(monitor, call_id)
     LOG.info(
         "call start detected_language=%s whisper_language=%s",
         getattr(settings, "_detected_language_label", None) or settings.call_language,
@@ -315,9 +334,13 @@ def build_m2_pipeline(
             pair.assistant(),
             hangup,
             metrics,
-            transport.output(),
         ]
     )
+    if monitor is not None:
+        from fernruf.voice.processors.audio_tap import AudioTapProcessor
+
+        processors.append(AudioTapProcessor(monitor, call_id))
+    processors.append(transport.output())
 
     pipeline = Pipeline(processors)
     return BuiltM2Pipeline(

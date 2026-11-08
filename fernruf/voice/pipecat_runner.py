@@ -45,6 +45,7 @@ async def run_pipecat_on_websocket(
     goal: str = "",
     must_say: tuple[str, ...] | None = None,
     opening_request: str = "",
+    monitor: object | None = None,
 ) -> VerifyFlowState | None:
     transport = FernrufAsteriskTransport(websocket=websocket)
     latency_log = LatencyLog(Path(settings.latency_log_path))
@@ -64,6 +65,7 @@ async def run_pipecat_on_websocket(
         goal=goal,
         must_say=must_say,
         opening_request=opening_request,
+        monitor=monitor,
     )
     await built.stt.preload()
 

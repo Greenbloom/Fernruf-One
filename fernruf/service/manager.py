@@ -36,6 +36,8 @@ from fernruf.service.records import (
     upsert_call,
 )
 from fernruf.service.summary import summarize_completed_call
+from fernruf.monitor.hub import CallMonitor
+from fernruf.monitor.state import CallLifecycle
 from fernruf.service.runner import CallJob, CallRunResult, run_m2_or_simulate
 from fernruf.service.settings_update import monthly_ceiling, per_call_ceiling
 from fernruf.principal import dial_blocked_placeholder_reason
@@ -146,6 +148,7 @@ class CallManager:
         keepalive_s: float = 5.0,
         summarize: Callable[..., Awaitable[dict[str, Any]]] | None = None,
         poster: Callable[[str, dict[str, Any]], Awaitable[bool]] | None = None,
+        monitor: CallMonitor | None = None,
     ) -> None:
         self.settings = settings
         validate_operational_settings(settings)
@@ -155,8 +158,28 @@ class CallManager:
         self.keepalive_s = keepalive_s
         self._summarize = summarize or summarize_completed_call
         self._poster = poster
+        self.monitor = monitor or CallMonitor()
         self._lock = asyncio.Lock()
         self._active: dict[str, Any] | None = None
+
+    def _observe_begin(self, call_id: str, number: str) -> None:
+        try:
+            self.monitor.begin(call_id, to_e164=number)
+        except Exception:
+            LOG.warning("call monitor begin failed id=%s", call_id)
+
+    def _observe(
+        self,
+        call_id: str,
+        state: CallLifecycle,
+        *,
+        outcome: str | None = None,
+        summary: dict[str, Any] | None = None,
+    ) -> None:
+        try:
+            self.monitor.advance(call_id, state, outcome=outcome, summary=summary)
+        except Exception:
+            LOG.warning("call monitor update failed id=%s", call_id)
 
     def _audit(self, event: dict) -> None:
         append_audit_event(Path(self.settings.audit_path), event)
@@ -356,6 +379,7 @@ class CallManager:
                 must_say=tuple(
                     str(item).strip() for item in (task.get("must_say") or []) if str(item).strip()
                 ),
+                monitor=self.monitor,
             )
             active = {
                 "call_id": call_id,
@@ -400,6 +424,7 @@ class CallManager:
         started = asyncio.get_running_loop().time()
         try:
             upsert_call(self.settings, call_id, status="dialing", dial_started=True)
+            self._observe_begin(call_id, job.to_e164)
             result = await self.runner(job)
             duration = result.duration_s
             if duration is None:
@@ -424,6 +449,8 @@ class CallManager:
                 else:
                     span = duration if duration and duration > 0 else 0.001
                     answered_at = (ended_dt - timedelta(seconds=span)).isoformat()
+            summary = await self._summary_for(result, job)
+            self._observe(call_id, CallLifecycle.ENDED, outcome=result.outcome)
             upsert_call(
                 self.settings,
                 call_id,
@@ -439,9 +466,10 @@ class CallManager:
                 call_language=result.call_language or row.get("call_language") or "de",
                 llm_model=result.llm_model or row.get("llm_model") or "",
                 llm_model_source=result.llm_model_source or row.get("llm_model_source") or "",
-                summary=await self._summary_for(result, job),
+                summary=summary,
                 counts_toward_caps=True,
             )
+            self._observe(call_id, CallLifecycle.FINALIZED, outcome=result.outcome, summary=summary)
             await self._deliver_finalized(call_id)
             LOG.info(
                 "call finished id=%s outcome=%s duration_s=%.1f model=%s",
@@ -452,6 +480,7 @@ class CallManager:
             )
         except Exception:
             LOG.exception("call failed id=%s", call_id)
+            self._observe(call_id, CallLifecycle.ENDED, outcome="failed")
             upsert_call(
                 self.settings,
                 call_id,
@@ -461,6 +490,7 @@ class CallManager:
                 summary=None,
                 counts_toward_caps=True,
             )
+            self._observe(call_id, CallLifecycle.FINALIZED, outcome="failed", summary=None)
             await self._deliver_finalized(call_id)
         finally:
             active["done"].set()

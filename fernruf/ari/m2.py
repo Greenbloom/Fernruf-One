@@ -131,6 +131,7 @@ class M2AriSession(AriSession):
         must_say: tuple[str, ...] | None = None,
         opening_request: str = "",
         bridge_recording_name: str = "",
+        monitor: object | None = None,
     ) -> dict[str, Any]:
         from fernruf.language import prepare_call_settings
 
@@ -277,6 +278,7 @@ class M2AriSession(AriSession):
                     goal=goal,
                     must_say=must_say,
                     opening_request=opening_request,
+                    monitor=monitor,
                 )
             finally:
                 pipeline_finished.set()
@@ -325,11 +327,26 @@ class M2AriSession(AriSession):
                         self.subscribe_channel(cid)
                         _sync_ari_channel_state()
                     elif et == "ChannelStateChange" and cid == channel_id:
-                        if ch.get("state") == "Up" and answered_at is None:
+                        channel_state = ch.get("state")
+                        if channel_state in ("Ring", "Ringing") and monitor is not None:
+                            from fernruf.monitor.state import CallLifecycle
+
+                            try:
+                                monitor.advance(call_id, CallLifecycle.RINGING)
+                            except Exception:
+                                LOG.warning("call monitor ring failed")
+                        if channel_state == "Up" and answered_at is None:
                             answered_at = time.monotonic()
                             answered_wall = datetime.now(tz=BERLIN).isoformat()
                             session.mark_answered(answered_at)
                             GLOBAL_EVENT_BUS.emit(call_id, "state", state="answered")
+                            if monitor is not None:
+                                from fernruf.monitor.state import CallLifecycle
+
+                                try:
+                                    monitor.advance(call_id, CallLifecycle.ANSWERED)
+                                except Exception:
+                                    LOG.warning("call monitor answer failed")
                             bridge_id = self.create_bridge()
                             _sync_ari_channel_state()
                             self.add_to_bridge(bridge_id, channel_id)
