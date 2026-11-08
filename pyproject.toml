@@ -45,6 +45,8 @@ packages = ["fernruf"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "fernruf/desktop/MonitorPlaceholder.qml" = "fernruf/desktop/MonitorPlaceholder.qml"
+"fernruf/desktop/i18n/fernruf_de.ts" = "fernruf/desktop/i18n/fernruf_de.ts"
+"fernruf/desktop/i18n/fernruf_de.qm" = "fernruf/desktop/i18n/fernruf_de.qm"
 
 [dependency-groups]
 dev = [

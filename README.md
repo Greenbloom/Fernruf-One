@@ -61,7 +61,7 @@ uv sync --extra desktop
 uv run --extra desktop fernruf monitor
 ```
 
-The process sits in the tray and raises a window when a call starts. The window is the glass layout in `fernruf/desktop/MonitorPlaceholder.qml`. Listening is off for each call until you turn it on, and that choice is not saved. Volume and mute are saved in `~/.config/fernruf/listen.json` and affect only this computer's playback. The keypad does not send tones. Hang-up stays off. The window cannot speak into the call. Nothing from this socket leaves the machine.
+The process sits in the tray and raises a window when a call starts. The window is the glass layout in `fernruf/desktop/MonitorPlaceholder.qml`. Its language follows the system locale, with English as the fallback. Set `FERNRUF_UI_LANG` to `en` or `de` to override that. Listening is off for each call until you turn it on, and that choice is not saved. Volume and mute are saved in `~/.config/fernruf/listen.json` and affect only this computer's playback. The keypad does not send tones. Hang-up stays off. The window cannot speak into the call. Nothing from this socket leaves the machine.
 
 Text frames are JSON with `"v": 1`.
 

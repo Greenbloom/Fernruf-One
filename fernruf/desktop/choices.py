@@ -1,7 +1,5 @@
 """Switches for the call window. Flip one of these to change a default.
 
-Philip's answers, until he says otherwise:
-
 * No DTMF from this window.
 * Listening is chosen again on every call and is not written to disk.
 * The window opens when a call starts, and the tray icon stays.

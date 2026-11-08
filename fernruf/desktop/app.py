@@ -12,6 +12,7 @@ import sys
 import time
 from pathlib import Path
 
+from fernruf.desktop.i18n import install_translator, tr
 from fernruf.desktop.choices import (
     HANGUP_ENABLED,
     RAISE_WINDOW_ON_CALL,
@@ -46,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     if (smoke or shot) and not os.environ.get("QT_QPA_PLATFORM"):
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
     app = QApplication(sys.argv if argv is None else ["fernruf-monitor", *args])
+    install_translator(app)
     pref_path = Path("/tmp/fernruf-monitor-shot.json") if shot else default_pref_path()
     model = CallModel(pref_path)
     window = _load_window(model)
@@ -78,10 +80,10 @@ def main(argv: list[str] | None = None) -> int:
             _connect(model, url, token)
         else:
             model.set_error(
-                "Kein Token. Setzen Sie FERNRUF_MONITOR_TOKEN oder FERNRUF_MCP_TOKEN."
+                tr("No token. Set FERNRUF_MONITOR_TOKEN or FERNRUF_MCP_TOKEN.")
             )
     else:
-        model.apply_lifecycle({"state": "dialing", "to_masked": "+49 •••• 0000", "summary": None})
+        model.apply_lifecycle({"state": "dialing", "to_masked": "+49 30 0000 0000", "summary": None})
         QTimer.singleShot(50, app.quit)
     return app.exec()
 
@@ -122,10 +124,10 @@ def _tray(app, window) -> None:
     pixmap.fill()
     icon = QIcon.fromTheme("call-start")
     tray = QSystemTrayIcon(icon if not icon.isNull() else QIcon(pixmap))
-    tray.setToolTip("Fernruf")
+    tray.setToolTip(tr("Fernruf"))
     menu = QMenu()
-    menu.addAction("Fenster", window.show)
-    menu.addAction("Beenden", app.quit)
+    menu.addAction(tr("Window"), window.show)
+    menu.addAction(tr("Quit"), app.quit)
     tray.setContextMenu(menu)
     tray.show()
     app._fernruf_tray = tray
@@ -166,7 +168,7 @@ def _connect(model, url: str, token: str) -> None:
 
     def lost(_err=None) -> None:
         model.set_error(
-            "Verbindung zum lokalen Monitor verloren. Das bisherige Transkript bleibt erhalten."
+            tr("The connection to the local monitor was lost. The transcript so far is kept.")
         )
 
     socket.textMessageReceived.connect(on_text)
@@ -421,10 +423,10 @@ class CallModel:
             def show_example(self) -> None:
                 self._example = True
                 self.apply_lifecycle(
-                    {"state": "dialing", "to_masked": "+49 ••• ••• 4821", "summary": None}
+                    {"state": "dialing", "to_masked": "+49 30 0000 0000", "summary": None}
                 )
-                self._callee = "Frau Schneider"
-                self._campaign = "Praxis Dr. Weber · Terminbestätigung"
+                self._callee = "Max Mustermann"
+                self._campaign = "Example campaign"
                 self._state = "answered"
                 self._elapsed = "00:42"
                 self._timing = False
@@ -432,12 +434,12 @@ class CallModel:
                 self.setVolume(0.7)
                 self.setMuted(False)
                 samples = [
-                    ("agent", "Guten Tag, hier ist der Terminassistent der Praxis Dr. Weber. Spreche ich mit Frau Schneider?", "14:02:05", True),
-                    ("callee", "Ja, am Apparat. Worum geht es?", "14:02:11", True),
-                    ("agent", "Ich rufe wegen Ihres Termins am Donnerstag, 12. November, um 9:30 Uhr an. Passt der Termin weiterhin?", "14:02:14", True),
-                    ("callee", "Hm, Donnerstag früh ist schwierig. Geht es auch am Nachmittag?", "14:02:22", True),
-                    ("agent", "Am Donnerstag wäre um 15:00 Uhr noch etwas frei. Soll ich den Termin verschieben?", "14:02:27", True),
-                    ("callee", "Ja, 15 Uhr passt mir, dann komme ich direkt nach …", "vorläufig", False),
+                    ("agent", "Hello, this is an example assistant. Am I speaking with Max Mustermann?", "14:02:05", True),
+                    ("callee", "Yes. What is this about?", "14:02:11", True),
+                    ("agent", "This is a sample call about an appointment on Tuesday at 9:30. Does that still work?", "14:02:14", True),
+                    ("callee", "Tuesday morning is difficult. Is the afternoon open?", "14:02:22", True),
+                    ("agent", "Tuesday at 15:00 is free. Should the appointment move?", "14:02:27", True),
+                    ("callee", "Yes, 15:00 works.", "provisional", False),
                 ]
                 for speaker, text, clock, final in samples:
                     self.line_model.add(speaker, text, final=final, clock=clock)

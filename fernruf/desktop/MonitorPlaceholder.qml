@@ -7,7 +7,7 @@ ApplicationWindow {
     width: 1280
     height: 800
     visible: false
-    title: "Fernruf"
+    title: qsTr("Fernruf")
     color: opaqueFallback ? "#1a2240" : "transparent"
     flags: Qt.FramelessWindowHint | Qt.Window | Qt.WindowStaysOnTopHint
 
@@ -21,29 +21,29 @@ ApplicationWindow {
     function statusLine() {
         var elapsed = monitor.elapsed
         if (monitor.state === "dialing")
-            return "Wählt…  " + elapsed
+            return qsTr("Dialing…  %1").arg(elapsed)
         if (monitor.state === "ringing")
-            return "Klingelt…  " + elapsed
+            return qsTr("Ringing…  %1").arg(elapsed)
         if (monitor.state === "answered")
-            return "Verbunden  ·  " + elapsed
+            return qsTr("Connected  ·  %1").arg(elapsed)
         if (monitor.state === "ended" || monitor.state === "finalized")
-            return "Beendet  ·  " + elapsed
-        return "Bereit"
+            return qsTr("Ended  ·  %1").arg(elapsed)
+        return qsTr("Ready")
     }
 
     function chatStatus() {
         if (monitor.errorMessage.length)
-            return "Verbindung unterbrochen"
+            return qsTr("Connection lost")
         if (monitor.state === "ended")
-            return "Zusammenfassung wird erstellt…"
+            return qsTr("Summary is being written…")
         if (monitor.state === "finalized")
-            return "Abgeschlossen"
+            return qsTr("Finished")
         if (monitor.state === "answered" && monitor.listening)
-            return "Mithören an · lokale Wiedergabe"
+            return qsTr("Listening on · local playback")
         if (monitor.state === "answered")
-            return "Mithören aus"
+            return qsTr("Listening off")
         if (monitor.state === "dialing" || monitor.state === "ringing")
-            return "wartet auf Verbindung"
+            return qsTr("Waiting for the call")
         return ""
     }
 
@@ -252,9 +252,9 @@ ApplicationWindow {
                             spacing: 6
                             Repeater {
                                 model: [
-                                    { "name": "Verlauf", "icon": "history" },
-                                    { "name": "Tastenfeld", "icon": "dialpad" },
-                                    { "name": "Kontakte", "icon": "contact" }
+                                    { "name": qsTr("History"), "icon": "history" },
+                                    { "name": qsTr("Keypad"), "icon": "dialpad" },
+                                    { "name": qsTr("Contacts"), "icon": "contact" }
                                 ]
                                 AbstractButton {
                                     required property var modelData
@@ -299,7 +299,7 @@ ApplicationWindow {
                                     horizontalAlignment: Text.AlignHCenter
                                     wrapMode: Text.Wrap
                                     color: Qt.rgba(1, 1, 1, 0.65)
-                                    text: "Verlauf gibt es in dieser Version noch nicht."
+                                    text: qsTr("History is not in this version yet.")
                                     font.family: "Noto Sans"
                                 }
                             }
@@ -386,7 +386,7 @@ ApplicationWindow {
                                     color: Qt.rgba(1, 1, 1, 0.65)
                                     font.pixelSize: 11
                                     font.family: "Noto Sans"
-                                    text: "Tastenfeld nur zur Anzeige. Die Nummer wählt der Agent."
+                                    text: qsTr("Keypad is display only. The agent places the call.")
                                 }
                             }
                             Item {
@@ -396,7 +396,7 @@ ApplicationWindow {
                                     horizontalAlignment: Text.AlignHCenter
                                     wrapMode: Text.Wrap
                                     color: Qt.rgba(1, 1, 1, 0.65)
-                                    text: "Kontakte gibt es in dieser Version noch nicht."
+                                    text: qsTr("Contacts are not in this version yet.")
                                     font.family: "Noto Sans"
                                 }
                             }
@@ -472,21 +472,21 @@ ApplicationWindow {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 RoundButton {
                                     iconName: monitor.muted ? "volume-muted" : "volume-high"
-                                    caption: "Stumm"
+                                    caption: qsTr("Mute")
                                     checked: monitor.muted
                                     enabled: window.audioReady
                                     onClicked: monitor.setMuted(!monitor.muted)
                                 }
                                 RoundButton {
                                     iconName: "headphones"
-                                    caption: "Live mithören"
+                                    caption: qsTr("Live listen")
                                     checked: monitor.listening
                                     enabled: window.callOpen && !monitor.errorMessage.length
                                     onClicked: monitor.setListening(!monitor.listening)
                                 }
                                 RoundButton {
                                     iconName: "volume-high"
-                                    caption: "Lautstärke"
+                                    caption: qsTr("Volume")
                                     enabled: window.audioReady
                                 }
                             }
@@ -495,18 +495,18 @@ ApplicationWindow {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 RoundButton {
                                     iconName: "dialpad"
-                                    caption: "Tastenfeld"
+                                    caption: qsTr("Keypad")
                                     enabled: !monitor.errorMessage.length
                                     onClicked: window.phonePage = 0
                                 }
                                 RoundButton {
                                     iconName: "list"
-                                    caption: "Transkript"
+                                    caption: qsTr("Transcript")
                                     onClicked: window.chatOpen = !window.chatOpen
                                 }
                                 RoundButton {
                                     iconName: "record"
-                                    caption: "Aufnahme"
+                                    caption: qsTr("Record")
                                     visible: showRecordButton
                                     iconTint: "#FF8A9B"
                                     enabled: false
@@ -568,7 +568,7 @@ ApplicationWindow {
                             enabled: hangupEnabled && window.callOpen && !monitor.errorMessage.length
                         }
                         Label {
-                            text: "Auflegen – erst nach v1"
+                            text: qsTr("Hang up. Available after v1")
                             color: Qt.rgba(1, 1, 1, 0.65)
                             font.pixelSize: 12
                             font.family: "Noto Sans"
@@ -611,7 +611,7 @@ ApplicationWindow {
                         anchors.rightMargin: 18
                         Tint { iconName: "chat"; side: 18 }
                         Label {
-                            text: "Live-Transkript"
+                            text: qsTr("Live transcript")
                             color: "white"
                             font.pixelSize: 15
                             font.family: "Noto Sans"
@@ -619,7 +619,7 @@ ApplicationWindow {
                         Item { Layout.fillWidth: true }
                         Button {
                             visible: window.narrow
-                            text: window.phoneOpen ? "Schließen" : "Telefon"
+                            text: window.phoneOpen ? qsTr("Close") : qsTr("Phone")
                             flat: true
                             onClicked: window.phoneOpen = !window.phoneOpen
                         }
@@ -658,7 +658,7 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             spacing: 6
                             Label {
-                                text: "Verbindung zum Anruf verloren."
+                                text: qsTr("Connection to the call was lost.")
                                 color: "white"
                                 font.pixelSize: 14
                                 font.family: "Noto Sans"
@@ -666,7 +666,7 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                             }
                             Label {
-                                text: "Das bisherige Transkript bleibt erhalten."
+                                text: qsTr("The transcript so far is kept.")
                                 color: Qt.rgba(1, 1, 1, 0.8)
                                 font.pixelSize: 13
                                 font.family: "Noto Sans"
@@ -684,8 +684,8 @@ ApplicationWindow {
                             }
                             Row {
                                 spacing: 8
-                                PillButton { label: "Erneut verbinden"; onClicked: monitor.retryConnection() }
-                                PillButton { label: "Details"; onClicked: monitor.toggleDetails() }
+                                PillButton { label: qsTr("Connect again"); onClicked: monitor.retryConnection() }
+                                PillButton { label: qsTr("Details"); onClicked: monitor.toggleDetails() }
                             }
                         }
                     }
@@ -711,7 +711,7 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             spacing: 6
                             Label {
-                                text: "Live-Mithören ist ausgeschaltet. Das Transkript läuft weiter. Tippen Sie auf Live mithören, um das Gespräch lokal anzuhören. Das gilt nur für diesen Anruf."
+                                text: qsTr("Live listen is off. The transcript continues. Tap Live listen to hear this call on this computer. This choice is only for this call.")
                                 color: "white"
                                 wrapMode: Text.Wrap
                                 font.pixelSize: 13
@@ -721,11 +721,11 @@ ApplicationWindow {
                             Row {
                                 spacing: 8
                                 PillButton {
-                                    label: "Jetzt mithören"
+                                    label: qsTr("Listen now")
                                     onClicked: monitor.setListening(true)
                                 }
                                 PillButton {
-                                    label: "Immer fragen"
+                                    label: qsTr("Keep asking")
                                     onClicked: monitor.dismissAsk()
                                 }
                             }
@@ -749,7 +749,7 @@ ApplicationWindow {
                         anchors.margins: 12
                         Tint { iconName: "ok"; side: 20; Layout.alignment: Qt.AlignTop }
                         Label {
-                            text: "Ergebnis: " + (monitor.summaryLine.length ? monitor.summaryLine : "Anruf abgeschlossen")
+                            text: qsTr("Result: %1").arg(monitor.summaryLine.length ? monitor.summaryLine : qsTr("Call finished"))
                             color: "white"
                             wrapMode: Text.Wrap
                             font.pixelSize: 14
@@ -776,7 +776,7 @@ ApplicationWindow {
                         spacing: 4
                         Label {
                             visible: monitor.hasFacts
-                            text: "WICHTIGE FAKTEN"
+                            text: qsTr("Important facts")
                             color: Qt.rgba(1, 1, 1, 0.65)
                             font.pixelSize: 11
                             font.family: "Noto Sans"
@@ -795,7 +795,7 @@ ApplicationWindow {
                         }
                         Label {
                             visible: monitor.hasSteps
-                            text: "NÄCHSTE SCHRITTE"
+                            text: qsTr("Next steps")
                             color: Qt.rgba(1, 1, 1, 0.65)
                             font.pixelSize: 11
                             font.family: "Noto Sans"
@@ -863,7 +863,7 @@ ApplicationWindow {
                             }
                         }
                         Label {
-                            text: "Noch kein Gespräch"
+                            text: qsTr("No conversation yet")
                             color: "white"
                             font.pixelSize: 16
                             font.family: "Noto Sans"
@@ -876,7 +876,7 @@ ApplicationWindow {
                             color: Qt.rgba(1, 1, 1, 0.65)
                             font.pixelSize: 13
                             font.family: "Noto Sans"
-                            text: "Sobald die Gegenseite abnimmt, erscheint hier das Live-Transkript, zuerst der KI-Hinweis."
+                            text: qsTr("When the other person answers, the live transcript appears here, starting with the AI notice.")
                         }
                     }
 
@@ -906,7 +906,7 @@ ApplicationWindow {
                                 bottomPadding: 6
                                 leftPadding: 14
                                 rightPadding: 14
-                                text: "Hinweis: Sie sprechen mit einem KI-Assistenten von Fernruf. Das Gespräch wird transkribiert."
+                                text: qsTr("Notice: You are speaking with an AI assistant from Fernruf. This call is being transcribed.")
                                 color: Qt.rgba(1, 1, 1, 0.8)
                                 font.pixelSize: 12
                                 font.family: "Noto Sans"
@@ -935,7 +935,7 @@ ApplicationWindow {
                                 x: row.speaker === "agent" ? 12 : row.width - width - 12
                                 spacing: 3
                                 Label {
-                                    text: row.speaker === "agent" ? "Agent (KI)" : "Gesprächspartnerin"
+                                    text: row.speaker === "agent" ? qsTr("Agent (AI)") : qsTr("Other person")
                                     color: Qt.rgba(1, 1, 1, 0.65)
                                     font.pixelSize: 11
                                     font.family: "Noto Sans"
@@ -987,7 +987,7 @@ ApplicationWindow {
                                         }
                                     }
                                     Label {
-                                        text: row.final ? row.clock : "vorläufig"
+                                        text: row.final ? row.clock : qsTr("provisional")
                                         color: Qt.rgba(1, 1, 1, 0.92)
                                         font.pixelSize: 11
                                         font.italic: !row.final
@@ -1023,8 +1023,8 @@ ApplicationWindow {
                         font.pixelSize: 11
                         font.family: "Noto Sans"
                         text: monitor.state === "ended"
-                              ? "Zusammenfassung wird erstellt…"
-                              : "Vorläufige Zeilen sind gedimmt und werden ersetzt, sobald sie final sind"
+                              ? qsTr("Summary is being written…")
+                              : qsTr("Provisional lines are dimmed and are replaced once they are final.")
                     }
                     Label {
                         id: sampleTag
@@ -1032,7 +1032,7 @@ ApplicationWindow {
                         anchors.right: parent.right
                         anchors.rightMargin: 16
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Beispieldaten"
+                        text: qsTr("Example data")
                         color: "#FF8A9B"
                         font.pixelSize: 12
                         font.family: "Noto Sans"
