@@ -123,6 +123,9 @@ def _llm_tools(hooks: M2CallHooks, session: M2CallSession, settings: Settings) -
         spoken = session.in_flight_assistant_completion()
         if farewell_in_text(spoken, session.phase.goodbye_phrase or goodbye):
             goodbye = ""
+        prior = (session.spoken_goodbye or "").strip()
+        if prior and farewell_in_text(prior, goodbye or session.phase.goodbye_phrase):
+            goodbye = ""
         session.phase.begin_ending(
             reason=reason or "end_call",
             goodbye=goodbye,
@@ -145,6 +148,8 @@ def _llm_tools(hooks: M2CallHooks, session: M2CallSession, settings: Settings) -
             properties=FunctionCallResultProperties(run_llm=False),
         )
 
+    # A callee farewell during the goodbye must not cancel the hangup.
+    end_call._pipecat_cancel_on_interruption = False  # type: ignore[attr-defined]
     return [send_dtmf, end_call]
 
 

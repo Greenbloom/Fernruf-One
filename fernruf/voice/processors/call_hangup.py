@@ -40,9 +40,11 @@ from collections.abc import Awaitable, Callable
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
+    CancelFrame,
     EndFrame,
     Frame,
     InputTransportMessageFrame,
+    TranscriptionFrame,
     TTSAudioRawFrame,
     TTSSpeakFrame,
     TTSStartedFrame,
@@ -159,6 +161,17 @@ class CallHangup(FrameProcessor):
         if task and not task.done():
             task.cancel()
 
+    def cancel_pending(self) -> None:
+        """Stop the playout waits. The pipeline exit calls this so they cannot
+        outlive the ARI client."""
+        current = asyncio.current_task()
+        for task in (self._margin_task, self._fallback_task, self._cap_task):
+            if task is not None and task is not current:
+                self._cancel(task)
+        self._margin_task = None
+        self._fallback_task = None
+        self._cap_task = None
+
     def _estimate_s(self) -> float:
         if self._audio_s > 0:
             return self._audio_s
@@ -249,6 +262,25 @@ class CallHangup(FrameProcessor):
 
     def _margin_s(self) -> float:
         return self._settings.hangup_margin_s
+
+    def _pending_expired(self) -> bool:
+        """The goodbye TTS has stopped and its audio duration has elapsed."""
+        if not self._goodbye_tts_done:
+            return False
+        start = self._tts_started_at
+        if start is None:
+            return False
+        limit = max(self._audio_s, 0.3) + self._margin_s()
+        return time.monotonic() - start >= limit
+
+    def _hangup_after_callee_reply(self) -> None:
+        """The other person answered the goodbye, so the phone has played it."""
+        now = time.monotonic()
+        if not self._goodbye_sealed:
+            self._seal_now()
+        self._playout_end = now
+        self._hard_deadline = now + self._margin_s()
+        self._start_playout_wait()
 
     def _playout_finished(self) -> bool:
         """True when the output transport has played the sealed goodbye."""
@@ -382,9 +414,11 @@ class CallHangup(FrameProcessor):
         try:
             while not self._done:
                 if not self._goodbye_sealed:
-                    if self._output_still_pending():
+                    if self._output_still_pending() and not self._pending_expired():
                         await asyncio.sleep(_PLAYOUT_POLL_S)
                         continue
+                    if self._output_still_pending():
+                        LOG.info("Goodbye audio still marked pending after playout; sealing")
                     self._seal_now()
                     if self._done:
                         return
@@ -563,18 +597,36 @@ class CallHangup(FrameProcessor):
             await self.arm()
         if self._need_speak and not self._done:
             self._need_speak = False
-            self._speak_pushed = True
             phrase = self._wait_phrase
-            LOG.info("end_call: speaking goodbye via TTS (%s chars)", len(phrase))
-            # Remember the sentence now. TTSTextFrame for this speak has
-            # append_to_context=False, so the transcript consolidator never
-            # stores it, and hangup follows QUEUE_DRAINED rather than
-            # BotStoppedSpeaking.
-            self._session.spoken_goodbye = phrase.strip()
-            await self.push_frame(
-                TTSSpeakFrame(text=phrase, append_to_context=False),
-                FrameDirection.UPSTREAM,
-            )
+            already = (self._session.spoken_goodbye or "").strip()
+            if already and _phrase_in(phrase, already):
+                LOG.info("Goodbye already spoken; not queueing it again")
+                self._speak_pushed = True
+                self._phrase_seen = True
+            else:
+                self._speak_pushed = True
+                LOG.info("end_call: speaking goodbye via TTS (%s chars)", len(phrase))
+                # Remember the sentence now. TTSTextFrame for this speak has
+                # append_to_context=False, so the transcript consolidator never
+                # stores it, and hangup follows QUEUE_DRAINED rather than
+                # BotStoppedSpeaking.
+                self._session.spoken_goodbye = phrase.strip()
+                speak = TTSSpeakFrame(text=phrase, append_to_context=False)
+                speak.interruptible = False
+                await self.push_frame(speak, FrameDirection.UPSTREAM)
+
+        if (
+            isinstance(frame, TranscriptionFrame)
+            and self._armed
+            and not self._done
+            and self._goodbye_tts_done
+            and (frame.text or "").strip()
+        ):
+            LOG.info("Callee spoke after the goodbye; hanging up when the margin elapses")
+            self._hangup_after_callee_reply()
+
+        if isinstance(frame, (CancelFrame, EndFrame)) and self._done:
+            self.cancel_pending()
 
         self._note_queue_drained(frame)
 

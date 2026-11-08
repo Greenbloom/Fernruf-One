@@ -19,10 +19,11 @@ phone finishing the turn; the playout clock is the floor.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import WebSocket
-from pipecat.frames.frames import CancelFrame, EndFrame, Frame, InterruptionFrame, StopFrame
+from pipecat.frames.frames import CancelFrame, EndFrame, Frame, InterruptionFrame, StopFrame, TTSStoppedFrame
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
 from pipecat_asterisk.frames import AsteriskCommandFrame
@@ -99,10 +100,41 @@ class FernrufAsteriskOutputTransport(AsteriskWebsocketOutputTransport):
             return False
         local = int(getattr(fc, "_local_buffer_size", 0) or 0)
         remote = float(getattr(fc, "_remote_buffer_utilization", 0.0) or 0.0)
-        fence = getattr(fc, "bot_stopped_speaking_fence", None)
-        if fence is None or not fence.is_set():
+        if local > 0 or remote > 0.5:
             return False
-        return local <= 0 and remote <= 0.5
+        # The flow controller only opens this when utilization hits exactly
+        # zero. A drained buffer that stops at a fraction of a byte never
+        # does, and the audio task then waits until the 20s cap.
+        fence = getattr(fc, "bot_stopped_speaking_fence", None)
+        if fence is not None and not fence.is_set():
+            fence.set()
+        return True
+
+    async def push_frame(self, frame: Frame, direction: FrameDirection = FrameDirection.DOWNSTREAM):
+        if isinstance(frame, TTSStoppedFrame):
+            await self._wait_for_playout_fence()
+        await super(AsteriskWebsocketOutputTransport, self).push_frame(frame, direction)
+
+    async def _wait_for_playout_fence(self) -> None:
+        """Wait until Asterisk's buffer has drained, then let the audio task go.
+
+        The stock transport waits with no timeout. A fence that never opens
+        leaves the clock and audio tasks running after the pipeline closes.
+        """
+        fc = self._flow_controller
+        fence = getattr(fc, "bot_stopped_speaking_fence", None) if fc is not None else None
+        if fence is None or fence.is_set():
+            return
+        remote = float(getattr(fc, "_remote_buffer_utilization", 0.0) or 0.0)
+        psize = int(getattr(fc, "_psize", 640) or 640)
+        ptime_ms = int(getattr(fc, "_ptime", 20) or 20)
+        seconds = (remote / psize) * (ptime_ms / 1000.0) if psize else 0.0
+        timeout = min(8.0, max(0.2, seconds + 0.3))
+        try:
+            await asyncio.wait_for(fence.wait(), timeout)
+        except TimeoutError:
+            LOG.warning("Playout fence did not open; releasing the audio task")
+            fence.set()
 
     def _release_playout_wait(self) -> None:
         """Unblock a TTSStopped hold so the output tasks can exit."""

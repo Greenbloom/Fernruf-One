@@ -642,3 +642,75 @@ def test_flow_unclear_answer_asks_once_then_ends(
     assert sum("didn't catch that" in line for line in spoken) == 1
     assert sum("Goodbye" in line for line in spoken) == 1
     assert any("Reasking once" in r.message for r in caplog.records)
+
+
+def test_flow_callee_farewell_does_not_speak_the_goodbye_again(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """end_call speaks the goodbye once. A later callee farewell starts no turn."""
+    goodbye = "Thank you. Goodbye."
+
+    def reply(body: dict[str, Any]) -> list[dict[str, Any]]:
+        user = _last_user(body)
+        if "Goodbye" in user:
+            return [{"delta": {"content": goodbye}, "finish_reason": "stop"}]
+        if "Tuesday" in user:
+            return _tool_end_call("task_complete", goodbye)
+        return [{"delta": {"content": "Does Tuesday still work?"}, "finish_reason": "stop"}]
+
+    server, base = _start_script(reply)
+    built, transport, session, hangup = _pipeline(
+        tmp_path,
+        base,
+        timeout_s=5.0,
+        fallback="",
+        task="Ask if Tuesday still works.",
+        call_language="en",
+    )
+    caplog.set_level(logging.INFO)
+
+    async def run() -> None:
+        params = PipelineParams(audio_in_sample_rate=16000, audio_out_sample_rate=16000)
+        runner = WorkerRunner(handle_sigint=False, handle_sigterm=False)
+        worker = PipelineWorker(built.pipeline, params=params, cancel_timeout_secs=1.0)
+        await runner.add_workers(worker)
+        run_task = asyncio.create_task(runner.run())
+        await worker.queue_frame(StartFrame())
+        await worker.queue_frame(
+            InputTransportMessageFrame(
+                message={"event": "MEDIA_START", "ptime": 20, "optimal_frame_size": 640}
+            )
+        )
+        await prime_transport_flow(transport)
+        user_agg = built.context_pair.user()
+        for line in ("Hello?", "Yes, Tuesday works."):
+            before = len(_ScriptLLM.requests)
+            await user_agg.push_frame(
+                LLMMessagesAppendFrame(
+                    messages=[{"role": "user", "content": line}],
+                    run_llm=True,
+                ),
+                FrameDirection.DOWNSTREAM,
+            )
+            await wait_until(lambda b=before: len(_ScriptLLM.requests) > b, timeout_s=8.0)
+            await asyncio.sleep(0.4)
+        await wait_until(lambda: session.phase.is_ending or session.phase.is_hung_up, timeout_s=4.0)
+        requests_after_end = len(_ScriptLLM.requests)
+        await user_agg.push_frame(
+            LLMMessagesAppendFrame(
+                messages=[{"role": "user", "content": "Goodbye."}],
+                run_llm=True,
+            ),
+            FrameDirection.DOWNSTREAM,
+        )
+        await asyncio.sleep(0.8)
+        assert len(_ScriptLLM.requests) == requests_after_end
+        await _stop_pipeline(transport, worker, run_task)
+
+    try:
+        asyncio.run(run())
+    finally:
+        server.shutdown()
+    spoken = [r.message for r in caplog.records if r.message.startswith("TTS start:")]
+    assert sum("Goodbye" in line for line in spoken) == 1
+    assert any("No assistant turn after end_call" in r.message for r in caplog.records)

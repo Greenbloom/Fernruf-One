@@ -9,8 +9,8 @@ from collections.abc import Sequence
 from typing import Any
 
 from openai.types.chat import ChatCompletionChunk
-from pipecat.frames.frames import LLMTextFrame, TTSSpeakFrame
-from pipecat.processors.frame_processor import FrameDirection
+from pipecat.frames.frames import LLMContextFrame, LLMTextFrame, TTSSpeakFrame
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.metrics.metrics import LLMTokenUsage
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.services.llm_service import FunctionCallFromLLM
@@ -107,11 +107,28 @@ class FernrufOpenAILLMService(OpenAILLMService):
         if function_calls:
             await super().run_function_calls(function_calls)
 
-    async def _push_llm_text(self, text: str) -> None:
-        if self._call_session is not None and self._call_session.phase.suppresses_llm:
+    async def process_frame(self, frame, direction: FrameDirection):
+        session = self._call_session
+        if (
+            isinstance(frame, LLMContextFrame)
+            and session is not None
+            and session.phase.suppresses_llm
+        ):
+            LOG.info("No assistant turn after end_call")
+            await FrameProcessor.process_frame(self, frame, direction)
             return
-        if self._call_session is not None:
-            self._call_session.speakable_llm_this_turn = True
+        await super().process_frame(frame, direction)
+
+    async def _push_llm_text(self, text: str) -> None:
+        session = self._call_session
+        if session is not None and session.phase.suppresses_llm:
+            return
+        if session is not None and session.spoken_goodbye:
+            if farewell_in_text(text, session.spoken_goodbye):
+                LOG.info("Dropping goodbye; it was already spoken")
+                return
+        if session is not None:
+            session.speakable_llm_this_turn = True
         await self.push_frame(LLMTextFrame(text))
 
     async def get_chat_completions(self, context: LLMContext):  # noqa: ANN201

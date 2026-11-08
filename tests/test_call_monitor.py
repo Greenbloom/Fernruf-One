@@ -60,7 +60,9 @@ def test_audio_tap_drops_when_the_listener_is_full() -> None:
         note_frame(monitor, "call-1", TTSAudioRawFrame(b"\x01\x00" * 80, 16000, 1))
     elapsed = time.perf_counter() - started
     assert elapsed < 0.05
-    assert slow.dropped == 300
+    # The burst is re-clocked. Only the preroll is offered immediately, and
+    # that hits the full queue. The rest stays buffered instead of being dumped.
+    assert 0 < slow.dropped < 300
     kept = slow.audio.get_nowait()
     parsed = unpack_audio(kept)
     assert parsed["direction"] == "inbound"

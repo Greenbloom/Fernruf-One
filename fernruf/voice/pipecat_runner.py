@@ -133,6 +133,12 @@ async def run_pipecat_on_websocket(
     try:
         await runner.run()
     finally:
+        if session.phase.is_ending and not session.hung_up and hooks.hangup is not None:
+            LOG.info("pipeline exit; hanging up before the ARI client closes")
+            with contextlib.suppress(Exception):
+                await hooks.hangup()
+            session.phase.mark_hung_up()
+        built.hangup.cancel_pending()
         built.metrics.flush_turn()
         summary = latency_log.median_report(include_simulated=False)
         LOG.info("call latency summary: %s", json.dumps(summary, ensure_ascii=False))

@@ -25,6 +25,7 @@ from fernruf.desktop.choices import (
 )
 from fernruf.desktop.lines import make_line_model
 from fernruf.desktop.prefs import default_pref_path, load_listen_pref, save_listen_pref
+from fernruf.monitor.pace import MONITOR_RATE, PlaybackPacer
 from fernruf.monitor.protocol import unpack_audio
 
 
@@ -222,12 +223,18 @@ class CallModel:
                 self.fact_model = QStringListModel(self)
                 self.step_model = QStringListModel(self)
                 self._sinks: dict[str, object] = {}
+                self._pacers: dict[str, PlaybackPacer] = {}
+                self._unsent: dict[str, bytes] = {}
                 self._socket = None
                 self._reconnect = None
                 self._clock = QTimer(self)
                 self._clock.setInterval(200)
                 self._clock.timeout.connect(self._tick)
                 self._clock.start()
+                self._play = QTimer(self)
+                self._play.setInterval(20)
+                self._play.timeout.connect(self._drain_audio)
+                self._play.start()
 
             def _store(self) -> None:
                 save_listen_pref(
@@ -373,6 +380,8 @@ class CallModel:
                     self.line_model.clear()
                     self.fact_model.setStringList([])
                     self.step_model.setStringList([])
+                    self._pacers.clear()
+                    self._unsent.clear()
                     self._summary = ""
                     self._callee = ""
                     self._campaign = ""
@@ -452,19 +461,51 @@ class CallModel:
                 if not pcm:
                     return
                 direction = str(frame.get("direction") or "")
-                opened = self._sink(direction, int(frame.get("sample_rate") or 16000))
-                if opened is None:
-                    return
-                opened[0].write(pcm)
+                pacer = self._pacers.get(direction)
+                if pacer is None:
+                    pacer = PlaybackPacer()
+                    self._pacers[direction] = pacer
+                pacer.push(
+                    pcm,
+                    sample_rate=int(frame.get("sample_rate") or MONITOR_RATE),
+                    channels=int(frame.get("channels") or 1),
+                )
 
-            def _sink(self, direction: str, sample_rate: int):
+            def _drain_audio(self) -> None:
+                if not self._listening or self._muted:
+                    return
+                for direction, pacer in self._pacers.items():
+                    chunks = pacer.take()
+                    pending = self._unsent.get(direction) or b""
+                    if pending:
+                        chunks.insert(0, pending)
+                        self._unsent[direction] = b""
+                    if not chunks:
+                        continue
+                    opened = self._sink(direction)
+                    if opened is None:
+                        continue
+                    self._write_pcm(direction, opened[0], b"".join(chunks))
+
+            def _write_pcm(self, direction: str, device, pcm: bytes) -> None:
+                view = pcm
+                while view:
+                    wrote = device.write(view)
+                    if wrote is None or wrote < 0:
+                        return
+                    if wrote == 0:
+                        self._unsent[direction] = bytes(view)
+                        return
+                    view = view[wrote:]
+
+            def _sink(self, direction: str):
                 from PySide6.QtMultimedia import QAudioFormat, QAudioSink
 
                 current = self._sinks.get(direction)
-                if current is not None and current[0] == sample_rate:
+                if current is not None and current[0] == MONITOR_RATE:
                     return current[1:]
                 fmt = QAudioFormat()
-                fmt.setSampleRate(sample_rate)
+                fmt.setSampleRate(MONITOR_RATE)
                 fmt.setChannelCount(1)
                 fmt.setSampleFormat(QAudioFormat.SampleFormat.Int16)
                 audio = QAudioSink(fmt)
@@ -472,7 +513,7 @@ class CallModel:
                 device = audio.start()
                 if device is None:
                     return None
-                self._sinks[direction] = (sample_rate, device, audio)
+                self._sinks[direction] = (MONITOR_RATE, device, audio)
                 return device, audio
 
             def _apply_volume(self) -> None:
@@ -484,6 +525,8 @@ class CallModel:
                 for _rate, _device, audio in self._sinks.values():
                     audio.stop()
                 self._sinks.clear()
+                self._pacers.clear()
+                self._unsent.clear()
 
             def _tick(self) -> None:
                 if not self._timing or self._started_at is None:

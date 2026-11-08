@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from fernruf.monitor.pace import MONITOR_RATE, PlaybackPacer
 from fernruf.monitor.protocol import lifecycle_message, mask_e164, pack_audio, transcript_message
 from fernruf.monitor.state import CallLifecycle, next_state
 
@@ -39,6 +40,7 @@ class CallMonitor:
         self._calls: dict[str, _CallView] = {}
         self._subs: list[Subscription] = []
         self._history: list[dict[str, Any]] = []
+        self._outbound: dict[str, PlaybackPacer] = {}
 
     def begin(self, call_id: str, *, to_e164: str) -> bool:
         if call_id in self._calls:
@@ -102,6 +104,39 @@ class CallMonitor:
 
     def wants_audio(self) -> bool:
         return any(sub.listen for sub in self._subs)
+
+    def offer_paced_outbound(
+        self,
+        call_id: str,
+        pcm: bytes,
+        *,
+        sample_rate: int,
+        channels: int,
+        now: float | None = None,
+    ) -> None:
+        """Buffer outbound TTS and release it at realtime. Never blocks."""
+        if not pcm:
+            return
+        pacer = self._outbound.get(call_id)
+        if pacer is None:
+            pacer = PlaybackPacer()
+            self._outbound[call_id] = pacer
+        pacer.push(pcm, sample_rate=sample_rate, channels=channels)
+        self.release_outbound(call_id, now=now)
+
+    def release_outbound(self, call_id: str, *, now: float | None = None) -> None:
+        """Hand due outbound frames to listeners. A full queue still drops."""
+        pacer = self._outbound.get(call_id)
+        if pacer is None:
+            return
+        for chunk in pacer.take(now):
+            self.offer_audio(
+                call_id,
+                direction="outbound",
+                pcm=chunk,
+                sample_rate=MONITOR_RATE,
+                channels=1,
+            )
 
     def offer_audio(
         self,

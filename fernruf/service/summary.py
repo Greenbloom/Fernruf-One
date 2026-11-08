@@ -1,8 +1,9 @@
 """Post-call summary for a completed call.
 
-The model returns outcome, key facts, follow-ups, and consent. When no model
-is configured the same shape is filled from the transcript so a completed
-call is never stored with a null summary.
+The model returns outcome, key facts, follow-ups, and consent. Key facts are
+the answers to the task's questions. When the model is missing or its reply
+cannot be used, the result is marked degraded instead of copying transcript
+lines into the facts.
 """
 
 from __future__ import annotations
@@ -16,8 +17,6 @@ import httpx
 from fernruf.settings import Settings
 
 LOG = logging.getLogger("fernruf.summary")
-
-_KEYS = ("outcome", "key_facts", "follow_ups", "consent", "one_line", "task_status")
 
 
 def _consent(lines: list[dict[str, Any]]) -> str:
@@ -41,36 +40,49 @@ def _consent(lines: list[dict[str, Any]]) -> str:
     return "not_asked"
 
 
-def summary_from_transcript(
-    transcript: list[dict[str, Any]],
-    *,
-    outcome: str,
-) -> dict[str, Any]:
+def _degraded(transcript: list[dict[str, Any]], *, outcome: str, reason: str) -> dict[str, Any]:
+    """A summary that did not answer the task. Facts stay empty on purpose."""
+    LOG.warning("call summary degraded: %s", reason)
     lines = [line for line in transcript if isinstance(line, dict)]
-    facts = [
-        str(line.get("text") or "").strip()
-        for line in lines
-        if line.get("speaker") == "callee" and str(line.get("text") or "").strip()
-    ][:8]
     return {
         "outcome": outcome,
-        "key_facts": facts,
+        "key_facts": [],
         "follow_ups": [],
         "consent": _consent(lines),
-        "one_line": (facts[-1] if facts else ""),
-        "task_status": "completed" if outcome == "completed" else "incomplete",
+        "one_line": "",
+        "task_status": "incomplete",
+        "degraded": True,
     }
 
 
-def _parse_summary(raw: str, *, outcome: str) -> dict[str, Any] | None:
+def _json_object(raw: str) -> dict[str, Any] | None:
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:]
+        text = text.strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start >= 0 and end > start:
+        text = text[start : end + 1]
     try:
-        data = json.loads(raw)
+        data = json.loads(text)
     except json.JSONDecodeError:
         return None
-    if not isinstance(data, dict):
+    return data if isinstance(data, dict) else None
+
+
+def _parse_summary(raw: str, *, outcome: str) -> dict[str, Any] | None:
+    data = _json_object(raw)
+    if data is None:
         return None
     facts = data.get("key_facts")
     follow = data.get("follow_ups")
+    if isinstance(facts, str):
+        facts = [facts]
+    if follow is None:
+        follow = []
     if not isinstance(facts, list) or not isinstance(follow, list):
         return None
     consent = str(data.get("consent") or "not_asked")
@@ -100,6 +112,9 @@ def _prompt(transcript: list[dict[str, Any]], task: str) -> str:
     return (
         "Summarize this completed phone call as JSON with keys "
         "outcome, key_facts, follow_ups, consent, one_line, task_status. "
+        "key_facts is a list with one answer for each question in the task, "
+        "in the task's language. one_line is one sentence that states those "
+        "answers. Do not copy filler, laughter, or goodbye lines. "
         "consent is granted, refused, or not_asked. "
         "Use only what was said. Do not include phone numbers.\n\n"
         f"Task:\n{task.strip() or '(none)'}\n\n"
@@ -129,11 +144,32 @@ async def _complete_with_llm(settings: Settings, prompt: str) -> str:
         response.raise_for_status()
         body = response.json()
     choices = body.get("choices") if isinstance(body, dict) else None
-    if not choices:
+    if not choices or not isinstance(choices[0], dict):
         return ""
-    message = choices[0].get("message") if isinstance(choices[0], dict) else None
-    content = message.get("content") if isinstance(message, dict) else ""
-    return content if isinstance(content, str) else ""
+    message = choices[0].get("message")
+    if not isinstance(message, dict):
+        return ""
+    return _message_text(message)
+
+
+def _message_text(message: dict[str, Any]) -> str:
+    content = message.get("content")
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                parts.append(str(item.get("text") or ""))
+        content = "".join(parts)
+    text = content if isinstance(content, str) else ""
+    if text.strip():
+        return text
+    for key in ("reasoning", "reasoning_content"):
+        extra = message.get(key)
+        if isinstance(extra, str) and extra.strip():
+            return extra
+    return ""
 
 
 async def summarize_completed_call(
@@ -144,21 +180,22 @@ async def summarize_completed_call(
     outcome: str,
     complete=None,
 ) -> dict[str, Any]:
-    """Return the structured summary. Always a dict for a completed call."""
+    """Return the structured summary, or a degraded one when the model cannot."""
     prompt = _prompt(transcript, task)
     raw = ""
     if complete is not None:
-        raw = await complete(prompt)
-    elif not settings.llm_mock and (settings.llm_api_key_resolved or "").strip():
+        try:
+            raw = await complete(prompt)
+        except Exception as exc:
+            return _degraded(transcript, outcome=outcome, reason=f"model call failed: {exc}")
+    elif settings.llm_mock or not (settings.llm_api_key_resolved or "").strip():
+        return _degraded(transcript, outcome=outcome, reason="no summary model configured")
+    else:
         try:
             raw = await _complete_with_llm(settings, prompt)
-        except Exception:
-            LOG.warning("summary model failed; using the transcript")
-            raw = ""
+        except Exception as exc:
+            return _degraded(transcript, outcome=outcome, reason=f"model call failed: {exc}")
     parsed = _parse_summary(raw, outcome=outcome) if raw else None
     if parsed is not None:
         return parsed
-    summary = summary_from_transcript(transcript, outcome=outcome)
-    for key in _KEYS:
-        summary.setdefault(key, "")
-    return summary
+    return _degraded(transcript, outcome=outcome, reason="model reply was not a summary")
