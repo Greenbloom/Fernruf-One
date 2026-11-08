@@ -4,16 +4,15 @@ import QtQuick.Layouts
 
 ApplicationWindow {
     id: window
-    width: 1280
-    height: 800
+    width: chatOpen ? 1080 : 400
+    height: 720
     visible: false
     title: qsTr("Fernruf")
-    color: opaqueFallback ? "#1a2240" : "transparent"
+    color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.Window | Qt.WindowStaysOnTopHint
 
     readonly property color cyan: "#9BE7FF"
-    readonly property bool narrow: width < 1000
-    property bool phoneOpen: false
+    readonly property int unitRadius: 24
     property bool chatOpen: true
     property int phonePage: 1
     property string tracked: ""
@@ -94,6 +93,13 @@ ApplicationWindow {
         onActivated: window.returnToCall()
     }
 
+    Shortcut {
+        objectName: "hideShortcut"
+        sequence: "Escape"
+        enabled: window.phonePage !== 0
+        onActivated: window.hide()
+    }
+
     component Tint: Image {
         property string iconName: ""
         property bool active: false
@@ -168,70 +174,68 @@ ApplicationWindow {
         }
     }
 
-    Canvas {
-        id: backdrop
-        anchors.fill: parent
-        onPaint: {
-            var ctx = getContext("2d")
-            ctx.fillStyle = "#1a2240"
-            ctx.fillRect(0, 0, width, height)
-            function blob(x, y, r, color) {
-                var g = ctx.createRadialGradient(x, y, 10, x, y, r)
-                g.addColorStop(0, color)
-                g.addColorStop(1, "rgba(0,0,0,0)")
-                ctx.fillStyle = g
-                ctx.beginPath()
-                ctx.arc(x, y, r, 0, Math.PI * 2)
-                ctx.fill()
-            }
-            blob(width * 0.18, height * 0.22, width * 0.42, "rgba(150, 48, 82, 0.95)")
-            blob(width * 0.86, height * 0.16, width * 0.36, "rgba(48, 64, 150, 0.9)")
-            blob(width * 0.78, height * 0.86, width * 0.42, "rgba(120, 48, 170, 0.75)")
-            blob(width * 0.28, height * 0.9, width * 0.36, "rgba(24, 110, 96, 0.55)")
-            ctx.fillStyle = "rgba(0,0,0,0.45)"
-            ctx.fillRect(0, 0, width, height)
+    component WindowButton: AbstractButton {
+        id: control
+        property string iconName: ""
+        implicitWidth: 28
+        implicitHeight: 28
+        background: Rectangle {
+            radius: 14
+            color: control.hovered ? Qt.rgba(1, 1, 1, 0.24) : Qt.rgba(1, 1, 1, 0.12)
         }
-        onWidthChanged: requestPaint()
-        onHeightChanged: requestPaint()
+        contentItem: Item {
+            Tint {
+                iconName: control.iconName
+                side: 16
+                anchors.centerIn: parent
+            }
+        }
     }
 
     Item {
         id: unit
-        width: Math.min(1080, window.width - 48)
-        height: Math.min(720, window.height - 48)
-        anchors.centerIn: parent
-        clip: true
+        anchors.fill: parent
 
         Rectangle {
+            id: plate
+            objectName: "unitPlate"
             anchors.fill: parent
-            radius: 24
-            color: "transparent"
+            radius: window.unitRadius
+            color: frame.opaque ? "#1a2240" : "transparent"
             border.color: Qt.rgba(1, 1, 1, 0.08)
             border.width: 1
         }
 
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton
+            onPressed: function (mouse) {
+                if (mouse.button === Qt.LeftButton)
+                    window.startSystemMove()
+            }
+        }
+
         Item {
             id: phone
-            width: window.narrow && !window.phoneOpen ? 0 : 400
+            width: 400
             height: parent.height
-            z: window.narrow ? 2 : 0
             visible: width > 0
             clip: true
 
             Rectangle {
                 anchors.fill: parent
                 color: Qt.rgba(1, 1, 1, 0.14)
-                topLeftRadius: 24
-                bottomLeftRadius: 24
-                topRightRadius: window.narrow ? 24 : 0
-                bottomRightRadius: window.narrow ? 24 : 0
+                topLeftRadius: window.unitRadius
+                bottomLeftRadius: window.unitRadius
+                topRightRadius: window.chatOpen ? 0 : window.unitRadius
+                bottomRightRadius: window.chatOpen ? 0 : window.unitRadius
             }
 
             ColumnLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 26
                 anchors.rightMargin: 26
-                anchors.topMargin: 22
+                anchors.topMargin: window.chatOpen ? 22 : 48
                 anchors.bottomMargin: 16
                 spacing: 0
 
@@ -667,18 +671,18 @@ ApplicationWindow {
             id: chat
             objectName: "transcriptPanel"
             visible: window.chatOpen
-            x: window.narrow ? 0 : 400
-            width: window.narrow ? parent.width : parent.width - 400
+            x: 400
+            width: parent.width - 400
             height: parent.height
             z: 1
 
             Rectangle {
                 anchors.fill: parent
                 color: Qt.rgba(1, 1, 1, 0.08)
-                topRightRadius: 24
-                bottomRightRadius: 24
-                topLeftRadius: window.narrow ? 24 : 0
-                bottomLeftRadius: window.narrow ? 24 : 0
+                topRightRadius: window.unitRadius
+                bottomRightRadius: window.unitRadius
+                topLeftRadius: 0
+                bottomLeftRadius: 0
             }
 
             ColumnLayout {
@@ -692,7 +696,7 @@ ApplicationWindow {
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 18
-                        anchors.rightMargin: 18
+                        anchors.rightMargin: 86
                         Tint { iconName: "chat"; side: 18 }
                         Label {
                             text: qsTr("Live transcript")
@@ -701,12 +705,6 @@ ApplicationWindow {
                             font.family: "Noto Sans"
                         }
                         Item { Layout.fillWidth: true }
-                        Button {
-                            visible: window.narrow
-                            text: window.phoneOpen ? qsTr("Close") : qsTr("Phone")
-                            flat: true
-                            onClicked: window.phoneOpen = !window.phoneOpen
-                        }
                         Label {
                             text: window.chatStatus()
                             color: Qt.rgba(1, 1, 1, 0.65)
@@ -1126,11 +1124,33 @@ ApplicationWindow {
         }
 
         Rectangle {
-            visible: !window.narrow && window.chatOpen
+            visible: window.chatOpen
             x: 399
             width: 1
             height: parent.height
             color: Qt.rgba(1, 1, 1, 0.14)
+        }
+
+        Row {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: 12
+            anchors.rightMargin: 12
+            spacing: 6
+            z: 20
+
+            WindowButton {
+                objectName: "minimizeWindow"
+                iconName: "window-minimize"
+                Accessible.name: qsTr("Minimize")
+                onClicked: window.showMinimized()
+            }
+            WindowButton {
+                objectName: "closeWindow"
+                iconName: "window-close"
+                Accessible.name: qsTr("Close")
+                onClicked: window.hide()
+            }
         }
     }
 }

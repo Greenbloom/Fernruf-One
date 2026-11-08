@@ -3,7 +3,7 @@
 * No DTMF from this window.
 * Listening is chosen again on every call and is not written to disk.
 * The window opens when a call starts, and the tray icon stays.
-* No KWin blur. The panel is an opaque dark plate using the same colors.
+* KWin blurs the rounded window when the session is X11. USE_OPAQUE_FALLBACK keeps the dark plate.
 * Hang-up stays off. Recording stays off.
 """
 
@@ -13,7 +13,7 @@ SEND_DTMF = False
 PERSIST_LISTEN = False
 RAISE_WINDOW_ON_CALL = True
 SHOW_TRAY_ICON = True
-USE_OPAQUE_FALLBACK = True
+USE_OPAQUE_FALLBACK = False
 HANGUP_ENABLED = False
 SHOW_RECORD_BUTTON = False
 

@@ -112,8 +112,8 @@
             <translation>Schließen</translation>
         </message>
         <message>
-            <source>Phone</source>
-            <translation>Telefon</translation>
+            <source>Minimize</source>
+            <translation>Minimieren</translation>
         </message>
         <message>
             <source>Connection to the call was lost.</source>
