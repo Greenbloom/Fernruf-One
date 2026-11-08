@@ -58,10 +58,18 @@ def test_transcript_off_then_keypad_then_back_then_transcript_on() -> None:
 
         assert window.property("phonePage") == 1
         assert window.property("chatOpen") is True
+        assert window.width() == 1080
+        assert window.height() == 720
+        assert int(window.color().alpha()) == 0
+        plate = item("unitPlate").property("color")
+        assert (plate.red(), plate.green(), plate.blue()) == (0x1A, 0x22, 0x40)
         assert item("transcriptPanel").isVisible()
+        assert item("closeWindow").isVisible()
+        assert item("minimizeWindow").isVisible()
 
         click("transcriptToggle")
         assert window.property("chatOpen") is False
+        assert window.width() == 400
         assert item("transcriptPanel").isVisible() is False
 
         click("openKeypad")
@@ -92,6 +100,15 @@ def test_transcript_off_then_keypad_then_back_then_transcript_on() -> None:
         click("transcriptOnDialer")
         assert window.property("chatOpen") is True
         assert item("transcriptPanel").isVisible()
+
+        click("backToCall")
+        assert window.property("phonePage") == 1
+        assert window.width() == 1080
+        window.requestActivate()
+        app.processEvents()
+        QTest.keyClick(window, Qt.Key.Key_Escape)
+        app.processEvents()
+        assert window.isVisible() is False
         QTimer.singleShot(0, app.quit)
         raise SystemExit(app.exec())
         """

@@ -47,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if (smoke or shot) and not os.environ.get("QT_QPA_PLATFORM"):
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
+    _enable_alpha()
     app = QApplication(sys.argv if argv is None else ["fernruf-monitor", *args])
     install_translator(app)
     pref_path = Path("/tmp/fernruf-monitor-shot.json") if shot else default_pref_path()
@@ -89,12 +90,51 @@ def main(argv: list[str] | None = None) -> int:
     return app.exec()
 
 
+def _enable_alpha() -> None:
+    from PySide6.QtGui import QSurfaceFormat
+
+    fmt = QSurfaceFormat.defaultFormat()
+    fmt.setAlphaBufferSize(8)
+    QSurfaceFormat.setDefaultFormat(fmt)
+
+
+def _new_frame(opaque: bool):
+    from PySide6.QtCore import Property, QObject, Signal
+
+    kind = getattr(_new_frame, "kind", None)
+    if kind is None:
+        class Frame(QObject):
+            opaqueChanged = Signal()
+
+            def __init__(self, value: bool) -> None:
+                super().__init__()
+                self._opaque = bool(value)
+
+            def read_opaque(self) -> bool:
+                return self._opaque
+
+            def set_opaque(self, value: bool) -> None:
+                value = bool(value)
+                if value == self._opaque:
+                    return
+                self._opaque = value
+                self.opaqueChanged.emit()
+
+            opaque = Property(bool, read_opaque, notify=opaqueChanged)
+
+        kind = Frame
+        _new_frame.kind = kind
+    return kind(opaque)
+
+
 def _load_window(model):
     from PySide6.QtCore import QUrl
     from PySide6.QtQml import QQmlApplicationEngine
 
+    _enable_alpha()
     qml = Path(__file__).with_name("MonitorPlaceholder.qml")
     engine = QQmlApplicationEngine()
+    frame = _new_frame(USE_OPAQUE_FALLBACK)
     context = engine.rootContext()
     context.setContextProperty("monitor", model)
     context.setContextProperty("lineModel", model.line_model)
@@ -103,7 +143,7 @@ def _load_window(model):
     context.setContextProperty("sendDtmf", SEND_DTMF)
     context.setContextProperty("hangupEnabled", HANGUP_ENABLED)
     context.setContextProperty("showRecordButton", SHOW_RECORD_BUTTON)
-    context.setContextProperty("opaqueFallback", USE_OPAQUE_FALLBACK)
+    context.setContextProperty("frame", frame)
     context.setContextProperty("raiseOnCall", RAISE_WINDOW_ON_CALL)
     context.setContextProperty(
         "canRaise",
@@ -111,8 +151,27 @@ def _load_window(model):
     )
     engine.load(QUrl.fromLocalFile(str(qml)))
     model._engine = engine
+    engine._frame = frame
     roots = engine.rootObjects()
-    return roots[0] if roots else None
+    window = roots[0] if roots else None
+    if window is not None:
+        _fit_call_window(window, frame)
+    return window
+
+
+def _fit_call_window(window, frame) -> None:
+    from fernruf.desktop.shape import apply_kwin_blur
+
+    def apply() -> None:
+        if USE_OPAQUE_FALLBACK:
+            frame.set_opaque(True)
+            return
+        radius = int(window.property("unitRadius") or 24)
+        frame.set_opaque(not apply_kwin_blur(window, radius))
+
+    window.widthChanged.connect(apply)
+    window.heightChanged.connect(apply)
+    apply()
 
 
 def _tray(app, window) -> None:
