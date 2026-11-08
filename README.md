@@ -61,15 +61,13 @@ uv sync --extra desktop
 uv run --extra desktop fernruf monitor
 ```
 
-The process sits in the tray and raises a window when a call starts. The window is a placeholder. Replace `fernruf/desktop/MonitorPlaceholder.qml` when the mockup arrives. The Python object behind it keeps the names `number`, `state`, `elapsed`, `listening`, `volume`, `muted`, and `summaryLine`. The transcript list is `lineModel`.
-
-Listening is off until you turn it on. The checkbox is stored in `~/.config/fernruf/listen.json` (`listen`, default false). Volume and mute affect only this computer's playback. The window cannot speak into the call or hang it up. Nothing from this socket leaves the machine.
+The process sits in the tray and raises a window when a call starts. The window is the glass layout in `fernruf/desktop/MonitorPlaceholder.qml`. Listening is off for each call until you turn it on, and that choice is not saved. Volume and mute are saved in `~/.config/fernruf/listen.json` and affect only this computer's playback. The keypad does not send tones. Hang-up stays off. The window cannot speak into the call. Nothing from this socket leaves the machine.
 
 Text frames are JSON with `"v": 1`.
 
 - Client, if the handshake has no `Authorization: Bearer` header: `{"type":"auth","token":"..."}`. Server replies `{"type":"auth_ok"}`.
 - Client: `{"type":"listen","enabled":true}`. Audio is not sent until this is true. The server replies with the same shape.
-- Server lifecycle: `{"type":"lifecycle","call_id","state","at","to_masked","outcome","summary"}`. `state` is `dialing`, `ringing`, `answered`, `ended`, then `finalized`. `to_masked` keeps the last four digits. `summary` is present only on `finalized`.
+- Server lifecycle: `{"type":"lifecycle","call_id","state","at","to_masked","outcome","summary"}`. `state` is `dialing`, `ringing`, `answered`, `ended`, then `finalized`. `to_masked` keeps the country code and the last four digits. `summary` is present only on `finalized`.
 - Server transcript: `{"type":"transcript","call_id","speaker","text","t_ms","final"}`. `speaker` is `agent` or `callee`. Current calls send `final: true`.
 
 Binary frames are little-endian `FR1`. The direction byte is 1 for the callee and 2 for the bot's speech. Then the frame carries the sample rate, the channel count, a timestamp, the call id, and s16le PCM. A subscriber that falls behind loses frames. The call does not wait.

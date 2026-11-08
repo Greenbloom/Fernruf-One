@@ -1,7 +1,7 @@
-"""Tray client. Listening is off until the local preference says otherwise.
+"""Tray client for one local call.
 
-The window file is ``MonitorPlaceholder.qml``. That is the file to replace
-when the mockup arrives. This module only feeds it data and plays audio.
+The window is ``MonitorPlaceholder.qml``. This module feeds it and plays
+audio on this computer. It cannot speak into the call or hang it up.
 """
 
 from __future__ import annotations
@@ -12,6 +12,17 @@ import sys
 import time
 from pathlib import Path
 
+from fernruf.desktop.choices import (
+    HANGUP_ENABLED,
+    RAISE_WINDOW_ON_CALL,
+    SEND_DTMF,
+    SHOW_RECORD_BUTTON,
+    SHOW_TRAY_ICON,
+    USE_OPAQUE_FALLBACK,
+    listen_from_disk,
+    listen_to_store,
+)
+from fernruf.desktop.lines import make_line_model
 from fernruf.desktop.prefs import default_pref_path, load_listen_pref, save_listen_pref
 from fernruf.monitor.protocol import unpack_audio
 
@@ -19,37 +30,58 @@ from fernruf.monitor.protocol import unpack_audio
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     smoke = "--smoke" in args
+    shot: str | None = None
+    if "--screenshot" in args:
+        at = args.index("--screenshot")
+        if at + 1 >= len(args):
+            print("pass a path after --screenshot", file=sys.stderr)
+            return 2
+        shot = args[at + 1]
     try:
         from PySide6.QtCore import QTimer
         from PySide6.QtWidgets import QApplication
     except ImportError:
         print("Install the desktop extra: uv sync --extra desktop", file=sys.stderr)
         return 1
-    if smoke and not os.environ.get("QT_QPA_PLATFORM"):
+    if (smoke or shot) and not os.environ.get("QT_QPA_PLATFORM"):
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
     app = QApplication(sys.argv if argv is None else ["fernruf-monitor", *args])
-    pref_path = default_pref_path()
+    pref_path = Path("/tmp/fernruf-monitor-shot.json") if shot else default_pref_path()
     model = CallModel(pref_path)
     window = _load_window(model)
     if window is None:
-        print("placeholder window failed to load", file=sys.stderr)
+        print("call window failed to load", file=sys.stderr)
         return 1
-    if not smoke:
-        _tray(app, window)
+    if shot:
+        def fire() -> None:
+            window.show()
+            model.show_example()
+
+        def shoot() -> None:
+            screen = window.screen()
+            image = screen.grabWindow(window.winId()) if screen is not None else None
+            if image is None or image.width() < 100:
+                print("screenshot was empty", file=sys.stderr)
+                app.exit(1)
+                return
+            image.save(shot)
+            app.quit()
+
+        QTimer.singleShot(0, fire)
+        QTimer.singleShot(800, shoot)
+    elif not smoke:
+        if SHOW_TRAY_ICON:
+            _tray(app, window)
         token = os.environ.get("FERNRUF_MONITOR_TOKEN") or os.environ.get("FERNRUF_MCP_TOKEN") or ""
         url = os.environ.get("FERNRUF_MONITOR_URL") or "ws://127.0.0.1:8791"
         if token:
             _connect(model, url, token)
         else:
-            model.set_state("no token")
+            model.set_error(
+                "Kein Token. Setzen Sie FERNRUF_MONITOR_TOKEN oder FERNRUF_MCP_TOKEN."
+            )
     else:
-        model.apply_lifecycle(
-            {
-                "state": "dialing",
-                "to_masked": "••••0000",
-                "summary": None,
-            }
-        )
+        model.apply_lifecycle({"state": "dialing", "to_masked": "+49 •••• 0000", "summary": None})
         QTimer.singleShot(50, app.quit)
     return app.exec()
 
@@ -60,8 +92,20 @@ def _load_window(model):
 
     qml = Path(__file__).with_name("MonitorPlaceholder.qml")
     engine = QQmlApplicationEngine()
-    engine.rootContext().setContextProperty("monitor", model)
-    engine.rootContext().setContextProperty("lineModel", model.line_model)
+    context = engine.rootContext()
+    context.setContextProperty("monitor", model)
+    context.setContextProperty("lineModel", model.line_model)
+    context.setContextProperty("factModel", model.fact_model)
+    context.setContextProperty("stepModel", model.step_model)
+    context.setContextProperty("sendDtmf", SEND_DTMF)
+    context.setContextProperty("hangupEnabled", HANGUP_ENABLED)
+    context.setContextProperty("showRecordButton", SHOW_RECORD_BUTTON)
+    context.setContextProperty("opaqueFallback", USE_OPAQUE_FALLBACK)
+    context.setContextProperty("raiseOnCall", RAISE_WINDOW_ON_CALL)
+    context.setContextProperty(
+        "canRaise",
+        os.environ.get("QT_QPA_PLATFORM", "") not in ("offscreen", "minimal"),
+    )
     engine.load(QUrl.fromLocalFile(str(qml)))
     model._engine = engine
     roots = engine.rootObjects()
@@ -80,8 +124,8 @@ def _tray(app, window) -> None:
     tray = QSystemTrayIcon(icon if not icon.isNull() else QIcon(pixmap))
     tray.setToolTip("Fernruf")
     menu = QMenu()
-    menu.addAction("Show", window.show)
-    menu.addAction("Quit", app.quit)
+    menu.addAction("Fenster", window.show)
+    menu.addAction("Beenden", app.quit)
     tray.setContextMenu(menu)
     tray.show()
     app._fernruf_tray = tray
@@ -94,6 +138,8 @@ def _connect(model, url: str, token: str) -> None:
 
     socket = QWebSocket()
     model._socket = socket
+    model._url = url
+    model._token = token
 
     def on_text(message: str) -> None:
         try:
@@ -102,6 +148,7 @@ def _connect(model, url: str, token: str) -> None:
             return
         kind = msg.get("type")
         if kind == "lifecycle":
+            model.set_error("")
             model.apply_lifecycle(msg)
         elif kind == "transcript":
             model.apply_transcript(msg)
@@ -114,11 +161,27 @@ def _connect(model, url: str, token: str) -> None:
         model.play(frame)
 
     def opened() -> None:
+        model.set_error("")
         model.send_listen()
+
+    def lost(_err=None) -> None:
+        model.set_error(
+            "Verbindung zum lokalen Monitor verloren. Das bisherige Transkript bleibt erhalten."
+        )
 
     socket.textMessageReceived.connect(on_text)
     socket.binaryMessageReceived.connect(on_binary)
     socket.connected.connect(opened)
+    socket.errorOccurred.connect(lost)
+    socket.disconnected.connect(lost)
+    model._reconnect = lambda: _open(socket, url, token)
+    _open(socket, url, token)
+
+
+def _open(socket, url: str, token: str) -> None:
+    from PySide6.QtCore import QUrl
+    from PySide6.QtNetwork import QNetworkRequest
+
     request = QNetworkRequest(QUrl(url))
     request.setRawHeader(b"Authorization", f"Bearer {token}".encode())
     socket.open(request)
@@ -138,19 +201,27 @@ class CallModel:
                 super().__init__()
                 self._path = path
                 pref = load_listen_pref(path)
-                self._listening = bool(pref["listen"])
+                self._listening = listen_from_disk(bool(pref["listen"]))
                 self._volume = float(pref["volume"])
                 self._muted = bool(pref["muted"])
                 self._number = ""
                 self._state = "idle"
                 self._elapsed = "00:00"
                 self._summary = ""
-                self._answered_at: float | None = None
+                self._callee = ""
+                self._campaign = ""
+                self._error = ""
+                self._details = False
+                self._example = False
+                self._ask_dismissed = False
+                self._started_at: float | None = None
                 self._timing = False
-                self._lines: list[str] = []
-                self.line_model = QStringListModel()
+                self.line_model = make_line_model(self)
+                self.fact_model = QStringListModel(self)
+                self.step_model = QStringListModel(self)
                 self._sinks: dict[str, object] = {}
                 self._socket = None
+                self._reconnect = None
                 self._clock = QTimer(self)
                 self._clock.setInterval(200)
                 self._clock.timeout.connect(self._tick)
@@ -159,7 +230,7 @@ class CallModel:
             def _store(self) -> None:
                 save_listen_pref(
                     self._path,
-                    listen=self._listening,
+                    listen=listen_to_store(self._listening),
                     volume=self._volume,
                     muted=self._muted,
                 )
@@ -188,6 +259,30 @@ class CallModel:
             def summaryLine(self) -> str:
                 return self._summary
 
+            @Property(str, notify=changed)
+            def calleeName(self) -> str:
+                return self._callee
+
+            @Property(str, notify=changed)
+            def campaign(self) -> str:
+                return self._campaign
+
+            @Property(str, notify=changed)
+            def errorMessage(self) -> str:
+                return self._error
+
+            @Property(bool, notify=changed)
+            def detailsOpen(self) -> bool:
+                return self._details
+
+            @Property(bool, notify=changed)
+            def exampleData(self) -> bool:
+                return self._example
+
+            @Property(bool, notify=changed)
+            def askDismissed(self) -> bool:
+                return self._ask_dismissed
+
             @Property(bool, notify=changed)
             def listening(self) -> bool:
                 return self._listening
@@ -200,9 +295,23 @@ class CallModel:
             def muted(self) -> bool:
                 return self._muted
 
+            @Property(bool, notify=changed)
+            def hasFacts(self) -> bool:
+                return self.fact_model.rowCount() > 0
+
+            @Property(bool, notify=changed)
+            def hasSteps(self) -> bool:
+                return self.step_model.rowCount() > 0
+
+            @Property(bool, notify=changed)
+            def hasSummaryCard(self) -> bool:
+                return self.hasFacts or self.hasSteps
+
             @Slot(bool)
             def setListening(self, enabled: bool) -> None:
                 self._listening = bool(enabled)
+                if self._listening:
+                    self._ask_dismissed = True
                 self._store()
                 self.send_listen()
                 if not self._listening:
@@ -223,6 +332,33 @@ class CallModel:
                 self._apply_volume()
                 self.changed.emit()
 
+            @Slot()
+            def dismissAsk(self) -> None:
+                self._ask_dismissed = True
+                self.changed.emit()
+
+            @Slot()
+            def retryConnection(self) -> None:
+                self._details = False
+                self._error = ""
+                self.changed.emit()
+                reconnect = self._reconnect
+                if reconnect is not None:
+                    reconnect()
+
+            @Slot()
+            def toggleDetails(self) -> None:
+                self._details = not self._details
+                self.changed.emit()
+
+            def set_error(self, message: str) -> None:
+                if message == self._error:
+                    return
+                self._error = message
+                if not message:
+                    self._details = False
+                self.changed.emit()
+
             def set_state(self, state: str) -> None:
                 self._state = state
                 self.changed.emit()
@@ -232,32 +368,80 @@ class CallModel:
                 state = str(msg.get("state") or "")
                 self._state = state
                 if state == "dialing":
-                    self._lines = []
-                    self.line_model.setStringList([])
+                    self.line_model.clear()
+                    self.fact_model.setStringList([])
+                    self.step_model.setStringList([])
                     self._summary = ""
-                    self._answered_at = None
-                    self._timing = False
-                    self._elapsed = "00:00"
-                    self.callStarted.emit()
-                elif state == "answered":
-                    self._answered_at = time.monotonic()
+                    self._callee = ""
+                    self._campaign = ""
+                    self._started_at = time.monotonic()
                     self._timing = True
+                    self._elapsed = "00:00"
+                    self._ask_dismissed = False
+                    self._listening = listen_from_disk(
+                        bool(load_listen_pref(self._path)["listen"])
+                    )
+                    self.send_listen()
+                    if not self._listening:
+                        self._close_sinks()
+                    if RAISE_WINDOW_ON_CALL:
+                        self.callStarted.emit()
                 elif state in ("ended", "finalized"):
                     self._timing = False
                     self._tick()
                 summary = msg.get("summary")
                 if isinstance(summary, dict):
-                    self._summary = str(summary.get("one_line") or "")
+                    self._apply_summary(summary)
                 self.changed.emit()
+
+            def _apply_summary(self, summary: dict) -> None:
+                self._summary = str(summary.get("one_line") or summary.get("outcome") or "")
+                facts = summary.get("key_facts")
+                steps = summary.get("follow_ups")
+                self.fact_model.setStringList(
+                    [str(item) for item in facts if str(item).strip()]
+                    if isinstance(facts, list)
+                    else []
+                )
+                self.step_model.setStringList(
+                    [str(item) for item in steps if str(item).strip()]
+                    if isinstance(steps, list)
+                    else []
+                )
 
             def apply_transcript(self, msg: dict) -> None:
                 speaker = str(msg.get("speaker") or "")
                 text = str(msg.get("text") or "").strip()
                 if speaker not in ("agent", "callee") or not text:
                     return
-                label = "Agent" if speaker == "agent" else "Callee"
-                self._lines.append(f"{label}: {text}")
-                self.line_model.setStringList(self._lines)
+                final = bool(msg.get("final", True))
+                clock = time.strftime("%H:%M:%S")
+                self.line_model.add(speaker, text, final=final, clock=clock)
+
+            def show_example(self) -> None:
+                self._example = True
+                self.apply_lifecycle(
+                    {"state": "dialing", "to_masked": "+49 ••• ••• 4821", "summary": None}
+                )
+                self._callee = "Frau Schneider"
+                self._campaign = "Praxis Dr. Weber · Terminbestätigung"
+                self._state = "answered"
+                self._elapsed = "00:42"
+                self._timing = False
+                self.setListening(True)
+                self.setVolume(0.7)
+                self.setMuted(False)
+                samples = [
+                    ("agent", "Guten Tag, hier ist der Terminassistent der Praxis Dr. Weber. Spreche ich mit Frau Schneider?", "14:02:05", True),
+                    ("callee", "Ja, am Apparat. Worum geht es?", "14:02:11", True),
+                    ("agent", "Ich rufe wegen Ihres Termins am Donnerstag, 12. November, um 9:30 Uhr an. Passt der Termin weiterhin?", "14:02:14", True),
+                    ("callee", "Hm, Donnerstag früh ist schwierig. Geht es auch am Nachmittag?", "14:02:22", True),
+                    ("agent", "Am Donnerstag wäre um 15:00 Uhr noch etwas frei. Soll ich den Termin verschieben?", "14:02:27", True),
+                    ("callee", "Ja, 15 Uhr passt mir, dann komme ich direkt nach …", "vorläufig", False),
+                ]
+                for speaker, text, clock, final in samples:
+                    self.line_model.add(speaker, text, final=final, clock=clock)
+                self.changed.emit()
 
             def play(self, frame: dict) -> None:
                 if not self._listening or self._muted:
@@ -300,9 +484,9 @@ class CallModel:
                 self._sinks.clear()
 
             def _tick(self) -> None:
-                if not self._timing or self._answered_at is None:
+                if not self._timing or self._started_at is None:
                     return
-                seconds = max(0, int(time.monotonic() - self._answered_at))
+                seconds = max(0, int(time.monotonic() - self._started_at))
                 text = f"{seconds // 60:02d}:{seconds % 60:02d}"
                 if text != self._elapsed:
                     self._elapsed = text
