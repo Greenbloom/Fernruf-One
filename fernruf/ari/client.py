@@ -56,6 +56,14 @@ class AriSession:
         try:
             response = client.delete(path)
             LOG.info("ARI DELETE %s -> %s", path, response.status_code)
+            from fernruf.debug.trace import note
+
+            note(
+                kind="ari",
+                name="DELETE",
+                status="ok" if response.status_code in (204, 404) else "error",
+                detail={"path": path, "status_code": response.status_code},
+            )
             if response.status_code not in (204, 404):
                 response.raise_for_status()
         finally:
@@ -156,6 +164,7 @@ class AriSession:
 
             read_task = asyncio.create_task(reader())
 
+            started = time.monotonic()
             r = self._client.post(
                 "/channels",
                 params={
@@ -163,6 +172,20 @@ class AriSession:
                     "app": self.app,
                     "appArgs": "m1",
                     "callerId": caller_id,
+                },
+            )
+            from fernruf.debug.trace import note
+
+            note(
+                kind="ari",
+                name="POST /channels",
+                status="ok" if r.status_code < 400 else "error",
+                duration_ms=(time.monotonic() - started) * 1000,
+                detail={
+                    "path": "/channels",
+                    "status_code": r.status_code,
+                    "endpoint": endpoint,
+                    "caller_id": caller_id,
                 },
             )
             if r.status_code >= 400:
