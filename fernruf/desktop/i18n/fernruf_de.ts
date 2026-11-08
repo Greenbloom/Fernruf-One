@@ -60,6 +60,10 @@
             <translation>Tastenfeld</translation>
         </message>
         <message>
+            <source>Back</source>
+            <translation>Zurück</translation>
+        </message>
+        <message>
             <source>Contacts</source>
             <translation>Kontakte</translation>
         </message>

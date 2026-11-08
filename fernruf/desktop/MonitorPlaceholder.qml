@@ -31,6 +31,14 @@ ApplicationWindow {
         return qsTr("Ready")
     }
 
+    function returnToCall() {
+        phonePage = 1
+    }
+
+    function toggleTranscript() {
+        chatOpen = !chatOpen
+    }
+
     function chatStatus() {
         if (monitor.errorMessage.length)
             return qsTr("Connection lost")
@@ -77,6 +85,13 @@ ApplicationWindow {
     onClosing: function (close) {
         close.accepted = false
         window.hide()
+    }
+
+    Shortcut {
+        objectName: "backShortcut"
+        sequence: "Escape"
+        enabled: window.phonePage === 0
+        onActivated: window.returnToCall()
     }
 
     component Tint: Image {
@@ -245,6 +260,72 @@ ApplicationWindow {
 
                     ColumnLayout {
                         spacing: 14
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            AbstractButton {
+                                objectName: "backToCall"
+                                implicitHeight: 34
+                                implicitWidth: backLabel.implicitWidth + 40
+                                Accessible.name: qsTr("Back")
+                                Accessible.role: Accessible.Button
+                                onClicked: window.returnToCall()
+                                background: Rectangle {
+                                    radius: 17
+                                    color: Qt.rgba(1, 1, 1, 0.22)
+                                }
+                                contentItem: Row {
+                                    spacing: 6
+                                    leftPadding: 10
+                                    rightPadding: 12
+                                    Tint {
+                                        iconName: "go-previous"
+                                        side: 16
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        id: backLabel
+                                        text: qsTr("Back")
+                                        color: "white"
+                                        font.pixelSize: 13
+                                        font.family: "Noto Sans"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+                            Item { Layout.fillWidth: true }
+                            AbstractButton {
+                                objectName: "transcriptOnDialer"
+                                implicitHeight: 34
+                                implicitWidth: dialerTranscriptLabel.implicitWidth + 40
+                                Accessible.name: qsTr("Transcript")
+                                Accessible.role: Accessible.Button
+                                onClicked: window.toggleTranscript()
+                                background: Rectangle {
+                                    radius: 17
+                                    color: window.chatOpen ? Qt.rgba(1, 1, 1, 0.32) : Qt.rgba(1, 1, 1, 0.18)
+                                }
+                                contentItem: Row {
+                                    spacing: 6
+                                    leftPadding: 10
+                                    rightPadding: 12
+                                    Tint {
+                                        iconName: "list"
+                                        side: 16
+                                        active: window.chatOpen
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        id: dialerTranscriptLabel
+                                        text: qsTr("Transcript")
+                                        color: "white"
+                                        font.pixelSize: 13
+                                        font.family: "Noto Sans"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+                        }
                         Row {
                             id: phoneTabs
                             property int index: 1
@@ -494,15 +575,17 @@ ApplicationWindow {
                                 spacing: 26
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 RoundButton {
+                                    objectName: "openKeypad"
                                     iconName: "dialpad"
                                     caption: qsTr("Keypad")
                                     enabled: !monitor.errorMessage.length
                                     onClicked: window.phonePage = 0
                                 }
                                 RoundButton {
+                                    objectName: "transcriptToggle"
                                     iconName: "list"
                                     caption: qsTr("Transcript")
-                                    onClicked: window.chatOpen = !window.chatOpen
+                                    onClicked: window.toggleTranscript()
                                 }
                                 RoundButton {
                                     iconName: "record"
@@ -582,6 +665,7 @@ ApplicationWindow {
 
         Item {
             id: chat
+            objectName: "transcriptPanel"
             visible: window.chatOpen
             x: window.narrow ? 0 : 400
             width: window.narrow ? parent.width : parent.width - 400
