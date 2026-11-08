@@ -95,6 +95,9 @@ class Settings(BaseSettings):
     monitor_enabled: bool = Field(default=True, alias="FERNRUF_MONITOR_ENABLED")
     monitor_port: int = Field(default=8791, alias="FERNRUF_MONITOR_PORT")
     monitor_token: str = Field(default="", alias="FERNRUF_MONITOR_TOKEN")
+    debug_ui_enabled: bool = Field(default=False, alias="FERNRUF_DEBUG_UI_ENABLED")
+    debug_ui_persist: bool = Field(default=False, alias="FERNRUF_DEBUG_UI_PERSIST")
+    debug_ui_path: str = Field(default="", alias="FERNRUF_DEBUG_UI_PATH")
 
     # OAuth 2.1 authorization server. GitHub is the only login.
     github_client_id: str = Field(default="", alias="FERNRUF_GITHUB_CLIENT_ID")

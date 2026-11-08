@@ -54,6 +54,8 @@ Use GitHub OAuth instead of a static token when configured (`FERNRUF_GITHUB_*`, 
 
 `fernruf serve` also listens on `127.0.0.1:8791` (override the port with `FERNRUF_MONITOR_PORT`). That socket is loopback only. It does not follow `FERNRUF_BIND_OVERRIDE`. Set `FERNRUF_MONITOR_ENABLED=false` to leave it closed. Auth is `FERNRUF_MONITOR_TOKEN` when that is set, otherwise the same static `FERNRUF_MCP_TOKEN`. An OAuth-only service has no monitor until one of those tokens is set.
 
+The debug page is off. Set `FERNRUF_DEBUG_UI_ENABLED=true` and open `http://127.0.0.1:8787/debug/` on this machine. It asks for the same monitor or static token. Peers that are not loopback are refused. The trace stays in memory. Set `FERNRUF_DEBUG_UI_PERSIST=true` to also append redacted events to `data/debug-ui.jsonl`. `FERNRUF_DEBUG_UI_PATH` chooses a different file.
+
 On the Plasma machine:
 
 ```bash
