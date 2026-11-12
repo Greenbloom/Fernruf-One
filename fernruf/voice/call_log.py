@@ -35,7 +35,6 @@ def _mask_phone(match: re.Match[str]) -> str:
 
 
 def log_spoken_text(logger: logging.Logger, label: str, text: str, settings: Settings) -> None:
-    """Log a spoken line, or only its length when this call is not keeping a transcript."""
     if settings.transcript_allowed:
         logger.info("%s: %s", label, text)
     else:

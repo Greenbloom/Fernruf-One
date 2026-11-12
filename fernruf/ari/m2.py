@@ -458,7 +458,7 @@ class M2AriSession(AriSession):
         )
         call_log = Path("data/calls") / f"{call_id}.log"
         transcript = _transcript_from_session(session)
-        if not settings.transcript_allowed and hasattr(session, "transcript_lines"):
+        if not settings.transcript_allowed:
             session.transcript_lines.clear()
         return {
             "mode": "pipecat",

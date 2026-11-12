@@ -1,5 +1,3 @@
-"""Transcript storage is off unless the host turns it on."""
-
 from __future__ import annotations
 
 import asyncio

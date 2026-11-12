@@ -185,7 +185,6 @@ class Settings(BaseSettings):
     typesafe_api_key: str = Field(default="", alias="TYPESAFE_API_KEY")
     typesafe_enabled: bool = Field(default=False, alias="FERNRUF_TYPESAFE_ENABLED")
     privacy_minimal: bool = Field(default=False, alias="FERNRUF_PRIVACY_MINIMAL")
-    # Off until the operator turns it on. Seeded into call_settings on first use.
     transcript_allowed: bool = Field(default=False, alias="FERNRUF_TRANSCRIPT_ALLOWED")
     # Callee mood (Jev). Off by default. Requires typesafe_requests_enabled().
     mood_enabled: bool = Field(default=False, alias="FERNRUF_MOOD_ENABLED")

@@ -116,7 +116,7 @@ class ConversationMetricsProcessor(FrameProcessor):
                 row.mark("stt_final")
             spoken = frame.text.strip()
             if self._settings is None:
-                LOG.info("STT final: %s", spoken)
+                LOG.info("STT final: (%s chars)", len(spoken))
             else:
                 log_spoken_text(LOG, "STT final", spoken, self._settings)
 

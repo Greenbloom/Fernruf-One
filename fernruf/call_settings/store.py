@@ -113,7 +113,6 @@ def get_call_settings(settings: Settings | None = None) -> CallSettingsRecord:
 
 
 def transcript_allowed(settings: Settings | None = None) -> bool:
-    """Effective switch. The row wins after it exists. Env seeds a new row."""
     s = settings or load_settings()
     if not _db_path(s).is_file():
         return bool(s.transcript_allowed)
