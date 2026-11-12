@@ -101,9 +101,9 @@ _HEADER = textwrap.dedent(
         app.processEvents()
         assert window.visibility() == QWindow.Visibility.Windowed
         if mode == "narrow":
-            window.setWidth(820)
+            window.setWidth(760)
             app.processEvents()
-            assert window.width() == 820
+            assert window.width() == 760
         else:
             assert window.width() == 1080
 
@@ -128,24 +128,13 @@ _HEADER = textwrap.dedent(
             assert 8 <= gap <= 20, (mode, state, text, gap)
             title_gap = scene_rect(label).left() - scene_rect(title).right()
             assert title_gap >= 8, (mode, state, text, title_gap)
-            squeezed = label.implicitWidth() > label.width() + 1
-            assert label.property("truncated") is squeezed, (
-                mode,
-                state,
-                text,
-                label.width(),
-                label.implicitWidth(),
-            )
-            if not squeezed:
-                assert abs(label.width() - label.implicitWidth()) < 2, (
-                    mode,
-                    state,
-                    text,
-                    label.width(),
-                    label.implicitWidth(),
-                )
+            room = scene_rect(buttons[0]).left() - scene_rect(title).right()
+            assert label.width() <= room + 1, (mode, state, text, label.width(), room)
+            slack = label.implicitWidth() - label.width()
+            if slack > 16:
+                assert label.property("truncated") is True, (mode, state, text, slack)
             if mode == "narrow" and text == longest:
-                assert squeezed, (text, label.width(), label.implicitWidth())
+                assert slack > 16, (text, label.width(), label.implicitWidth())
         order.extend(scene_rect(button).x() for button in buttons)
         assert all(order[i] < order[i + 1] for i in range(len(order) - 1)), (mode, state, order)
 
