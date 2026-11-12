@@ -116,6 +116,14 @@
             <translation>Minimieren</translation>
         </message>
         <message>
+            <source>Maximize</source>
+            <translation>Maximieren</translation>
+        </message>
+        <message>
+            <source>Restore</source>
+            <translation>Wiederherstellen</translation>
+        </message>
+        <message>
             <source>Connection to the call was lost.</source>
             <translation>Verbindung zum Anruf verloren.</translation>
         </message>

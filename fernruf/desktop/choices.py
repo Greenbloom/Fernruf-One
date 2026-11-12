@@ -9,13 +9,23 @@
 
 from __future__ import annotations
 
+import os
+
 SEND_DTMF = False
 PERSIST_LISTEN = False
 RAISE_WINDOW_ON_CALL = True
+_AUTO_SHOW_OFF = frozenset({"0", "false", "no", "off"})
 SHOW_TRAY_ICON = True
 USE_OPAQUE_FALLBACK = False
 HANGUP_ENABLED = False
 SHOW_RECORD_BUTTON = False
+
+
+def monitor_auto_show() -> bool:
+    raw = os.environ.get("FERNRUF_MONITOR_AUTO_SHOW")
+    if raw is None or not raw.strip():
+        return RAISE_WINDOW_ON_CALL
+    return raw.strip().lower() not in _AUTO_SHOW_OFF
 
 
 def listen_to_store(enabled: bool) -> bool:

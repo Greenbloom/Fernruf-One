@@ -11,7 +11,11 @@ uv sync --extra desktop
 uv run --extra desktop fernruf monitor
 ```
 
-The process sits in the tray and raises a window when a call starts. The layout is `fernruf/desktop/MonitorPlaceholder.qml`. The language follows the system locale, and English is the fallback. Set `FERNRUF_UI_LANG` to `en` or `de` to override that.
+The process sits in the tray. When a call starts, the window opens and comes to the front. Set `FERNRUF_MONITOR_AUTO_SHOW` to `false` to leave the window hidden until you open it from the tray. The values `0`, `no`, and `off` do the same. Leave the variable unset to keep the automatic window.
+
+Minimize, maximize, and close sit at the top right. The transcript status sits to their left and shortens with an ellipsis when the header is narrow. Close hides the window. The call keeps running, and `fernruf serve` keeps running. Maximize fills the screen with square corners. Restore brings the rounded window back.
+
+The layout is `fernruf/desktop/MonitorPlaceholder.qml`. The language follows the system locale, and English is the fallback. Set `FERNRUF_UI_LANG` to `en` or `de` to override that.
 
 Listening is off for each call until you turn it on. That choice is not saved. Volume and mute are saved in `~/.config/fernruf/listen.json` and affect only playback on this computer. The keypad does not send tones. Hang-up stays off. The window cannot speak into the call. Nothing from this socket leaves the machine.
 
