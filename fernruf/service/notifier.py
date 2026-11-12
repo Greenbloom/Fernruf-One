@@ -56,6 +56,8 @@ class _VerifiedSMTP(smtplib.SMTP):
             context = ssl.create_default_context()
         if context.check_hostname is not True or context.verify_mode != ssl.CERT_REQUIRED:
             raise RuntimeError("STARTTLS must verify the certificate hostname")
+        # A caller-supplied context can still allow TLS 1.0 or TLS 1.1.
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         self.sock = context.wrap_socket(self.sock, server_hostname=self._tls_name)
         self.file = None
         self.helo_resp = None

@@ -14,10 +14,16 @@ def _text(*parts: str) -> str:
 def test_nginx_snippet_matches_the_live_proxy() -> None:
     nginx = _text("deploy", "examples", "nginx-fernruf.conf")
     doc = _text("docs", "SERVER.md")
-    assert "fernruf.example.com" in doc
+    assert "- `server_name fernruf.example.com`" in doc.splitlines()
     assert "http://127.0.0.1:8787" in doc
+    server_names = [
+        line.strip() for line in nginx.splitlines() if line.strip().startswith("server_name ")
+    ]
+    assert server_names == [
+        "server_name fernruf.example.com;",
+        "server_name fernruf.example.com;",
+    ]
     for blob in (nginx,):
-        assert "fernruf.example.com" in blob
         assert "http://127.0.0.1:8787" in blob
         assert "X-Forwarded-For $remote_addr" in blob
         assert "proxy_buffering off" in blob
