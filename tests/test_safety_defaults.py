@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from fernruf.cli import main
@@ -57,7 +59,12 @@ def test_cli_policy_check_always_enforces_allowlist(monkeypatch: pytest.MonkeyPa
     assert "allowlist" in result.output.lower() or "REJECT" in result.output
 
 
-def test_load_settings_can_require_principal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_settings_can_require_principal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text('FERNRUF_PRINCIPAL_NAME="Alex Example"\n', encoding="utf-8")
     monkeypatch.delenv("FERNRUF_PRINCIPAL_NAME", raising=False)
+    monkeypatch.setenv("FERNRUF_ENV_FILE", "none")
     with pytest.raises(SystemExit):
         load_settings(require_principal=True)
