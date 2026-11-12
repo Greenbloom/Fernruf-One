@@ -57,6 +57,14 @@ _HEADER = textwrap.dedent(
     window = _load_window(model)
     assert window is not None
     window.showNormal()
+    model.apply_lifecycle(
+        {
+            "state": "idle",
+            "call_id": "call-header",
+            "to_masked": "+49 30 23125 100",
+            "summary": None,
+        }
+    )
     app.processEvents()
 
     def scene_rect(node):
@@ -118,6 +126,8 @@ _HEADER = textwrap.dedent(
                 )
             gap = scene_rect(buttons[0]).left() - scene_rect(label).right()
             assert 8 <= gap <= 20, (mode, state, text, gap)
+            title_gap = scene_rect(label).left() - scene_rect(title).right()
+            assert title_gap >= 8, (mode, state, text, title_gap)
             squeezed = label.implicitWidth() > label.width() + 1
             assert label.property("truncated") is squeezed, (
                 mode,
@@ -174,7 +184,8 @@ _HEADER = textwrap.dedent(
     QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, point)
     app.processEvents()
     assert window.property("chatOpen") is False
-    assert item("transcriptPanel").isVisible() is False
+    panel = window.findChild(QQuickItem, "transcriptPanel")
+    assert panel is not None and panel.isVisible() is False
     for name in ("minimizeWindow", "maximizeWindow", "closeWindow"):
         assert item(name).isVisible()
     number = find_text(model.number)

@@ -13,7 +13,7 @@ uv run --extra desktop fernruf monitor
 
 The process sits in the tray. When a call starts, the window opens and comes to the front. Set `FERNRUF_MONITOR_AUTO_SHOW` to `false` to leave the window hidden until you open it from the tray. The values `0`, `no`, and `off` do the same. Leave the variable unset to keep the automatic window.
 
-Minimize, maximize, and close sit at the top right. Close hides the window. The call keeps running, and `fernruf serve` keeps running. Maximize fills the screen with square corners. Restore brings the rounded window back.
+Minimize, maximize, and close sit at the top right. The transcript status sits to their left and shortens with an ellipsis when the header is narrow. Close hides the window. The call keeps running, and `fernruf serve` keeps running. Maximize fills the screen with square corners. Restore brings the rounded window back.
 
 The layout is `fernruf/desktop/MonitorPlaceholder.qml`. The language follows the system locale, and English is the fallback. Set `FERNRUF_UI_LANG` to `en` or `de` to override that.
 
