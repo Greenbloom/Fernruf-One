@@ -75,6 +75,9 @@ class M2CallSession:
     uncommitted_agent_text: str = ""
     spoken_goodbye: str = ""
     companion_text: str = ""
+    # Model text withheld from TTS because end_call speaks the goodbye.
+    # llm_completion_text still keeps it for the phase machine.
+    unspoken_assistant_text: str = ""
     speak_companion: Callable[[str], Awaitable[None]] | None = None
     transcript_sink: Callable[[str, str, int, bool], None] | None = None
 
@@ -279,9 +282,24 @@ class M2CallSession:
     def reset_assistant_turn(self) -> None:
         self.assistant_turn_text = ""
         self.llm_completion_text = ""
+        self.unspoken_assistant_text = ""
 
     def reset_llm_completion(self) -> None:
         self.llm_completion_text = ""
+        self.unspoken_assistant_text = ""
+
+    def assistant_text_pending_transcript(self) -> str:
+        """Completion text that was sent toward speech and is not stored yet.
+
+        end_call can withhold the rest of the model text and speak its goodbye
+        instead. That sentence stays on ``llm_completion_text`` for the phase
+        machine. It is not a transcript line.
+        """
+        text = self.in_flight_assistant_completion().strip()
+        withheld = (self.unspoken_assistant_text or "").strip()
+        if not text or not withheld or withheld not in text:
+            return text
+        return " ".join(text.replace(withheld, " ", 1).split())
 
     def append_llm_completion(self, chunk: str) -> None:
         if chunk:
