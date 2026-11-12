@@ -19,9 +19,7 @@ def test_openrouter_reasoning_in_extra_body_not_create_kwarg() -> None:
         provider="openrouter",
         system_instruction="Test system",
     )
-    params = llm.build_chat_completion_params(
-        {"messages": [{"role": "user", "content": "ping"}]}
-    )
+    params = llm.build_chat_completion_params({"messages": [{"role": "user", "content": "ping"}]})
     assert "reasoning" not in params
     assert params["extra_body"]["reasoning"] == {"effort": "low"}
     assert params["stream"] is True

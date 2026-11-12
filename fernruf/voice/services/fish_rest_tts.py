@@ -14,18 +14,18 @@ from pipecat.frames.frames import (
     TTSAudioRawFrame,
     TTSSpeakFrame,
 )
-from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
+from pipecat.processors.frame_processor import FrameDirection
 from pipecat.services.settings import TTSSettings
 from pipecat.services.tts_service import TTSService
 
 from fernruf.mood import MoodTaggedWs, MoodTurn
 from fernruf.settings import Settings
-from fernruf.voice.frames.metrics_frames import FishTtsFirstAudioFrame
 from fernruf.tts.audio import _fixture_pcm
 from fernruf.tts.fish_rest_client import warm_fish_rest_connection
 from fernruf.tts.fish_rest_pipeline import FishRestPipeline
 from fernruf.tts.fish_ws_session import FishLiveWsSession
 from fernruf.tts.rest_stream import stream_tts_sentences
+from fernruf.voice.frames.metrics_frames import FishTtsFirstAudioFrame
 
 LOG = logging.getLogger("fernruf.voice.tts")
 
@@ -44,7 +44,7 @@ class FishRestTTSService(TTSService):
         use_fixture: bool = False,
         synth_log: list[str] | None = None,
         mood: MoodTurn | None = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         voice = call_settings.fish_voice_id or None
         model = call_settings.effective_fish_model()

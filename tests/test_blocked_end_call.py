@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from fernruf.settings import Settings
 from pipecat.frames.frames import FunctionCallResultProperties
 
+from fernruf.settings import Settings
 from fernruf.voice.call_session import M2CallSession
 from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.m2_pipeline import _llm_tools

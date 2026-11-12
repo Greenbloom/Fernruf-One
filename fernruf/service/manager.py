@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
+import json
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -16,6 +19,9 @@ from fernruf.call_settings.resolver import llm_model_missing_reason, resolve_cal
 from fernruf.call_settings.store import get_call_settings
 from fernruf.dial import normalize_e164
 from fernruf.language import normalize_language_code, task_detection_text
+from fernruf.monitor.hub import CallMonitor
+from fernruf.monitor.state import CallLifecycle
+from fernruf.principal import dial_blocked_placeholder_reason
 from fernruf.quiet_hours import BERLIN, parse_quiet_hours
 from fernruf.service.costs import estimate_cost
 from fernruf.service.line_health import LineHealth
@@ -25,10 +31,16 @@ from fernruf.service.policy_gate import (
     SpendSnapshot,
     evaluate_service_policy,
 )
-from fernruf.service.records import get_stored_call, list_stored_calls, spend_snapshot, upsert_call
+from fernruf.service.records import (
+    get_stored_call,
+    list_stored_calls,
+    list_webhooks,
+    spend_snapshot,
+    upsert_call,
+)
 from fernruf.service.runner import CallJob, CallRunResult, run_m2_or_simulate
 from fernruf.service.settings_update import monthly_ceiling, per_call_ceiling
-from fernruf.principal import dial_blocked_placeholder_reason
+from fernruf.service.summary import summarize_completed_call
 from fernruf.settings import Settings, validate_operational_settings
 
 LOG = logging.getLogger("fernruf.manager")
@@ -45,7 +57,9 @@ class CallError(Exception):
         self.extra = extra or {}
 
 
-def format_task(task: dict, *, persona: str | None, language: str | None, dtmf_prefix: str | None) -> str:
+def format_task(
+    task: dict, *, persona: str | None, language: str | None, dtmf_prefix: str | None
+) -> str:
     goal = str(task.get("goal") or "").strip()
     lines = [f"Ziel: {goal}"]
     if task.get("context"):
@@ -134,6 +148,9 @@ class CallManager:
         runner: Runner | None = None,
         now: Callable[[], datetime] | None = None,
         keepalive_s: float = 5.0,
+        summarize: Callable[..., Awaitable[dict[str, Any]]] | None = None,
+        poster: Callable[[str, dict[str, Any]], Awaitable[bool]] | None = None,
+        monitor: CallMonitor | None = None,
     ) -> None:
         self.settings = settings
         validate_operational_settings(settings)
@@ -141,8 +158,30 @@ class CallManager:
         self.runner = runner or run_m2_or_simulate
         self.now = now or (lambda: datetime.now(tz=BERLIN))
         self.keepalive_s = keepalive_s
+        self._summarize = summarize or summarize_completed_call
+        self._poster = poster
+        self.monitor = monitor or CallMonitor()
         self._lock = asyncio.Lock()
         self._active: dict[str, Any] | None = None
+
+    def _observe_begin(self, call_id: str, number: str) -> None:
+        try:
+            self.monitor.begin(call_id, to_e164=number)
+        except Exception:
+            LOG.warning("call monitor begin failed id=%s", call_id)
+
+    def _observe(
+        self,
+        call_id: str,
+        state: CallLifecycle,
+        *,
+        outcome: str | None = None,
+        summary: dict[str, Any] | None = None,
+    ) -> None:
+        try:
+            self.monitor.advance(call_id, state, outcome=outcome, summary=summary)
+        except Exception:
+            LOG.warning("call monitor update failed id=%s", call_id)
 
     def _audit(self, event: dict) -> None:
         append_audit_event(Path(self.settings.audit_path), event)
@@ -329,7 +368,9 @@ class CallManager:
             job = CallJob(
                 call_id=call_id,
                 to_e164=e164,
-                task_text=format_task(task, persona=persona, language=language, dtmf_prefix=dtmf_prefix),
+                task_text=format_task(
+                    task, persona=persona, language=language, dtmf_prefix=dtmf_prefix
+                ),
                 max_minutes=requested,
                 model=model,
                 settings=self.settings,
@@ -342,6 +383,7 @@ class CallManager:
                 must_say=tuple(
                     str(item).strip() for item in (task.get("must_say") or []) if str(item).strip()
                 ),
+                monitor=self.monitor,
             )
             active = {
                 "call_id": call_id,
@@ -362,7 +404,11 @@ class CallManager:
         return await self._wait(active, progress, wait_seconds, requested)
 
     def _store_rejection(self, to: str, task: dict, decision: ServiceDecision) -> None:
-        outcome = "line_unavailable" if decision.error_code == "line_unavailable" else "rejected_by_policy"
+        outcome = (
+            "line_unavailable"
+            if decision.error_code == "line_unavailable"
+            else "rejected_by_policy"
+        )
         now = self.now().isoformat()
         upsert_call(
             self.settings,
@@ -386,6 +432,7 @@ class CallManager:
         started = asyncio.get_running_loop().time()
         try:
             upsert_call(self.settings, call_id, status="dialing", dial_started=True)
+            self._observe_begin(call_id, job.to_e164)
             result = await self.runner(job)
             duration = result.duration_s
             if duration is None:
@@ -410,6 +457,8 @@ class CallManager:
                 else:
                     span = duration if duration and duration > 0 else 0.001
                     answered_at = (ended_dt - timedelta(seconds=span)).isoformat()
+            summary = await self._summary_for(result, job)
+            self._observe(call_id, CallLifecycle.ENDED, outcome=result.outcome)
             upsert_call(
                 self.settings,
                 call_id,
@@ -425,9 +474,11 @@ class CallManager:
                 call_language=result.call_language or row.get("call_language") or "de",
                 llm_model=result.llm_model or row.get("llm_model") or "",
                 llm_model_source=result.llm_model_source or row.get("llm_model_source") or "",
-                summary=None,
+                summary=summary,
                 counts_toward_caps=True,
             )
+            self._observe(call_id, CallLifecycle.FINALIZED, outcome=result.outcome, summary=summary)
+            await self._deliver_finalized(call_id)
             LOG.info(
                 "call finished id=%s outcome=%s duration_s=%.1f model=%s",
                 call_id,
@@ -437,6 +488,7 @@ class CallManager:
             )
         except Exception:
             LOG.exception("call failed id=%s", call_id)
+            self._observe(call_id, CallLifecycle.ENDED, outcome="failed")
             upsert_call(
                 self.settings,
                 call_id,
@@ -446,6 +498,8 @@ class CallManager:
                 summary=None,
                 counts_toward_caps=True,
             )
+            self._observe(call_id, CallLifecycle.FINALIZED, outcome="failed", summary=None)
+            await self._deliver_finalized(call_id)
         finally:
             active["done"].set()
 
@@ -467,7 +521,9 @@ class CallManager:
         task: asyncio.Task[Any] = active["task"]
         while not task.done():
             try:
-                await asyncio.wait_for(asyncio.shield(active["done"].wait()), timeout=self.keepalive_s)
+                await asyncio.wait_for(
+                    asyncio.shield(active["done"].wait()), timeout=self.keepalive_s
+                )
             except TimeoutError:
                 elapsed += self.keepalive_s
                 await report(min(elapsed, limit), "in_call")
@@ -475,8 +531,55 @@ class CallManager:
                     break
                 continue
             break
-        await report(limit if task.done() else elapsed, "finalized" if task.done() else "wait_timeout")
+        await report(
+            limit if task.done() else elapsed, "finalized" if task.done() else "wait_timeout"
+        )
         return self.get_call(active["call_id"])
+
+    async def _summary_for(self, result: CallRunResult, job: CallJob) -> dict[str, Any] | None:
+        """Structured summary for a completed call. Other outcomes stay unset."""
+        if result.outcome != "completed" or not result.answered:
+            return None
+        try:
+            summary = await self._summarize(
+                settings=self.settings,
+                transcript=list(result.transcript or []),
+                task=job.task_text,
+                outcome=result.outcome,
+            )
+        except Exception:
+            LOG.warning("call summary failed id=%s", job.call_id)
+            return None
+        return summary if isinstance(summary, dict) else None
+
+    async def _deliver_finalized(self, call_id: str) -> None:
+        """POST call.finalized, including the summary, to stored webhooks."""
+        poster = self._poster
+        if poster is None:
+            return
+        row = get_stored_call(self.settings, call_id)
+        if not row:
+            return
+        data = public_call(row)
+        body: dict[str, Any] = {
+            "event": "call.finalized",
+            "at": row.get("ended_at"),
+            "data": data,
+        }
+        secret = (self.settings.webhook_secret or "").strip()
+        if secret:
+            raw = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
+            body["signature"] = (
+                "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+            )
+        for hook in list_webhooks(self.settings):
+            events = hook.get("events") or []
+            if "call.finalized" not in events:
+                continue
+            try:
+                await poster(str(hook.get("url") or ""), body)
+            except Exception:
+                LOG.info("call.finalized delivery failed id=%s", hook.get("webhook_id"))
 
     async def hangup(self, call_id: str) -> dict[str, Any]:
         row = get_stored_call(self.settings, call_id)

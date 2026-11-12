@@ -78,8 +78,14 @@ def _write_m1_prompt(settings: Settings, dest_alaw: Path) -> str:
         voice = settings.fish_voice_id or None
         fish_errors: list[str] = []
         for label, fn in (
-            ("fish-rest", lambda: fish_tts_pcm_rest(text, api_key=api_key, model=model, voice_id=voice)),
-            ("fish-ws", lambda: fish_tts_pcm_ws(text, api_key=api_key, model=model, voice_id=voice)),
+            (
+                "fish-rest",
+                lambda: fish_tts_pcm_rest(text, api_key=api_key, model=model, voice_id=voice),
+            ),
+            (
+                "fish-ws",
+                lambda: fish_tts_pcm_ws(text, api_key=api_key, model=model, voice_id=voice),
+            ),
         ):
             try:
                 pcm, rate = fn()

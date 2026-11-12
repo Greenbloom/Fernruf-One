@@ -9,8 +9,8 @@ from pathlib import Path
 
 from fastapi import WebSocket
 from pipecat.frames.frames import EndFrame, InterruptionFrame
-from pipecat.processors.frame_processor import FrameDirection
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
+from pipecat.processors.frame_processor import FrameDirection
 from pipecat.workers.runner import WorkerRunner
 
 from fernruf.llm.extra import LlmReasoningMode
@@ -22,8 +22,8 @@ from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.latency import LatencyLog
 from fernruf.voice.m2_pipeline import build_m2_pipeline
 from fernruf.voice.pipecat_log_guard import PipecatLogGuard
-from fernruf.voice.transport_teardown import cancel_asterisk_output_tasks_async
 from fernruf.voice.processors.verify_flow import VerifyFlowState
+from fernruf.voice.transport_teardown import cancel_asterisk_output_tasks_async
 from fernruf.voice.verify_orchestration import run_verify_orchestration
 
 LOG = logging.getLogger("fernruf.voice.pipecat")
@@ -45,6 +45,7 @@ async def run_pipecat_on_websocket(
     goal: str = "",
     must_say: tuple[str, ...] | None = None,
     opening_request: str = "",
+    monitor: object | None = None,
 ) -> VerifyFlowState | None:
     transport = FernrufAsteriskTransport(websocket=websocket)
     latency_log = LatencyLog(Path(settings.latency_log_path))
@@ -64,6 +65,7 @@ async def run_pipecat_on_websocket(
         goal=goal,
         must_say=must_say,
         opening_request=opening_request,
+        monitor=monitor,
     )
     await built.stt.preload()
 
@@ -77,9 +79,7 @@ async def run_pipecat_on_websocket(
     if verify and built.verify_state and built.verify_processor:
 
         async def push_interrupt() -> None:
-            await built.verify_processor.push_frame(
-                InterruptionFrame(), FrameDirection.DOWNSTREAM
-            )
+            await built.verify_processor.push_frame(InterruptionFrame(), FrameDirection.DOWNSTREAM)
 
         async def push_end() -> None:
             await built.verify_processor.push_frame(EndFrame(), FrameDirection.DOWNSTREAM)
@@ -131,6 +131,12 @@ async def run_pipecat_on_websocket(
     try:
         await runner.run()
     finally:
+        if session.phase.is_ending and not session.hung_up and hooks.hangup is not None:
+            LOG.info("pipeline exit; hanging up before the ARI client closes")
+            with contextlib.suppress(Exception):
+                await hooks.hangup()
+            session.phase.mark_hung_up()
+        built.hangup.cancel_pending()
         built.metrics.flush_turn()
         summary = latency_log.median_report(include_simulated=False)
         LOG.info("call latency summary: %s", json.dumps(summary, ensure_ascii=False))

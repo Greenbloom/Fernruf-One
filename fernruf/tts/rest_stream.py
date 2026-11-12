@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import io
 import logging
 import re
@@ -8,7 +7,7 @@ import wave
 from collections.abc import AsyncIterator
 
 from fernruf.settings import Settings
-from fernruf.tts.fish import FishTtsError, TTS_SAMPLE_RATE
+from fernruf.tts.fish import TTS_SAMPLE_RATE, FishTtsError
 from fernruf.tts.fish_audio_cache import read_fish_cache, write_fish_cache
 from fernruf.tts.fish_rest_client import astream_fish_tts_pcm_rest
 from fernruf.tts.fish_rest_pipeline import FishRestPipeline

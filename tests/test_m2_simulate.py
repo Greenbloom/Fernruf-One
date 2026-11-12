@@ -19,7 +19,7 @@ def test_m2_simulate_opener_and_transcript(tmp_path: Path):
     result = asyncio.run(SimulateConversation(s, "Termin abstimmen").run())
     assert result.transcript[0].speaker == "agent"
     assert "KI-Assistent" in result.transcript[0].text
-    assert any(l.speaker == "callee" for l in result.transcript)
+    assert any(line.speaker == "callee" for line in result.transcript)
     assert result.latency_path and result.latency_path.exists()
     lines = result.latency_path.read_text(encoding="utf-8").strip().splitlines()
     row = json.loads(lines[0])

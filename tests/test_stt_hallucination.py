@@ -37,9 +37,9 @@ def test_low_confidence_and_lone_hallucinations_are_dropped() -> None:
     assert stt_drop_reason("Vielen Dank. Vielen Dank.", no_speech_prob=0.2, avg_logprob=-1.2) == (
         "hallucination_phrase"
     )
-    assert stt_drop_reason("Untertitel im Auftrag des ZDF", no_speech_prob=0.7, avg_logprob=-0.2) == (
-        "hallucination_phrase"
-    )
+    assert stt_drop_reason(
+        "Untertitel im Auftrag des ZDF", no_speech_prob=0.7, avg_logprob=-0.2
+    ) == ("hallucination_phrase")
     assert stt_drop_reason("Thanks for watching.", no_speech_prob=0.61, avg_logprob=-0.1) == (
         "hallucination_phrase"
     )
@@ -50,11 +50,14 @@ def test_low_confidence_and_lone_hallucinations_are_dropped() -> None:
 def test_confident_thanks_and_real_speech_are_kept() -> None:
     assert stt_drop_reason("Vielen Dank.", no_speech_prob=0.1, avg_logprob=-0.3) == ""
     assert stt_drop_reason("You want.", no_speech_prob=0.2, avg_logprob=-0.4) == ""
-    assert stt_drop_reason(
-        "Vielen Dank. Guten Abend. Und dann will ich das auch.",
-        no_speech_prob=0.2,
-        avg_logprob=-0.4,
-    ) == ""
+    assert (
+        stt_drop_reason(
+            "Vielen Dank. Guten Abend. Und dann will ich das auch.",
+            no_speech_prob=0.2,
+            avg_logprob=-0.4,
+        )
+        == ""
+    )
     assert is_lone_hallucination("Vielen Dank. Guten Abend.") is False
 
 

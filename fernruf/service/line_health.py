@@ -33,10 +33,7 @@ class AriLineHealth(LineHealth):
         self._client = client
 
     def ready(self) -> bool:
-        url = (
-            self._settings.asterisk_ari_url.rstrip("/")
-            + "/ari/endpoints/PJSIP/sip-trunk"
-        )
+        url = self._settings.asterisk_ari_url.rstrip("/") + "/ari/endpoints/PJSIP/sip-trunk"
         own = self._client is None
         client = self._client or httpx.Client(timeout=3.0)
         try:

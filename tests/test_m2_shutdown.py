@@ -45,7 +45,7 @@ def test_fake_hangup_ends_pipecat_run_within_2s() -> None:
         await hooks.request_pipeline_shutdown()
         try:
             await asyncio.wait_for(task, timeout=2.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task

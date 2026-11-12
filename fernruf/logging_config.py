@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
 _BEARER_RE = re.compile(r"Bearer\s+\S+", re.I)
 _API_KEY_RE = re.compile(r"api_key=[^&\s\"']+", re.I)
@@ -41,6 +41,7 @@ def collect_secret_literals(settings) -> tuple[str, ...]:
         getattr(settings, "sip_password", ""),
         getattr(settings, "typesafe_api_key", ""),
         getattr(settings, "mcp_token", ""),
+        getattr(settings, "monitor_token", ""),
         getattr(settings, "webhook_secret", ""),
         getattr(settings, "github_client_secret", ""),
     ):

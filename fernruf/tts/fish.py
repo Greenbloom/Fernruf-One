@@ -121,7 +121,9 @@ def fish_tts_pcm_rest(
     )
 
 
-async def _fish_ws(text: str, *, api_key: str, model: str, voice_id: str | None) -> tuple[bytes, int]:
+async def _fish_ws(
+    text: str, *, api_key: str, model: str, voice_id: str | None
+) -> tuple[bytes, int]:
     import websockets
 
     url = "wss://api.fish.audio/v1/tts/live"

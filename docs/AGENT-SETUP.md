@@ -318,4 +318,4 @@ More: [SETUP.md](SETUP.md), [TESTING.md](TESTING.md), [call-flow.md](call-flow.m
 
 - Human-oriented setup: [SETUP.md](SETUP.md)
 - Architecture: [ARCHITECTURE.md](../ARCHITECTURE.md)
-- Legal notice: [README.md](../README.md#legal--abuse-notice)
+- Legal notice: [README.md](../README.md#safety)

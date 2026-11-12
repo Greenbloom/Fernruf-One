@@ -20,6 +20,12 @@ from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.workers.runner import WorkerRunner
 from pipecat_asterisk import AsteriskWebsocketTransport
+from tests.m2_pipeline_harness import (
+    prime_transport_flow,
+    unblock_asterisk_output,
+    wait_until,
+    wire_transport_bot_stopped_to_guard,
+)
 
 from fernruf.settings import Settings
 from fernruf.tts.audio import _fixture_pcm
@@ -29,12 +35,7 @@ from fernruf.voice.call_session import M2CallSession
 from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.m2_pipeline import build_m2_pipeline
 from fernruf.voice.transport_teardown import cancel_asterisk_output_tasks_async
-from tests.m2_pipeline_harness import (
-    prime_transport_flow,
-    unblock_asterisk_output,
-    wait_until,
-    wire_transport_bot_stopped_to_guard,
-)
+
 
 class _ScriptLLM(BaseHTTPRequestHandler):
     """SSE stand-in. ``reply`` maps the request body to chunks so a duplicate
@@ -65,9 +66,9 @@ class _ScriptLLM(BaseHTTPRequestHandler):
 
                 time.sleep(_ScriptLLM.stall_s)
             return
-        chunks = _ScriptLLM.reply(body) if _ScriptLLM.reply else [
-            {"delta": {}, "finish_reason": "stop"}
-        ]
+        chunks = (
+            _ScriptLLM.reply(body) if _ScriptLLM.reply else [{"delta": {}, "finish_reason": "stop"}]
+        )
         for chunk in chunks:
             payload = {
                 "choices": [
@@ -98,11 +99,7 @@ def _tool_end_call(reason: str, goodbye: str) -> list[dict[str, Any]]:
                 ]
             }
         },
-        {
-            "delta": {
-                "tool_calls": [{"index": 0, "function": {"arguments": args}}]
-            }
-        },
+        {"delta": {"tool_calls": [{"index": 0, "function": {"arguments": args}}]}},
         {"delta": {}, "finish_reason": "tool_calls"},
     ]
 
@@ -260,9 +257,7 @@ def test_flow_answer_then_end_call_hangs_up_once(
     assert _tool_reruns() == []
 
 
-def test_flow_plain_text_goodbye_hangs_up(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_flow_plain_text_goodbye_hangs_up(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     server, base = _start_script(
         lambda _body: [
             {"delta": {"content": "Vielen Dank. Auf Wiederhören."}, "finish_reason": "stop"}
@@ -318,9 +313,7 @@ def test_flow_end_call_after_question_is_blocked_without_rerun(
 def test_flow_empty_llm_stop_is_not_an_apology(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    server, base = _start_script(
-        lambda _body: [{"delta": {}, "finish_reason": "stop"}]
-    )
+    server, base = _start_script(lambda _body: [{"delta": {}, "finish_reason": "stop"}])
     built, transport, _session, hangup = _pipeline(tmp_path, base, timeout_s=0.4, fallback="")
     caplog.set_level(logging.INFO)
     try:
@@ -333,14 +326,15 @@ def test_flow_empty_llm_stop_is_not_an_apology(
     assert any("nothing to say" in r.message for r in caplog.records)
 
 
-def test_flow_real_stall_apologizes_once(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    server, base = _start_script(lambda _body: [{"delta": {}, "finish_reason": "stop"}], stall_s=0.6, stalls=8)
+def test_flow_real_stall_apologizes_once(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    server, base = _start_script(
+        lambda _body: [{"delta": {}, "finish_reason": "stop"}], stall_s=0.6, stalls=8
+    )
     built, transport, _session, hangup = _pipeline(
         tmp_path, base, timeout_s=0.25, fallback="test/fallback"
     )
     caplog.set_level(logging.INFO)
+
     async def stall_two_turns() -> None:
         params = PipelineParams(audio_in_sample_rate=16000, audio_out_sample_rate=16000)
         runner = WorkerRunner(handle_sigint=False, handle_sigterm=False)
@@ -535,7 +529,9 @@ def test_flow_german_confirmation_goodbye_is_spoken_once(
                 {"delta": {"content": line}},
                 *_tool_end_call("got it", line),
             ]
-        return [{"delta": {"content": "Passt Ihnen heute Abend ein Gespräch?"}, "finish_reason": "stop"}]
+        return [
+            {"delta": {"content": "Passt Ihnen heute Abend ein Gespräch?"}, "finish_reason": "stop"}
+        ]
 
     server, base = _start_script(reply)
     built, transport, session, hangup = _pipeline(
@@ -571,7 +567,12 @@ def test_flow_english_confirmation_goodbye_is_spoken_once(
                 {"delta": {"content": line}},
                 *_tool_end_call("got it", line),
             ]
-        return [{"delta": {"content": "Do you have time tonight, and at what time?"}, "finish_reason": "stop"}]
+        return [
+            {
+                "delta": {"content": "Do you have time tonight, and at what time?"},
+                "finish_reason": "stop",
+            }
+        ]
 
     server, base = _start_script(reply)
     built, transport, session, hangup = _pipeline(
@@ -642,3 +643,75 @@ def test_flow_unclear_answer_asks_once_then_ends(
     assert sum("didn't catch that" in line for line in spoken) == 1
     assert sum("Goodbye" in line for line in spoken) == 1
     assert any("Reasking once" in r.message for r in caplog.records)
+
+
+def test_flow_callee_farewell_does_not_speak_the_goodbye_again(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """end_call speaks the goodbye once. A later callee farewell starts no turn."""
+    goodbye = "Thank you. Goodbye."
+
+    def reply(body: dict[str, Any]) -> list[dict[str, Any]]:
+        user = _last_user(body)
+        if "Goodbye" in user:
+            return [{"delta": {"content": goodbye}, "finish_reason": "stop"}]
+        if "Tuesday" in user:
+            return _tool_end_call("task_complete", goodbye)
+        return [{"delta": {"content": "Does Tuesday still work?"}, "finish_reason": "stop"}]
+
+    server, base = _start_script(reply)
+    built, transport, session, hangup = _pipeline(
+        tmp_path,
+        base,
+        timeout_s=5.0,
+        fallback="",
+        task="Ask if Tuesday still works.",
+        call_language="en",
+    )
+    caplog.set_level(logging.INFO)
+
+    async def run() -> None:
+        params = PipelineParams(audio_in_sample_rate=16000, audio_out_sample_rate=16000)
+        runner = WorkerRunner(handle_sigint=False, handle_sigterm=False)
+        worker = PipelineWorker(built.pipeline, params=params, cancel_timeout_secs=1.0)
+        await runner.add_workers(worker)
+        run_task = asyncio.create_task(runner.run())
+        await worker.queue_frame(StartFrame())
+        await worker.queue_frame(
+            InputTransportMessageFrame(
+                message={"event": "MEDIA_START", "ptime": 20, "optimal_frame_size": 640}
+            )
+        )
+        await prime_transport_flow(transport)
+        user_agg = built.context_pair.user()
+        for line in ("Hello?", "Yes, Tuesday works."):
+            before = len(_ScriptLLM.requests)
+            await user_agg.push_frame(
+                LLMMessagesAppendFrame(
+                    messages=[{"role": "user", "content": line}],
+                    run_llm=True,
+                ),
+                FrameDirection.DOWNSTREAM,
+            )
+            await wait_until(lambda b=before: len(_ScriptLLM.requests) > b, timeout_s=8.0)
+            await asyncio.sleep(0.4)
+        await wait_until(lambda: session.phase.is_ending or session.phase.is_hung_up, timeout_s=4.0)
+        requests_after_end = len(_ScriptLLM.requests)
+        await user_agg.push_frame(
+            LLMMessagesAppendFrame(
+                messages=[{"role": "user", "content": "Goodbye."}],
+                run_llm=True,
+            ),
+            FrameDirection.DOWNSTREAM,
+        )
+        await asyncio.sleep(0.8)
+        assert len(_ScriptLLM.requests) == requests_after_end
+        await _stop_pipeline(transport, worker, run_task)
+
+    try:
+        asyncio.run(run())
+    finally:
+        server.shutdown()
+    spoken = [r.message for r in caplog.records if r.message.startswith("TTS start:")]
+    assert sum("Goodbye" in line for line in spoken) == 1
+    assert any("No assistant turn after end_call" in r.message for r in caplog.records)

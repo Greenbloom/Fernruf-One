@@ -10,6 +10,26 @@ from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.processors.call_hangup import CallHangup
 
 
+def test_hangup_opens_a_client_when_the_shared_one_is_closed() -> None:
+    from unittest.mock import patch
+
+    response = MagicMock(status_code=204)
+    opened = MagicMock()
+    opened.delete.return_value = response
+    opened.is_closed = False
+    ari = AriSession(
+        base_url="http://127.0.0.1:8088",
+        user="u",
+        password="p",
+    )
+    ari.close()
+    with patch("fernruf.ari.client.httpx.Client", return_value=opened) as factory:
+        ari.hangup("pstn-chan-1")
+    factory.assert_called_once()
+    opened.delete.assert_called_once_with("/channels/pstn-chan-1")
+    opened.close.assert_called_once()
+
+
 def test_ari_delete_channel_logs_status() -> None:
     response = MagicMock(status_code=204)
     client = MagicMock()
@@ -55,5 +75,3 @@ def test_end_call_execute_hangup_before_pipeline_shutdown() -> None:
     guard._hooks.request_pipeline_shutdown = tracked_shutdown
     asyncio.run(guard._execute_hangup())
     assert order == ["hangup", "shutdown"]
-
-

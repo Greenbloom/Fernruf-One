@@ -11,8 +11,8 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection
 
 from fernruf.settings import Settings
-from fernruf.tts.rest_stream import pcm_to_wav
 from fernruf.tts.audio import _fixture_pcm
+from fernruf.tts.rest_stream import pcm_to_wav
 from fernruf.voice.processors.filler import LlmFillerProcessor
 from fernruf.voice.services.fish_rest_tts import FishRestTTSService
 
@@ -49,8 +49,9 @@ def test_fish_tts_synthesizes_both_filler_and_llm_reply(tmp_path: Path) -> None:
 
 
 def test_pipeline_order_tts_before_assistant_aggregator() -> None:
-    from fernruf.voice import m2_pipeline
     import inspect
+
+    from fernruf.voice import m2_pipeline
 
     src = inspect.getsource(m2_pipeline.build_m2_pipeline)
     assert "filler_gate," in src
@@ -58,8 +59,9 @@ def test_pipeline_order_tts_before_assistant_aggregator() -> None:
 
 
 def test_pipeline_filler_gate_after_llm() -> None:
-    from fernruf.voice import m2_pipeline
     import inspect
+
+    from fernruf.voice import m2_pipeline
 
     src = inspect.getsource(m2_pipeline.build_m2_pipeline)
     assert src.index("llm,") < src.index("filler_gate,") < src.index("tts,")

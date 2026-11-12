@@ -12,6 +12,14 @@ from pipecat_asterisk import AsteriskWebsocketTransport
 
 from fernruf.voice.transport_teardown import cancel_asterisk_output_tasks
 
+__all__ = [
+    "cancel_asterisk_output_tasks",
+    "prime_transport_flow",
+    "unblock_asterisk_output",
+    "wait_until",
+    "wire_transport_bot_stopped_to_guard",
+]
+
 
 def unblock_asterisk_output(
     transport: AsteriskWebsocketTransport,

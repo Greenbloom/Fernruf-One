@@ -8,8 +8,8 @@ from typing import Any
 from pipecat.frames.frames import (
     Frame,
     TranscriptionFrame,
-    TTSStartedFrame,
     TTSSpeakFrame,
+    TTSStartedFrame,
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
@@ -61,9 +61,7 @@ class VerifyFlowProcessor(FrameProcessor):
         notice = (self._settings.disclosure_prefix or "").strip()
         spoken = frame.text if isinstance(frame, TTSSpeakFrame) else ""
         if spoken and (
-            (notice and notice in spoken)
-            or "KI-Assistent" in spoken
-            or "AI assistant" in spoken
+            (notice and notice in spoken) or "KI-Assistent" in spoken or "AI assistant" in spoken
         ):
             self._saw_disclosure = True
             self._state.checks["ai_notice_text"] = True

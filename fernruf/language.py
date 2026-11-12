@@ -8,7 +8,6 @@ hand-written. Any other detected language uses the fixed English phrase table.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import re
@@ -24,7 +23,7 @@ from fernruf.mood import (
     parse_jev_choice,
     post_systemone,
 )
-from fernruf.principal import PHRASE_TEMPLATE_KEYS, format_phrase_templates, require_principal_name
+from fernruf.principal import format_phrase_templates, require_principal_name
 from fernruf.settings import Settings
 
 LOG = logging.getLogger("fernruf.language")
@@ -250,7 +249,9 @@ def detect_call_language_local(settings: Settings, task: str) -> LanguageDetecti
     )
 
 
-def _fallback(reason: str, *, latency_ms: float | None = None, confidence: float = 0.0) -> LanguageDetection:
+def _fallback(
+    reason: str, *, latency_ms: float | None = None, confidence: float = 0.0
+) -> LanguageDetection:
     return LanguageDetection(
         language="de",
         confidence=confidence,
@@ -404,10 +405,8 @@ def fish_voice_id_for(settings: Settings, code: str) -> tuple[str, str]:
     lang = (normalize_language_code(code) or code or "de").strip().lower()
     key = f"FERNRUF_FISH_VOICE_ID_{lang.upper()}"
     specific = os.environ.get(key, "").strip()
-    source = "env" if specific else ""
     if not specific:
         specific = _dotenv_value(key)
-        source = "dotenv" if specific else ""
     if specific:
         return specific, key
     return (settings.fish_voice_id or "").strip(), "FISH_VOICE_ID"

@@ -48,7 +48,7 @@ async def stop_embedded_uvicorn(
     server.should_exit = True
     try:
         await asyncio.wait_for(task, timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         LOG.warning("embedded uvicorn did not stop within %.0fs", timeout)
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):

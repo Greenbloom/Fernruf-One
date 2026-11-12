@@ -41,7 +41,9 @@ class FernrufOAuthProvider(
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
         self.store.save_client(client_info)
 
-    async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
+    async def authorize(
+        self, client: OAuthClientInformationFull, params: AuthorizationParams
+    ) -> str:
         if not self.github.configured:
             raise AuthorizeError("server_error", "GitHub login is not configured")
         expected = self.settings.oauth_resource.rstrip("/")

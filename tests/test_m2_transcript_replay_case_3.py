@@ -21,6 +21,12 @@ from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.workers.runner import WorkerRunner
 from pipecat_asterisk import AsteriskWebsocketTransport
+from tests.m2_pipeline_harness import (
+    cancel_asterisk_output_tasks,
+    prime_transport_flow,
+    unblock_asterisk_output,
+    wait_until,
+)
 
 from fernruf.settings import Settings
 from fernruf.tts.audio import _fixture_pcm
@@ -28,12 +34,6 @@ from fernruf.tts.rest_stream import pcm_to_wav
 from fernruf.voice.call_session import M2CallSession
 from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.m2_pipeline import build_m2_pipeline
-from tests.m2_pipeline_harness import (
-    cancel_asterisk_output_tasks,
-    prime_transport_flow,
-    unblock_asterisk_output,
-    wait_until,
-)
 
 
 class _Replay0031LLMHandler(BaseHTTPRequestHandler):
@@ -94,11 +94,7 @@ class _Replay0031LLMHandler(BaseHTTPRequestHandler):
             },
             {
                 "choices": [
-                    {
-                        "delta": {
-                            "tool_calls": [{"index": 0, "function": {"arguments": args}}]
-                        }
-                    }
+                    {"delta": {"tool_calls": [{"index": 0, "function": {"arguments": args}}]}}
                 ]
             },
             {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
@@ -147,6 +143,7 @@ def test_replay_0031_goodbye_plays_before_hangup_single_end_call(
     ws.send = AsyncMock()
     transport = AsteriskWebsocketTransport(websocket=ws)
     worker_ref: list[PipelineWorker | None] = [None]
+
     async def request_shutdown() -> None:
         w = worker_ref[0]
         if w is not None:
@@ -174,12 +171,11 @@ def test_replay_0031_goodbye_plays_before_hangup_single_end_call(
     async def delayed_bot_stopped(frame, direction=FrameDirection.DOWNSTREAM):  # noqa: ANN001
         await real_push(frame, direction)
         if isinstance(frame, TTSStoppedFrame) and getattr(out, "_flow_controller", None):
+
             async def emit_bot_stopped() -> None:
                 await asyncio.sleep(0.45)
                 out._flow_controller.bot_stopped_speaking_fence.set()
-                await built.metrics.push_frame(
-                    BotStoppedSpeakingFrame(), FrameDirection.DOWNSTREAM
-                )
+                await built.metrics.push_frame(BotStoppedSpeakingFrame(), FrameDirection.DOWNSTREAM)
 
             asyncio.create_task(emit_bot_stopped())
 
@@ -213,7 +209,7 @@ def test_replay_0031_goodbye_plays_before_hangup_single_end_call(
         await worker.cancel()
         try:
             await asyncio.wait_for(run_task, timeout=8.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             run_task.cancel()
 
     try:
@@ -223,14 +219,20 @@ def test_replay_0031_goodbye_plays_before_hangup_single_end_call(
 
     assert _Replay0031LLMHandler.end_call_count >= 1
     goodbye_speaks = [
-        r.message for r in caplog.records if r.message.startswith("TTS start:") and "Wiederhören" in r.message
+        r.message
+        for r in caplog.records
+        if r.message.startswith("TTS start:") and "Wiederhören" in r.message
     ]
     assert len(goodbye_speaks) == 1, goodbye_speaks
     assert hangup.await_count == 1
     tts_starts = [r.message for r in caplog.records if r.message.startswith("TTS start:")]
     assert any("Wiederhören" in msg for msg in tts_starts)
     hangup_logs = [i for i, r in enumerate(caplog.records) if "end_call: hanging up" in r.message]
-    goodbye_logs = [i for i, r in enumerate(caplog.records) if "TTS start:" in r.message and "Wiederhören" in r.message]
+    goodbye_logs = [
+        i
+        for i, r in enumerate(caplog.records)
+        if "TTS start:" in r.message and "Wiederhören" in r.message
+    ]
     assert hangup_logs and goodbye_logs
     assert hangup_logs[0] > goodbye_logs[0]
 

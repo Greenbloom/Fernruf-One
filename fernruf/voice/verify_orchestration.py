@@ -4,10 +4,6 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
-
-from pipecat.frames.frames import EndFrame, InterruptionFrame
-from pipecat.processors.frame_processor import FrameDirection
 
 from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.latency import LatencyLog

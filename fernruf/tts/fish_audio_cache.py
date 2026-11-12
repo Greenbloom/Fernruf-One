@@ -39,9 +39,7 @@ def read_fish_cache(
     latency: str,
     language: str = "",
 ) -> bytes | None:
-    key = fish_cache_key(
-        text, voice_id=voice_id, model=model, latency=latency, language=language
-    )
+    key = fish_cache_key(text, voice_id=voice_id, model=model, latency=latency, language=language)
     path = fish_cache_dir(settings) / f"{key}.pcm"
     if not path.is_file():
         return None
@@ -61,9 +59,7 @@ def write_fish_cache(
 ) -> None:
     if not pcm:
         return
-    key = fish_cache_key(
-        text, voice_id=voice_id, model=model, latency=latency, language=language
-    )
+    key = fish_cache_key(text, voice_id=voice_id, model=model, latency=latency, language=language)
     path = fish_cache_dir(settings) / f"{key}.pcm"
     path.write_bytes(pcm)
     LOG.debug("Fish TTS cache store %s bytes -> %s", len(pcm), path.name)

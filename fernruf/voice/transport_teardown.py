@@ -72,6 +72,14 @@ async def _await_task_cancellations(obj: object) -> None:
 async def cancel_asterisk_output_tasks_async(transport: AsteriskWebsocketTransport) -> None:
     """Cancel background clock/audio tasks on the Asterisk output transport."""
     out = transport.output()
+    release = getattr(out, "_release_playout_wait", None)
+    if callable(release):
+        with contextlib.suppress(Exception):
+            release()
+    close_flow = getattr(out, "_close_flow", None)
+    if callable(close_flow):
+        with contextlib.suppress(Exception):
+            await close_flow()
     if isinstance(out, FrameProcessor):
         cancel = getattr(out, "cancel", None)
         if callable(cancel):

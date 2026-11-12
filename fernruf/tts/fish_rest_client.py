@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 
 from fernruf.settings import Settings
-from fernruf.tts.fish import FishTtsError, TTS_FORMAT, TTS_SAMPLE_RATE, _decode_fish_audio_body
+from fernruf.tts.fish import TTS_FORMAT, TTS_SAMPLE_RATE, FishTtsError, _decode_fish_audio_body
 
 LOG = logging.getLogger("fernruf.tts.fish")
 

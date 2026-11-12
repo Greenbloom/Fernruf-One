@@ -34,19 +34,39 @@ class AriSession:
     def close(self) -> None:
         self._client.close()
 
+    def _new_client(self) -> httpx.Client:
+        return httpx.Client(
+            base_url=self.base_url.rstrip("/") + "/ari",
+            auth=(self.user, self.password),
+            timeout=30.0,
+        )
+
+    def _delete(self, path: str) -> None:
+        """DELETE even when the shared client has already been closed.
+
+        Hangup can run after the call runner closes that client. A late
+        playout task then has its own client for this one request.
+        """
+        client = self._client
+        own: httpx.Client | None = None
+        if getattr(client, "is_closed", False) is True:
+            LOG.warning("ARI client is closed; opening another for DELETE %s", path)
+            own = self._new_client()
+            client = own
+        try:
+            response = client.delete(path)
+            LOG.info("ARI DELETE %s -> %s", path, response.status_code)
+            if response.status_code not in (204, 404):
+                response.raise_for_status()
+        finally:
+            if own is not None:
+                own.close()
+
     def hangup(self, channel_id: str) -> None:
-        path = f"/channels/{quote(channel_id)}"
-        r = self._client.delete(path)
-        LOG.info("ARI DELETE %s -> %s", path, r.status_code)
-        if r.status_code not in (204, 404):
-            r.raise_for_status()
+        self._delete(f"/channels/{quote(channel_id)}")
 
     def destroy_bridge(self, bridge_id: str) -> None:
-        path = f"/bridges/{quote(bridge_id)}"
-        r = self._client.delete(path)
-        LOG.info("ARI DELETE %s -> %s", path, r.status_code)
-        if r.status_code not in (204, 404):
-            r.raise_for_status()
+        self._delete(f"/bridges/{quote(bridge_id)}")
 
     def hangup_active(self) -> None:
         if self.active_channel_id:

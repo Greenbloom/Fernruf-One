@@ -22,10 +22,13 @@ def test_preflight_slow_first_token_switches_to_fallback() -> None:
             return 10_200.0
         return 120.0
 
-    with patch(
-        "fernruf.llm.preflight.resolve_llm_endpoint_for_call",
-        return_value=(MagicMock(model="example/model-a", provider="openrouter"), MagicMock()),
-    ), patch("fernruf.llm.preflight._streaming_preflight_once", side_effect=_fake_once):
+    with (
+        patch(
+            "fernruf.llm.preflight.resolve_llm_endpoint_for_call",
+            return_value=(MagicMock(model="example/model-a", provider="openrouter"), MagicMock()),
+        ),
+        patch("fernruf.llm.preflight._streaming_preflight_once", side_effect=_fake_once),
+    ):
         result = asyncio.run(
             preflight_llm(
                 settings,

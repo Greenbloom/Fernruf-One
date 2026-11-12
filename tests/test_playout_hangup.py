@@ -15,6 +15,7 @@ from pipecat.frames.frames import (
     InterruptionFrame,
     OutputAudioRawFrame,
     TextType,
+    TranscriptionFrame,
     TTSAudioRawFrame,
     TTSStartedFrame,
     TTSStoppedFrame,
@@ -86,6 +87,7 @@ def _hangup(
     seal=None,
     output_pending=None,
     note_queued=None,
+    playout_done=None,
 ) -> tuple[CallHangup, AsyncMock]:
     settings = Settings(
         _env_file=None,
@@ -102,6 +104,7 @@ def _hangup(
         seal_playout=seal,
         output_pending=output_pending,
         note_queued_audio=note_queued,
+        playout_done=playout_done,
     )
     proc.push_frame = AsyncMock()  # type: ignore[method-assign]
     return proc, called
@@ -522,9 +525,7 @@ def test_fast_tts_burst_plays_the_whole_final_turn(
             note_queued=out.note_audio_queued,
         )
         await proc.process_frame(BotStoppedSpeakingFrame(), FrameDirection.DOWNSTREAM)
-        await proc.process_frame(
-            TTSStartedFrame(context_id="sentence"), FrameDirection.DOWNSTREAM
-        )
+        await proc.process_frame(TTSStartedFrame(context_id="sentence"), FrameDirection.DOWNSTREAM)
         await proc.process_frame(
             TTSTextFrame(
                 text="Ich werde Alex Example informieren.",
@@ -533,9 +534,7 @@ def test_fast_tts_burst_plays_the_whole_final_turn(
             ),
             FrameDirection.DOWNSTREAM,
         )
-        await proc.process_frame(
-            TTSStoppedFrame(context_id="sentence"), FrameDirection.DOWNSTREAM
-        )
+        await proc.process_frame(TTSStoppedFrame(context_id="sentence"), FrameDirection.DOWNSTREAM)
         assert out._sealed is False
         assert proc._goodbye_tts_done is False
 
@@ -599,13 +598,100 @@ def test_fast_tts_burst_plays_the_whole_final_turn(
 
     caplog.set_level(logging.INFO)
     asyncio.run(run())
-    assert any("Final-turn audio" in r.message and "4000ms written" in r.message for r in caplog.records)
+    assert any(
+        "Final-turn audio" in r.message and "4000ms written" in r.message for r in caplog.records
+    )
     assert any("playout clock end" in r.message for r in caplog.records)
     assert any("QUEUE_DRAINED ignored" in r.message for r in caplog.records)
-    hangup_logs = [r.message for r in caplog.records if r.message.startswith("end_call: hanging up")]
+    hangup_logs = [
+        r.message for r in caplog.records if r.message.startswith("end_call: hanging up")
+    ]
     assert len(hangup_logs) == 1
     assert "final-turn audio" in hangup_logs[0]
     assert "playout clock end" in hangup_logs[0]
     assert "drain +" in hangup_logs[0]
     assert "hangup +" in hangup_logs[0]
     assert "n/a" not in hangup_logs[0]
+
+
+def test_playout_done_signal_hangs_up_without_the_cap(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A finished playout hangs up within the margin, not at the 20s cap.
+
+    The summed clock can still show the whole burst. The transport signal is
+    what the phone has actually played.
+    """
+
+    async def run() -> None:
+        clock = PlayoutClock()
+        clock.add_chunk(len(_pcm(20.0)), _RATE)
+        session = M2CallSession()
+        session.phase.begin_ending(
+            reason="done",
+            goodbye="Thank you. Goodbye.",
+            await_playback=True,
+        )
+        proc, called = _hangup(
+            session=session,
+            clock=clock,
+            margin_s=0.05,
+            playout_done=lambda: True,
+        )
+        started = time.monotonic()
+        await _arm_goodbye(proc)
+        await proc.process_frame(BotStoppedSpeakingFrame(), FrameDirection.DOWNSTREAM)
+        await asyncio.sleep(0.4)
+        assert called.await_count == 1
+        assert time.monotonic() - started < 1.5
+        assert session.hung_up
+
+    caplog.set_level(logging.INFO)
+    asyncio.run(run())
+    assert any("Playout done" in r.message for r in caplog.records)
+    assert not any("20s cap" in r.message or "20.0s cap" in r.message for r in caplog.records)
+
+
+def test_callee_reply_after_the_goodbye_does_not_wait_for_the_cap() -> None:
+    """A callee line after the goodbye hangs up on the margin, not the 20s cap."""
+
+    async def run() -> None:
+        clock = PlayoutClock()
+        clock.add_chunk(len(_pcm(20.0)), _RATE)
+        session = M2CallSession()
+        session.phase.begin_ending(
+            reason="task_complete",
+            goodbye="Thank you. Goodbye.",
+            await_playback=True,
+        )
+        proc, called = _hangup(
+            session=session,
+            clock=clock,
+            margin_s=0.05,
+            playout_done=lambda: False,
+        )
+        started = time.monotonic()
+        await _arm_goodbye(proc)
+        await proc.process_frame(
+            TranscriptionFrame(text="Goodbye.", user_id="callee", timestamp="0"),
+            FrameDirection.DOWNSTREAM,
+        )
+        await asyncio.sleep(0.4)
+        assert called.await_count == 1
+        assert time.monotonic() - started < 1.5
+
+    asyncio.run(run())
+
+
+def test_playback_idle_tracks_the_sealed_remote_buffer() -> None:
+    out, flow, _client = _output()
+    fence = asyncio.Event()
+    flow.bot_stopped_speaking_fence = fence  # type: ignore[attr-defined]
+    flow._remote_buffer_utilization = 0.0  # type: ignore[attr-defined]
+    assert out.playback_idle() is False
+    out.seal_playout()
+    # An empty remote buffer is played out even when the fence never opened.
+    assert out.playback_idle() is True
+    assert fence.is_set()
+    flow._remote_buffer_utilization = 8000  # type: ignore[attr-defined]
+    assert out.playback_idle() is False

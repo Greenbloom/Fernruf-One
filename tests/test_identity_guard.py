@@ -6,13 +6,13 @@ import logging
 import pytest
 from pipecat.frames.frames import LLMTextFrame
 from pipecat.processors.frame_processor import FrameDirection
+from tests.conftest import PRINCIPAL_TEST_NAMES
 
 from fernruf.principal import format_phrase_templates
+from fernruf.settings import Settings
 from fernruf.voice.identity import scrub_identity_text
 from fernruf.voice.processors.identity_guard import IdentityOutputGuardProcessor
 from fernruf.voice.prompt import build_system_prompt
-from fernruf.settings import Settings
-from tests.conftest import PRINCIPAL_TEST_NAMES
 
 _PRINCIPAL = "Jordan Lee"
 

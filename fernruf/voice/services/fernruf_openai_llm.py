@@ -4,15 +4,15 @@ import asyncio
 import json
 import logging
 import time
-from contextlib import asynccontextmanager
 from collections.abc import Sequence
+from contextlib import asynccontextmanager
 from typing import Any
 
 from openai.types.chat import ChatCompletionChunk
-from pipecat.frames.frames import LLMTextFrame, TTSSpeakFrame
-from pipecat.processors.frame_processor import FrameDirection
+from pipecat.frames.frames import LLMContextFrame, LLMTextFrame, TTSSpeakFrame
 from pipecat.metrics.metrics import LLMTokenUsage
 from pipecat.processors.aggregators.llm_context import LLMContext
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.llm_service import FunctionCallFromLLM
 from pipecat.services.openai.llm import OpenAILLMService
 
@@ -21,9 +21,9 @@ from fernruf.llm.stream_liveness import delta_has_llm_liveness
 from fernruf.settings import Settings
 from fernruf.voice.call_phase import assistant_turn_asks, farewell_in_text
 from fernruf.voice.call_session import M2CallSession
-from fernruf.voice.tool_text import ToolTextGate
 from fernruf.voice.frames.metrics_frames import LlmFirstTokenFrame, LlmInferenceStartedFrame
 from fernruf.voice.processors.merge_user_context import merge_consecutive_user_messages
+from fernruf.voice.tool_text import ToolTextGate
 
 LOG = logging.getLogger("fernruf.voice.llm")
 
@@ -107,11 +107,28 @@ class FernrufOpenAILLMService(OpenAILLMService):
         if function_calls:
             await super().run_function_calls(function_calls)
 
-    async def _push_llm_text(self, text: str) -> None:
-        if self._call_session is not None and self._call_session.phase.suppresses_llm:
+    async def process_frame(self, frame, direction: FrameDirection):
+        session = self._call_session
+        if (
+            isinstance(frame, LLMContextFrame)
+            and session is not None
+            and session.phase.suppresses_llm
+        ):
+            LOG.info("No assistant turn after end_call")
+            await FrameProcessor.process_frame(self, frame, direction)
             return
-        if self._call_session is not None:
-            self._call_session.speakable_llm_this_turn = True
+        await super().process_frame(frame, direction)
+
+    async def _push_llm_text(self, text: str) -> None:
+        session = self._call_session
+        if session is not None and session.phase.suppresses_llm:
+            return
+        if session is not None and session.spoken_goodbye:
+            if farewell_in_text(text, session.spoken_goodbye):
+                LOG.info("Dropping goodbye; it was already spoken")
+                return
+        if session is not None:
+            session.speakable_llm_this_turn = True
         await self.push_frame(LLMTextFrame(text))
 
     async def get_chat_completions(self, context: LLMContext):  # noqa: ANN201
@@ -188,9 +205,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
         )
 
     async def _process_context_with_timeout(self, context: LLMContext) -> None:
-        timeout_s = (
-            self._call_settings.llm_first_token_timeout_s if self._call_settings else 0.0
-        )
+        timeout_s = self._call_settings.llm_first_token_timeout_s if self._call_settings else 0.0
         primary = self._logged_model()
         if not self._primary_model:
             self._primary_model = primary
@@ -202,7 +217,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
             try:
                 await self._stream_context(context, first_token_timeout_s=timeout_s)
                 return
-            except asyncio.TimeoutError as exc:
+            except TimeoutError as exc:
                 last_err = exc
                 if not tried_fallback and fallback and self._logged_model() != fallback:
                     tried_fallback = True
@@ -344,7 +359,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
                         chunk = await _next_chunk()
                     except StopAsyncIteration:
                         break
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         LOG.warning(
                             "LLM first-token timeout (no content, tool, or reasoning delta) "
                             "model=%s",
@@ -431,11 +446,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
 
                     if content:
                         await _emit_model_text(content)
-                    elif (
-                        hasattr(delta, "audio")
-                        and delta.audio
-                        and delta.audio.get("transcript")
-                    ):
+                    elif hasattr(delta, "audio") and delta.audio and delta.audio.get("transcript"):
                         await _emit_model_text(delta.audio["transcript"])
         finally:
             if token_usage:
@@ -459,10 +470,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
                     await self._push_llm_text(part)
                 if hold_reask and assistant_turn_asks(combined):
                     self._call_session.phase.reask_used = True
-        if (
-            not any(name == "end_call" for name in (*functions_list, function_name))
-            and gate.calls
-        ):
+        if not any(name == "end_call" for name in (*functions_list, function_name)) and gate.calls:
             call = gate.calls[0]
             LOG.info(
                 "Parsed textual end_call; speaking goodbye only (%s chars)",
@@ -499,10 +507,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
             if (
                 self._completion_skipped
                 or finish_reason == "stop"
-                or (
-                    self._call_session is not None
-                    and self._call_session.phase.suppresses_llm
-                )
+                or (self._call_session is not None and self._call_session.phase.suppresses_llm)
             ):
                 LOG.info(
                     "LLM completed with nothing to say model=%s finish_reason=%s skipped=%s",
@@ -515,7 +520,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
                 "LLM stream ended without speakable, tool, or reasoning delta model=%s",
                 self._logged_model(),
             )
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
         if spoken_len:
             LOG.info(

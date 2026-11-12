@@ -48,9 +48,7 @@ class _FakeLLMHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(
-                b'{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'
-            )
+            self.wfile.write(b'{"choices":[{"message":{"role":"assistant","content":"ok"}}]}')
             return
 
         if self.delay_s:
@@ -226,7 +224,9 @@ def test_build_m2_pipeline_llm_reply_reaches_tts(
     assert audio_out or outbound_bytes > 0, "expected TTSAudioRawFrame through pipeline"
 
 
-def test_build_m2_pipeline_delayed_llm_stream(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_build_m2_pipeline_delayed_llm_stream(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     server, base_url = _run_fake_llm_server(
         [{"delta": {"content": "Antwort nach Pause."}, "finish_reason": "stop"}],
         delay_s=0.0,
@@ -263,4 +263,6 @@ def test_build_m2_pipeline_delayed_llm_stream(tmp_path: Path, caplog: pytest.Log
         asyncio.run(_drive_pipeline(built, transport, wait_s=3.0))
     finally:
         server.shutdown()
-    assert any("Antwort nach Pause" in r.message for r in caplog.records if "TTS start" in r.message)
+    assert any(
+        "Antwort nach Pause" in r.message for r in caplog.records if "TTS start" in r.message
+    )

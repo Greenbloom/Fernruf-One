@@ -15,6 +15,12 @@ from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.workers.runner import WorkerRunner
 from pipecat_asterisk import AsteriskWebsocketTransport
+from tests.m2_pipeline_harness import (
+    prime_transport_flow,
+    unblock_asterisk_output,
+    wait_until,
+    wire_transport_bot_stopped_to_guard,
+)
 
 from fernruf.settings import Settings
 from fernruf.tts.audio import _fixture_pcm
@@ -22,12 +28,6 @@ from fernruf.tts.rest_stream import pcm_to_wav
 from fernruf.voice.call_session import M2CallSession
 from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.m2_pipeline import build_m2_pipeline
-from tests.m2_pipeline_harness import (
-    prime_transport_flow,
-    unblock_asterisk_output,
-    wait_until,
-    wire_transport_bot_stopped_to_guard,
-)
 
 TRANSCRIPT_0018 = [
     "Na, wie geht's dir?",
@@ -104,13 +104,7 @@ class _Replay0018LLMHandler(BaseHTTPRequestHandler):
             },
             {
                 "choices": [
-                    {
-                        "delta": {
-                            "tool_calls": [
-                                {"index": 0, "function": {"arguments": args}}
-                            ]
-                        }
-                    }
+                    {"delta": {"tool_calls": [{"index": 0, "function": {"arguments": args}}]}}
                 ]
             },
             {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
@@ -214,7 +208,7 @@ def test_replay_0018_first_end_call_after_das_klappt_hangup(
         await worker.cancel()
         try:
             await asyncio.wait_for(run_task, timeout=8.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             run_task.cancel()
 
     try:

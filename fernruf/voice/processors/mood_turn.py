@@ -28,6 +28,10 @@ class MoodTurnProcessor(FrameProcessor):
         if isinstance(frame, TranscriptionFrame):
             text = (frame.text or "").strip()
             if text:
+                # The user aggregator consumes this frame and does not push it
+                # on. Record the final here, before that, so every STT final
+                # reaches the transcript even when the turn context does not.
+                self._session.note_user_transcript(text)
                 self._turn.start(text, prior_bot=prior_bot_line(self._session))
         elif isinstance(frame, LLMContextFrame) and getattr(frame, "context", None) is not None:
             messages = list(getattr(frame.context, "messages", []) or [])

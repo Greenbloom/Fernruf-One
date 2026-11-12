@@ -26,6 +26,7 @@ class CallJob:
     detection_text: str = ""
     goal: str = ""
     must_say: tuple[str, ...] = ()
+    monitor: object | None = None
 
 
 @dataclass
@@ -58,6 +59,7 @@ async def _run_simulate(job: CallJob) -> CallRunResult:
         llm_model_override=job.model,
         language=job.language,
         detection_text=job.detection_text or None,
+        monitor=job.monitor,
     )
     sim.call_id = job.call_id
     task = asyncio.create_task(sim.run())
@@ -70,7 +72,9 @@ async def _run_simulate(job: CallJob) -> CallRunResult:
         stop.cancel()
         await asyncio.gather(task, stop, return_exceptions=True)
     if job.shutdown.is_set() and task.cancelled():
-        return CallRunResult(outcome="canceled", answered=False, call_language=job.settings.call_language)
+        return CallRunResult(
+            outcome="canceled", answered=False, call_language=job.settings.call_language
+        )
     if task.cancelled():
         return CallRunResult(outcome="canceled", answered=False)
     exc = task.exception()
@@ -78,7 +82,8 @@ async def _run_simulate(job: CallJob) -> CallRunResult:
         raise exc
     result = task.result()
     transcript = [
-        {"t_ms": line.t_ms, "speaker": line.speaker, "text": line.text} for line in result.transcript
+        {"t_ms": line.t_ms, "speaker": line.speaker, "text": line.text}
+        for line in result.transcript
     ]
     outcome = "hung_up_by_agent" if job.shutdown.is_set() else "completed"
     return CallRunResult(
@@ -115,6 +120,7 @@ async def _run_live(job: CallJob) -> CallRunResult:
             detection_text=job.detection_text or None,
             goal=job.goal,
             must_say=job.must_say,
+            monitor=job.monitor,
         )
     finally:
         ari.close()

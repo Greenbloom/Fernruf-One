@@ -74,7 +74,7 @@ Every call starts with a fixed AI disclosure the model cannot change. In German 
 
 ## After the call
 
-`get_call` returns status, timings, outcome, transcript, and cost. `summary` stays null until the structured summary lands in a later version. `outcome` is only the network result. `get_recording` is `not_available` when nothing was recorded. `connect_webhook` stores a URL; the signed `call.finalized` event is not sent yet.
+`get_call` returns status, timings, outcome, transcript, cost, and, for a completed call, `summary` (outcome, key facts, follow-ups, consent). `outcome` on the call itself is only the network result. `get_recording` is `not_available` when nothing was recorded. `connect_webhook` stores a URL; a signed `call.finalized` event is posted when the call ends and includes the summary.
 """
 
 

@@ -6,13 +6,14 @@ from pathlib import Path
 from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from fernruf.principal import german_ai_notice, require_principal_name
+from fernruf.principal import require_principal_name
 from fernruf.quiet_hours import QuietHoursSpec, parse_quiet_hours
 from fernruf.safety_limits import (
     clamp_calls_per_day,
     clamp_minutes_per_day,
     clamp_monthly_budget_eur,
 )
+
 
 def _configured_env_value(key: str) -> str:
     direct = os.environ.get(key, "").strip()
@@ -86,12 +87,17 @@ class Settings(BaseSettings):
     calls_per_day: int = Field(default=10, alias="FERNRUF_CALLS_PER_DAY")
     minutes_per_day: int = Field(default=100, alias="FERNRUF_MINUTES_PER_DAY")
     monthly_budget_eur: float = Field(default=25.0, alias="FERNRUF_MONTHLY_BUDGET_EUR")
-    mobile_budget_eur: float = Field(default=20.0, alias="FERNRUF_MOBILE_BUDGET_EUR", le=50.0, ge=0.0)
+    mobile_budget_eur: float = Field(
+        default=20.0, alias="FERNRUF_MOBILE_BUDGET_EUR", le=50.0, ge=0.0
+    )
     mobile_flat_enabled: bool = Field(default=False, alias="FERNRUF_MOBILE_FLAT_ENABLED")
     max_minutes_cap: int = Field(default=30, alias="FERNRUF_MAX_MINUTES_CAP")
     ai_eur_per_min: float = Field(default=0.01, alias="FERNRUF_AI_EUR_PER_MIN", ge=0.001)
     mobile_eur_per_min: float = Field(default=0.199, alias="FERNRUF_MOBILE_EUR_PER_MIN")
     m3_simulate: bool = Field(default=False, alias="FERNRUF_M3_SIMULATE")
+    monitor_enabled: bool = Field(default=True, alias="FERNRUF_MONITOR_ENABLED")
+    monitor_port: int = Field(default=8791, alias="FERNRUF_MONITOR_PORT")
+    monitor_token: str = Field(default="", alias="FERNRUF_MONITOR_TOKEN")
 
     # OAuth 2.1 authorization server. GitHub is the only login.
     github_client_id: str = Field(default="", alias="FERNRUF_GITHUB_CLIENT_ID")

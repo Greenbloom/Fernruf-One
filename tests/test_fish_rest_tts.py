@@ -4,12 +4,11 @@ import asyncio
 from pathlib import Path
 
 import pytest
-
-from fernruf.settings import Settings
-from fernruf.tts.rest_stream import pcm_to_wav
-from fernruf.tts.audio import _fixture_pcm
 from pipecat.frames.frames import TTSAudioRawFrame
 
+from fernruf.settings import Settings
+from fernruf.tts.audio import _fixture_pcm
+from fernruf.tts.rest_stream import pcm_to_wav
 from fernruf.voice.services.fish_rest_tts import FishRestTTSService
 
 
@@ -28,6 +27,7 @@ def test_fish_rest_tts_run_tts_from_recorded_wav(fish_wav_fixture: Path) -> None
         fish_audio_api_key="",
     )
     tts = FishRestTTSService(call_settings=settings)
+
     async def collect() -> list:
         frames = []
         async for frame in tts.run_tts("Hallo.", context_id="ctx-test"):

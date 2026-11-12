@@ -61,19 +61,40 @@ _IDENTITY_SUBJECT = re.compile(
 _FORBIDDEN_RULES: tuple[tuple[str, str], ...] = (
     ("de", r"\bich\s+bin(?:\s+doch)?\s+kein(?:e)?\s+(?:ki|bot|roboter|computer|maschine)"),
     ("de", r"\bich\s+bin(?:\s+doch)?\s+keine\s+kunstliche\s+intelligenz"),
-    ("de", r"\bich\s+bin(?:\s+doch)?\s+(?:ein(?:e|er|em|en)?\s+)?(?:echte[rn]?|reale[rn]?|wirkliche[rn]?|menschliche[rn]?)\s+(?:person|mitarbeiter|mensch)"),
-    ("de", r"\bich\s+bin(?:\s+doch)?\s+(?:ein(?:e|er|em|en)?\s+)?(?:mensch(?:er|liche|licher|en)?|mitarbeiter(?:in|innen)?)"),
+    (
+        "de",
+        r"\bich\s+bin(?:\s+doch)?\s+(?:ein(?:e|er|em|en)?\s+)?(?:echte[rn]?|reale[rn]?|wirkliche[rn]?|menschliche[rn]?)\s+(?:person|mitarbeiter|mensch)",
+    ),
+    (
+        "de",
+        r"\bich\s+bin(?:\s+doch)?\s+(?:ein(?:e|er|em|en)?\s+)?(?:mensch(?:er|liche|licher|en)?|mitarbeiter(?:in|innen)?)",
+    ),
     ("de", r"\bich\s+bin(?:\s+doch)?\s+mensch\b"),
     ("de", r"\bich\s+bin(?:\s+doch)?\s+echt(?:\s*[!?.…,;]*)?\s*$"),
-    ("de", r"\bsie\s+sprechen(?:\s+nicht)?\s+mit\s+(?:einem|einer)\s+(?:echten?\s+)?(?:menschen|person|mitarbeiter)"),
-    ("de", r"\bsie\s+reden\s+mit\s+(?:einem|einer)\s+(?:echten?\s+)?(?:menschen|person|mitarbeiter)"),
-    ("de", r"\bhier\s+spricht\s+(?:ein(?:en|er|em|en)?\s+)?(?:echte[rn]?|reale[rn]?|wirkliche[rn]?|menschliche[rn]?)?\s*(?:person|mensch|mitarbeiter)"),
-    ("en", r"\b(?:i['']?m|i\s+am)\s+not\s+(?:an?\s+)?(?:ai|bot|robot|computer|machine)(?:\s+assistant)?"),
+    (
+        "de",
+        r"\bsie\s+sprechen(?:\s+nicht)?\s+mit\s+(?:einem|einer)\s+(?:echten?\s+)?(?:menschen|person|mitarbeiter)",
+    ),
+    (
+        "de",
+        r"\bsie\s+reden\s+mit\s+(?:einem|einer)\s+(?:echten?\s+)?(?:menschen|person|mitarbeiter)",
+    ),
+    (
+        "de",
+        r"\bhier\s+spricht\s+(?:ein(?:en|er|em|en)?\s+)?(?:echte[rn]?|reale[rn]?|wirkliche[rn]?|menschliche[rn]?)?\s*(?:person|mensch|mitarbeiter)",
+    ),
+    (
+        "en",
+        r"\b(?:i['']?m|i\s+am)\s+not\s+(?:an?\s+)?(?:ai|bot|robot|computer|machine)(?:\s+assistant)?",
+    ),
     ("en", r"\b(?:i['']?m|i\s+am)\s+not\s+an?\s+ai\s+assistant"),
     ("en", r"\b(?:i['']?m|i\s+am)\s+not\s+artificial\s+intelligence"),
     ("en", r"\b(?:i['']?m|i\s+am)\s+(?:a\s+)?(?:real\s+)?(?:human|employee)"),
     ("en", r"\b(?:i['']?m|i\s+am)\s+a\s+real\s+person"),
-    ("en", r"\byou['']?re(?:\s+not)?\s+(?:speaking|talking)\s+(?:to|with)\s+(?:a\s+)?(?:real\s+)?(?:human|person)"),
+    (
+        "en",
+        r"\byou['']?re(?:\s+not)?\s+(?:speaking|talking)\s+(?:to|with)\s+(?:a\s+)?(?:real\s+)?(?:human|person)",
+    ),
     ("en", r"correction:\s*this\s+is\s+not\s+an\s+ai"),
     ("fr", r"\bje\s+ne\s+suis\s+pas\s+(?:une?\s+)?(?:ia|intelligence\s+artificielle|robot)"),
     ("fr", r"\bje\s+suis\s+humain\b"),
@@ -128,78 +149,68 @@ def _principal_rules(principal: str) -> tuple[tuple[str, re.Pattern[str]], ...]:
         esc = re.escape(n)
         guard = _esc_guard(token, principal)
         batch: list[tuple[str, re.Pattern[str]]] = [
-                ("de", re.compile(rf"^{greet}mein\s+name\s+ist\s+{esc}{guard}\b")),
-                ("de", re.compile(rf"^{greet}(?:ich\s+bin|bin\s+ich)\s+{esc}{guard}\b")),
-                ("de", re.compile(rf"^{greet}ich\s+bin\s+{title}{esc}{guard}\b")),
-                (
-                    "de",
-                    re.compile(
-                        rf"^(?:{greet}|(?:guten\s+tag\s+)?)hier\s+(?:ist|spricht)\s+{esc}{guard}\b"
-                    ),
+            ("de", re.compile(rf"^{greet}mein\s+name\s+ist\s+{esc}{guard}\b")),
+            ("de", re.compile(rf"^{greet}(?:ich\s+bin|bin\s+ich)\s+{esc}{guard}\b")),
+            ("de", re.compile(rf"^{greet}ich\s+bin\s+{title}{esc}{guard}\b")),
+            (
+                "de",
+                re.compile(
+                    rf"^(?:{greet}|(?:guten\s+tag\s+)?)hier\s+(?:ist|spricht)\s+{esc}{guard}\b"
                 ),
-                (
-                    "de",
-                    re.compile(
-                        rf"^.*\bsie\s+sprechen(?:\s+nicht)?\s+mit\s+{esc}\s+selbst\b"
-                    ),
+            ),
+            (
+                "de",
+                re.compile(rf"^.*\bsie\s+sprechen(?:\s+nicht)?\s+mit\s+{esc}\s+selbst\b"),
+            ),
+            (
+                "de",
+                re.compile(rf"^{greet}(?:ich\s+bin|bin\s+ich)\s+{esc}\s+(?:selbst|personlich)\b"),
+            ),
+            (
+                "de",
+                re.compile(rf"^hier\s+(?:ist|spricht)\s+{esc}\s+(?:selbst|personlich)\b"),
+            ),
+            (
+                "de",
+                re.compile(rf"^hier\s+(?:spricht|ist)\s+{esc}\s+am\s+apparat\b"),
+            ),
+            ("de", re.compile(rf"^{esc}\s+am\s+apparat\s*{end}$")),
+            ("de", re.compile(rf"^{esc}\s+personlich\s+am\s+apparat\s*{end}$")),
+            (
+                "de",
+                re.compile(
+                    rf"^sie\s+sprechen(?:\s+nicht)?\s+mit\s+{esc}\s*"
+                    rf"(?:\(?\s*personlich\s*\)?|selbst)?\s*{end}$"
                 ),
-                (
-                    "de",
-                    re.compile(
-                        rf"^{greet}(?:ich\s+bin|bin\s+ich)\s+{esc}\s+(?:selbst|personlich)\b"
-                    ),
+            ),
+            (
+                "de",
+                re.compile(rf"^am\s+apparat\s+ist\s+{esc}(?:\s+(?:personlich|selbst))?\s*{end}$"),
+            ),
+            (
+                "de",
+                re.compile(
+                    rf"^sie\s+haben\s+{esc}(?:\s*\(?\s*personlich\s*\)?)?\s+am\s+telefon\s*{end}$"
                 ),
-                (
-                    "de",
-                    re.compile(
-                        rf"^hier\s+(?:ist|spricht)\s+{esc}\s+(?:selbst|personlich)\b"
-                    ),
-                ),
-                (
-                    "de",
-                    re.compile(rf"^hier\s+(?:spricht|ist)\s+{esc}\s+am\s+apparat\b"),
-                ),
-                ("de", re.compile(rf"^{esc}\s+am\s+apparat\s*{end}$")),
-                ("de", re.compile(rf"^{esc}\s+personlich\s+am\s+apparat\s*{end}$")),
-                (
-                    "de",
-                    re.compile(
-                        rf"^sie\s+sprechen(?:\s+nicht)?\s+mit\s+{esc}\s*"
-                        rf"(?:\(?\s*personlich\s*\)?|selbst)?\s*{end}$"
-                    ),
-                ),
-                (
-                    "de",
-                    re.compile(
-                        rf"^am\s+apparat\s+ist\s+{esc}(?:\s+(?:personlich|selbst))?\s*{end}$"
-                    ),
-                ),
-                (
-                    "de",
-                    re.compile(
-                        rf"^sie\s+haben\s+{esc}(?:\s*\(?\s*personlich\s*\)?)?\s+am\s+telefon\s*{end}$"
-                    ),
-                ),
-                ("de", re.compile(rf"^guten\s+tag\s*,?\s*{esc}\s+hier\s*{end}$")),
-                (
-                    "de",
-                    re.compile(rf"^guten\s+tag\s*,?\s*{esc}\s+hier\s*,?\s*ich\b"),
-                ),
-                ("en", re.compile(rf"^{greet}my\s+name\s+is\s+{esc}{guard}\b")),
-                ("en", re.compile(rf"^(?:i\s+am|i'm)\s+{esc}{guard}\b")),
-                ("en", re.compile(rf"^{greet}this\s+is\s+{esc}{guard}\b")),
-                ("en", re.compile(rf"^{greet}this\s+is\s+{esc}{guard}\s+speaking\b")),
-                ("fr", re.compile(rf"^je\s+suis\s+{esc}\s*{end}$")),
-                ("es", re.compile(rf"^soy\s+{esc}\s*{end}$")),
-                ("zh", re.compile(rf"^(?:你好\s*,?\s*)?我是\s*{esc}{guard}\s*[。！？]?$")),
+            ),
+            ("de", re.compile(rf"^guten\s+tag\s*,?\s*{esc}\s+hier\s*{end}$")),
+            (
+                "de",
+                re.compile(rf"^guten\s+tag\s*,?\s*{esc}\s+hier\s*,?\s*ich\b"),
+            ),
+            ("en", re.compile(rf"^{greet}my\s+name\s+is\s+{esc}{guard}\b")),
+            ("en", re.compile(rf"^(?:i\s+am|i'm)\s+{esc}{guard}\b")),
+            ("en", re.compile(rf"^{greet}this\s+is\s+{esc}{guard}\b")),
+            ("en", re.compile(rf"^{greet}this\s+is\s+{esc}{guard}\s+speaking\b")),
+            ("fr", re.compile(rf"^je\s+suis\s+{esc}\s*{end}$")),
+            ("es", re.compile(rf"^soy\s+{esc}\s*{end}$")),
+            ("zh", re.compile(rf"^(?:你好\s*,?\s*)?我是\s*{esc}{guard}\s*[。！？]?$")),
         ]
         batch.extend(
             [
                 (
                     "en",
-                    re.compile(
-                        rf"^{esc}\s+speaking(?:\s*,?\s*how\s+can\s+i\s+help)?\b"
-                    ),
+                    re.compile(rf"^{esc}\s+speaking(?:\s*,?\s*how\s+can\s+i\s+help)?\b"),
                 ),
                 (
                     "en",
@@ -220,15 +231,11 @@ def _principal_rules(principal: str) -> tuple[tuple[str, re.Pattern[str]], ...]:
                 ),
                 (
                     "en",
-                    re.compile(
-                        rf"^{esc}\s+in\s+person\s*,\s*how\s+can\s+i\s+help\s*\??{end}$"
-                    ),
+                    re.compile(rf"^{esc}\s+in\s+person\s*,\s*how\s+can\s+i\s+help\s*\??{end}$"),
                 ),
                 (
                     "en",
-                    re.compile(
-                        rf"^{esc}\s+here\s+and\s+(?:i\s*'?m|i\s+am)\s+(?!sure\b)\w"
-                    ),
+                    re.compile(rf"^{esc}\s+here\s+and\s+(?:i\s*'?m|i\s+am)\s+(?!sure\b)\w"),
                 ),
                 ("en", re.compile(rf"^hi\s*,?\s*it\s*'?s\s+{esc}{guard}(?:\s+again)?\b")),
                 ("de", re.compile(rf"^ich\s+bin\s*'?s\s*,?\s*{esc}{guard}\b")),
@@ -237,7 +244,6 @@ def _principal_rules(principal: str) -> tuple[tuple[str, re.Pattern[str]], ...]:
         )
         rules.extend(batch)
     return tuple(rules)
-
 
 
 def _principal_match(pattern: re.Pattern[str], norm: str) -> bool:
@@ -367,9 +373,7 @@ def contains_forbidden_identity(text: str, *, principal: str) -> bool:
     parts = _SENTENCE_SPLIT.split(text)
     for idx in range(0, len(parts), 2):
         sentence = parts[idx]
-        if _sentence_flagged(
-            sentence, rules=_COMPILED_RULES, principal_rules=principal_rules
-        ):
+        if _sentence_flagged(sentence, rules=_COMPILED_RULES, principal_rules=principal_rules):
             return True
     return False
 
@@ -404,9 +408,7 @@ def scrub_identity_text(
         if not piece:
             out.append(piece)
             continue
-        lang = _sentence_flagged(
-            piece, rules=_COMPILED_RULES, principal_rules=principal_rules
-        )
+        lang = _sentence_flagged(piece, rules=_COMPILED_RULES, principal_rules=principal_rules)
         if lang:
             repl = _finalize_identity_line(
                 _identity_line(principal, lang, override=replacement),

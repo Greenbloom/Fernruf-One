@@ -6,13 +6,13 @@ import asyncio
 
 import pytest
 from mcp.client.client import Client
+from tests.m3_support import service_settings, tool_payload
 
 from fernruf.call_settings.store import get_call_settings
 from fernruf.service.line_health import StaticLineHealth
 from fernruf.service.manager import CallManager
 from fernruf.service.mcp_app import create_app
 from fernruf.service.records import upsert_call
-from tests.m3_support import service_settings, tool_payload
 
 TOOL_NAMES = [
     "get_calling_guide",
@@ -152,9 +152,7 @@ def test_mcp_cannot_change_opening_line(tmp_path) -> None:
         apply_mcp_settings(settings, {"opening_line": "This is not the fixed disclosure."})
     assert exc.value.code == "setting_requires_cli"
 
-    prepared = asyncio.run(
-        prepare_call_settings(settings, "Kurzer Test", language="de")
-    )
+    prepared = asyncio.run(prepare_call_settings(settings, "Kurzer Test", language="de"))
     assert prepared.disclosure_prefix == fixed
 
 
@@ -303,10 +301,7 @@ def test_seeded_spend_blocks_the_tool(tmp_path) -> None:
 
 
 VROOM_TASK = {
-    "goal": (
-        "Tell Alex that the ExampleApp test release v1.0.0 is ready, "
-        "then end the call."
-    ),
+    "goal": ("Tell Alex that the ExampleApp test release v1.0.0 is ready, then end the call."),
     "context": "Alex asked to be called when the release was ready.",
     "must_say": [
         "The ExampleApp test release v1.0.0",
@@ -359,3 +354,35 @@ def test_language_argument_overrides_detection_through_mcp(tmp_path) -> None:
     opener = view["transcript"]["lines"][0]
     assert opener["speaker"] == "agent"
     assert "AI assistant" in opener["text"]
+
+
+def test_sessionless_protocol_keeps_the_guide_for_the_signed_in_token(tmp_path) -> None:
+    import httpx
+    from mcp.client.streamable_http import streamable_http_client
+
+    app, _settings, token, _posted = _app(tmp_path)
+
+    async def call_once(headers: dict[str, str]) -> tuple[str, str]:
+        transport = httpx.ASGITransport(app=app, client=("127.0.0.1", 1234))
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://127.0.0.1", headers=headers
+        ) as http:
+            first = streamable_http_client("http://127.0.0.1/mcp", http_client=http)
+            async with Client(first, mode="2026-07-28") as client:
+                before = await client.call_tool("hangup_call", {"call_id": "missing"})
+            second = streamable_http_client("http://127.0.0.1/mcp", http_client=http)
+            async with Client(second, mode="2026-07-28") as client:
+                await client.call_tool("get_calling_guide", {})
+            third = streamable_http_client("http://127.0.0.1/mcp", http_client=http)
+            async with Client(third, mode="2026-07-28") as client:
+                after = await client.call_tool("hangup_call", {"call_id": "missing"})
+        return tool_payload(before)["error_code"], tool_payload(after)["error_code"]
+
+    async def run():
+        async with app.router.lifespan_context(app):
+            mine = await call_once({"Authorization": f"Bearer {token}"})
+            return mine
+
+    before, after = asyncio.run(run())
+    assert before == "guide_required"
+    assert after == "not_found"

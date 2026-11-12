@@ -38,6 +38,4 @@ def test_consolidate_emits_context_append_not_tts_text() -> None:
 
     asyncio.run(run())
     assert any(isinstance(f, LLMMessagesAppendFrame) for f in emitted)
-    assert not any(
-        isinstance(f, TTSTextFrame) and f.append_to_context for f in emitted
-    )
+    assert not any(isinstance(f, TTSTextFrame) and f.append_to_context for f in emitted)

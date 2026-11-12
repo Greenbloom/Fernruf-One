@@ -11,7 +11,6 @@ from fernruf.logging_config import configure_logging
 from fernruf.settings import Settings, load_settings, validate_ari_password
 from fernruf.tts.audio import prepare_m1_prompt
 
-
 FAKE_FISH_KEY = "fakefishkey1234567890"
 FAKE_ARI_PASS = "fake-ari-password-16bytes"
 

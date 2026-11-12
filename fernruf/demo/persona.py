@@ -68,9 +68,7 @@ def require_demo_voices(settings: Settings) -> tuple[str, str]:
     if clashes:
         verb = "it matches" if len(clashes) == 1 else "they match"
         raise DemoVoiceError(
-            "demo-call refuses "
-            + " and ".join(clashes)
-            + f" because {verb} FISH_VOICE_ID. "
+            "demo-call refuses " + " and ".join(clashes) + f" because {verb} FISH_VOICE_ID. "
             "Use public Fish Audio library voices, not the operator voice or a personal clone."
         )
     return caller, callee

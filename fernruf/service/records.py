@@ -144,6 +144,37 @@ def spend_snapshot(settings: Settings, *, now: datetime) -> dict[str, float]:
     }
 
 
+def list_webhooks(settings: Settings) -> list[dict[str, Any]]:
+    path = Path(settings.call_settings_db)
+    if not path.is_file():
+        return []
+    with _LOCK:
+        conn = _connect(settings)
+        try:
+            rows = conn.execute(
+                "SELECT webhook_id, url, events, created_at FROM webhooks"
+            ).fetchall()
+        finally:
+            conn.close()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            events = json.loads(row["events"])
+        except (TypeError, json.JSONDecodeError):
+            events = []
+        if not isinstance(events, list):
+            events = []
+        out.append(
+            {
+                "webhook_id": row["webhook_id"],
+                "url": row["url"],
+                "events": events,
+                "created_at": row["created_at"],
+            }
+        )
+    return out
+
+
 def save_webhook(
     settings: Settings,
     *,

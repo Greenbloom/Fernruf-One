@@ -13,18 +13,19 @@ from urllib.parse import quote
 
 import websockets
 from fastapi import FastAPI, WebSocket
+
 from fernruf.ari.m2 import M2AriSession
 from fernruf.ari.websocket_endpoint import WS_MEDIA_ENDPOINT
+from fernruf.data_dir import prepare_parent
 from fernruf.settings import Settings
-from fernruf.voice.hooks import M2CallHooks
-from fernruf.voice.pipecat_runner import run_pipecat_on_websocket
-from fernruf.voice.processors.verify_flow import VerifyFlowState
 from fernruf.voice.embedded_uvicorn import (
     embedded_uvicorn_config,
     start_embedded_uvicorn,
     stop_embedded_uvicorn,
 )
-from fernruf.voice.latency import LatencyLog
+from fernruf.voice.hooks import M2CallHooks
+from fernruf.voice.pipecat_runner import run_pipecat_on_websocket
+from fernruf.voice.processors.verify_flow import VerifyFlowState
 
 LOG = logging.getLogger("fernruf.verify.m2")
 
@@ -70,7 +71,7 @@ async def run_m2_verify_loopback(
 
     settings = await prepare_call_settings(settings, task)
     latency_path = Path(settings.latency_log_path)
-    latency_log = LatencyLog(latency_path)
+    prepare_parent(latency_path)
     state = VerifyFlowState()
     call_id = str(uuid.uuid4())[:8]
     ari = M2AriSession(
@@ -179,7 +180,9 @@ async def run_m2_verify_loopback(
                             try:
                                 await asyncio.wait_for(ws_accepted.wait(), timeout=15.0)
                             except TimeoutError:
-                                errors.append("websocket /media accept timed out (check FERNRUF_WS_URI)")
+                                errors.append(
+                                    "websocket /media accept timed out (check FERNRUF_WS_URI)"
+                                )
                                 done.set()
                                 return
                             try:

@@ -30,7 +30,7 @@ Local processing on your host (no Fernruf-initiated upload for this step):
 
 | Data | Sent to | Why | Processing location (typical) |
 |------|---------|-----|--------------------------------|
-| Callee voice (audio) | — (local STT) | Transcription | **Your host** |
+| Callee voice (audio) | not sent, local STT | Transcription | **Your host** |
 | Callee utterances (text) | OpenRouter → model provider | Agent replies, summaries | **Provider-dependent** (may be US or global) |
 | Callee utterances (text) | TypeSafe Jev | **Optional** mood / emotion tag for TTS | **TypeSafe** (only if `FERNRUF_MOOD_ENABLED=true` and TypeSafe enabled) |
 | Task / goal / context (text) | OpenRouter → model provider | Call behavior | **Provider-dependent** |
@@ -59,7 +59,7 @@ When **`FERNRUF_MOOD_ENABLED=true`** and TypeSafe is active, **callee transcript
 
 ## Deployer checklist
 
-1. Read [README.md](README.md#legal--abuse-notice) (abuse and telemarketing rules).
+1. Read [README.md](README.md#safety) for the abuse and telemarketing rules.
 2. Sign DPAs / review terms: **SIP provider**, **Fish Audio**, **OpenRouter**, **downstream LLM vendor**, and **TypeSafe** if enabled.
 3. Document your legal basis and callee information.
 4. Keep `FERNRUF_TYPESAFE_ENABLED=false` unless you accept Jev processing.

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 from fernruf.settings import Settings
 from fernruf.voice.call_phase import CallPhase
+
+LOG = logging.getLogger("fernruf.voice.session")
 
 
 def message_text(msg: Any) -> str:
@@ -66,6 +70,7 @@ class M2CallSession:
     # often hangs up on QUEUE_DRAINED before that frame is processed.
     uncommitted_agent_text: str = ""
     spoken_goodbye: str = ""
+    transcript_sink: Callable[[str, str, int, bool], None] | None = None
 
     @property
     def pending_hangup(self) -> bool:
@@ -144,28 +149,43 @@ class M2CallSession:
         else:
             t_ms = self.ms_since_answer()
         self.transcript_lines.append({"t_ms": t_ms, "speaker": speaker, "text": text})
+        sink = self.transcript_sink
+        if sink is not None:
+            try:
+                sink(speaker, text, t_ms, True)
+            except Exception:
+                LOG.warning("transcript observer failed")
 
     def observe_committed_lines(self, pairs: list[tuple[str, str]]) -> None:
-        """Append context lines that are not already in the spoken transcript."""
+        """Backfill agent lines the spoken path has not stored yet.
+
+        Callee lines come from STT finals (``note_user_transcript``). The user
+        aggregator can commit a partial, a different segment, or nothing after
+        the goodbye, so context user text is not copied into the transcript.
+        """
         idx = 0
         lines = self.transcript_lines
         for speaker, text in pairs:
             text = text.strip()
             if not text:
                 continue
+            if speaker == "callee":
+                if (
+                    idx < len(lines)
+                    and lines[idx]["speaker"] == "callee"
+                    and lines[idx]["text"] == text
+                ):
+                    idx += 1
+                continue
             if idx < len(lines) and lines[idx]["speaker"] == speaker and lines[idx]["text"] == text:
                 idx += 1
                 continue
-            if (
-                idx > 0
-                and lines[idx - 1]["speaker"] == speaker
-                and lines[idx - 1]["text"] == text
-            ):
+            if idx > 0 and lines[idx - 1]["speaker"] == speaker and lines[idx - 1]["text"] == text:
                 continue
-            if idx < len(lines):
-                return
+            if any(line["speaker"] == "agent" and line["text"] == text for line in lines):
+                continue
             self.note_transcript_line(speaker, text)
-            idx += 1
+            idx = len(self.transcript_lines)
 
     def flush_unrecorded_assistant(self, text: str) -> None:
         """Keep a spoken end_call turn that never got another user snapshot."""
@@ -203,9 +223,13 @@ class M2CallSession:
         self.ensure_agent_line(goodbye)
 
     def note_user_transcript(self, text: str) -> None:
+        """Record one STT final. This is the callee transcript, in arrival order."""
         text = text.strip()
         if not text:
             return
+        # Before phase updates. A final after the goodbye must still be stored;
+        # the ending phase ignores the turn for the LLM but the line was said.
+        self.note_transcript_line("callee", text)
         self.last_user_text = text
         self.observed_user_stt_turns += 1
         self.user_turn_count = max(self.user_turn_count, self.observed_user_stt_turns)
@@ -301,14 +325,11 @@ class M2CallSession:
         if self.phase.callee_said_goodbye or self.phase.callee_refused:
             return None
         if not self.phase.callee_spoke_since_question:
-            return (
-                "end_call blocked: wait until the callee answers or says goodbye."
-            )
+            return "end_call blocked: wait until the callee answers or says goodbye."
         if self.phase.should_reask():
             self.phase.pending_reask = True
             self.phase.reask_used = True
             return (
-                "end_call blocked: the answer is unclear or missing; "
-                "ask once more before ending."
+                "end_call blocked: the answer is unclear or missing; ask once more before ending."
             )
         return None

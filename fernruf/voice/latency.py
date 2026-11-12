@@ -73,9 +73,7 @@ class LatencyLog:
         prepare_parent(self.path)
         self._turns: list[TurnLatency] = []
 
-    def start_turn(
-        self, call_id: str, turn: int, *, provider: str, model: str
-    ) -> TurnLatency:
+    def start_turn(self, call_id: str, turn: int, *, provider: str, model: str) -> TurnLatency:
         row = TurnLatency(
             call_id=call_id,
             turn=turn,
@@ -131,11 +129,7 @@ class LatencyLog:
         turns = self._turns if include_simulated else [t for t in self._turns if not t.simulated]
 
         def med(key: str) -> float | None:
-            vals = [
-                getattr(t, key)
-                for t in turns
-                if getattr(t, key) is not None
-            ]
+            vals = [getattr(t, key) for t in turns if getattr(t, key) is not None]
             if not vals:
                 return None
             return float(statistics.median(vals))
