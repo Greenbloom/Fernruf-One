@@ -230,6 +230,9 @@ class M2CallSession:
         # Before phase updates. A final after the goodbye must still be stored;
         # the ending phase ignores the turn for the LLM but the line was said.
         self.note_transcript_line("callee", text)
+        from fernruf.debug.trace import note
+
+        note(kind="stt", name="final", status="ok", detail={"text": text, "final": True})
         self.last_user_text = text
         self.observed_user_stt_turns += 1
         self.user_turn_count = max(self.user_turn_count, self.observed_user_stt_turns)

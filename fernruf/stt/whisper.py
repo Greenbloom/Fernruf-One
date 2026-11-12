@@ -286,6 +286,14 @@ def transcribe_pcm(
                 min_avg_logprob=float(settings.whisper_min_avg_logprob),
             )
             if reason:
+                from fernruf.debug.trace import note
+
+                note(
+                    kind="stt",
+                    name="partial",
+                    status="dropped",
+                    detail={"text": text, "final": False, "reason": reason},
+                )
                 LOG.info(
                     "STT dropped segment reason=%s no_speech_prob=%.2f avg_logprob=%.2f text=%s",
                     reason,
@@ -294,6 +302,14 @@ def transcribe_pcm(
                     text[:80],
                 )
                 continue
+            from fernruf.debug.trace import note
+
+            note(
+                kind="stt",
+                name="partial",
+                status="ok",
+                detail={"text": text, "final": False},
+            )
             kept.append(text)
         text = " ".join(kept)
     except Exception as exc:

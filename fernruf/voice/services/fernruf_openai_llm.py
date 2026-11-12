@@ -81,6 +81,34 @@ class FernrufOpenAILLMService(OpenAILLMService):
             name = self._primary_model
         return name or "unknown"
 
+    def _note_debug_llm(
+        self,
+        *,
+        status: str,
+        started: float,
+        token_usage: object,
+        tools: list,
+        finish_reason: str | None,
+    ) -> None:
+        from fernruf.debug.trace import note
+
+        usage: dict[str, object] = {}
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            if token_usage is not None and hasattr(token_usage, key):
+                usage[key] = getattr(token_usage, key)
+        note(
+            kind="llm",
+            name=self._logged_model(),
+            status=status,
+            duration_ms=(time.monotonic() - started) * 1000,
+            detail={
+                "model": self._logged_model(),
+                "usage": usage,
+                "finish_reason": finish_reason or "",
+                "tools": tools,
+            },
+        )
+
     def _fallback_model(self) -> str | None:
         if not self._call_settings:
             return None
@@ -515,10 +543,24 @@ class FernrufOpenAILLMService(OpenAILLMService):
                     finish_reason,
                     self._completion_skipped,
                 )
+                self._note_debug_llm(
+                    status="ok",
+                    started=request_started,
+                    token_usage=token_usage,
+                    tools=[],
+                    finish_reason=finish_reason,
+                )
                 return
             LOG.warning(
                 "LLM stream ended without speakable, tool, or reasoning delta model=%s",
                 self._logged_model(),
+            )
+            self._note_debug_llm(
+                status="error",
+                started=request_started,
+                token_usage=token_usage,
+                tools=[],
+                finish_reason=finish_reason,
             )
             raise TimeoutError
 
@@ -583,4 +625,13 @@ class FernrufOpenAILLMService(OpenAILLMService):
                     seen_keys.add(key)
                     deduped.append(fc)
                 await self.run_function_calls(deduped)
+        self._note_debug_llm(
+            status="ok",
+            started=request_started,
+            token_usage=token_usage,
+            tools=[
+                {"name": fn, "arguments": args} for fn, args in zip(functions_list, arguments_list)
+            ],
+            finish_reason=finish_reason,
+        )
         await self._speak_pending_reask()

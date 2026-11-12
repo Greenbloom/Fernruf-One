@@ -29,7 +29,7 @@ from fernruf.voice.verify_orchestration import run_verify_orchestration
 LOG = logging.getLogger("fernruf.voice.pipecat")
 
 
-async def run_pipecat_on_websocket(
+async def _run_pipecat_on_websocket(
     websocket: WebSocket,
     *,
     settings: Settings,
@@ -170,3 +170,46 @@ async def run_pipecat_on_websocket(
     if on_hangup:
         on_hangup()
     return built.verify_state
+
+
+async def run_pipecat_on_websocket(
+    websocket: WebSocket,
+    *,
+    settings: Settings,
+    task: str,
+    call_id: str,
+    hooks: M2CallHooks,
+    on_hangup: Callable[[], None] | None = None,
+    llm_model_override: str | None = None,
+    llm_reasoning_override: LlmReasoningMode | None = None,
+    verify: bool = False,
+    verify_state: VerifyFlowState | None = None,
+    external_shutdown: asyncio.Event | None = None,
+    goal: str = "",
+    must_say: tuple[str, ...] | None = None,
+    opening_request: str = "",
+    monitor: object | None = None,
+) -> VerifyFlowState | None:
+    from fernruf.debug.trace import bind_call, reset_call
+
+    debug_token = bind_call(call_id)
+    try:
+        return await _run_pipecat_on_websocket(
+            websocket,
+            settings=settings,
+            task=task,
+            call_id=call_id,
+            hooks=hooks,
+            on_hangup=on_hangup,
+            llm_model_override=llm_model_override,
+            llm_reasoning_override=llm_reasoning_override,
+            verify=verify,
+            verify_state=verify_state,
+            external_shutdown=external_shutdown,
+            goal=goal,
+            must_say=must_say,
+            opening_request=opening_request,
+            monitor=monitor,
+        )
+    finally:
+        reset_call(debug_token)

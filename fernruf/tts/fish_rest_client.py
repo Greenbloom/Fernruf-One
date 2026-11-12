@@ -40,7 +40,7 @@ def _align_pcm16_chunks(buffer: bytes, chunk: bytes) -> tuple[bytes, list[bytes]
     return buffer, out
 
 
-async def astream_fish_tts_pcm_rest(
+async def _astream_fish_tts_pcm_rest(
     text: str,
     *,
     settings: Settings,
@@ -166,6 +166,107 @@ async def astream_fish_tts_pcm_rest(
     if last_err:
         raise last_err
     raise FishTtsError("http_unknown", "Fish REST TTS failed after retries")
+
+
+def _fish_inline_tag(text: str) -> str:
+    stripped = (text or "").lstrip()
+    if stripped.startswith("[") and "]" in stripped[:80]:
+        return stripped[: stripped.index("]") + 1]
+    return ""
+
+
+def _remember_fish(
+    *,
+    text: str,
+    model: str,
+    voice_id: str | None,
+    settings: Settings,
+    sample_rate: int,
+    audio_format: str,
+    status: str,
+    duration_ms: float,
+    ttfa_ms: float | None,
+    chunks: int,
+    error: str,
+) -> None:
+    from fernruf.debug.trace import note
+
+    note(
+        kind="tts",
+        name="fish",
+        status=status,
+        duration_ms=duration_ms,
+        detail={
+            "text": text,
+            "voice": voice_id or "",
+            "model": model,
+            "ttfa_ms": None if ttfa_ms is None else round(ttfa_ms, 1),
+            "chunks": chunks,
+            "error": error,
+            "fish": {
+                "format": audio_format,
+                "sample_rate": sample_rate,
+                "latency": settings.fish_latency,
+                "chunk_length": settings.fish_chunk_length,
+                "inline_tag": _fish_inline_tag(text),
+            },
+        },
+    )
+
+
+async def astream_fish_tts_pcm_rest(
+    text: str,
+    *,
+    settings: Settings,
+    api_key: str,
+    model: str,
+    voice_id: str | None,
+    rest_fixture_path: str | None = None,
+    sample_rate: int = TTS_SAMPLE_RATE,
+    audio_format: str = TTS_FORMAT,
+    client: httpx.AsyncClient | None = None,
+    tts_url: str | None = None,
+) -> AsyncIterator[tuple[bytes, float | None]]:
+    started = time.monotonic()
+    chunks = 0
+    ttfa_ms: float | None = None
+    status = "ok"
+    error = ""
+    try:
+        async for pcm, ttfa in _astream_fish_tts_pcm_rest(
+            text,
+            settings=settings,
+            api_key=api_key,
+            model=model,
+            voice_id=voice_id,
+            rest_fixture_path=rest_fixture_path,
+            sample_rate=sample_rate,
+            audio_format=audio_format,
+            client=client,
+            tts_url=tts_url,
+        ):
+            chunks += 1
+            if ttfa is not None and ttfa_ms is None:
+                ttfa_ms = ttfa
+            yield pcm, ttfa
+    except Exception as exc:
+        status = "error"
+        error = str(getattr(exc, "reason", "") or type(exc).__name__)
+        raise
+    finally:
+        _remember_fish(
+            text=text,
+            model=model,
+            voice_id=voice_id,
+            settings=settings,
+            sample_rate=sample_rate,
+            audio_format=audio_format,
+            status=status,
+            duration_ms=(time.monotonic() - started) * 1000,
+            ttfa_ms=ttfa_ms,
+            chunks=chunks,
+            error=error,
+        )
 
 
 async def warm_fish_rest_connection(

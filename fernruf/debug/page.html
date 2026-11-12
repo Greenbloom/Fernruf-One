@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fernruf debug</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #12141c;
+    --panel: #1c2030;
+    --line: rgba(255,255,255,0.08);
+    --text: #f4f6fb;
+    --muted: #a8b0c4;
+    --cyan: #9be7ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 "Noto Sans", sans-serif;
+  }
+  header {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { margin: 0; font-size: 18px; font-weight: 600; }
+  form { display: flex; gap: 8px; align-items: center; }
+  input {
+    background: #0e1118;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    min-width: 240px;
+  }
+  button {
+    background: #2a3348;
+    color: var(--text);
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  #status { color: var(--muted); min-width: 8em; }
+  #layout { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 62px); }
+  aside { border-right: 1px solid var(--line); padding: 12px; }
+  main { padding: 16px 20px 32px; }
+  .call {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border-radius: 10px;
+    margin-bottom: 6px;
+  }
+  .call.selected { background: #2a3348; }
+  .call small { display: block; color: var(--muted); }
+  .empty { color: var(--muted); }
+  .event {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .kind {
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--cyan);
+  }
+  .kind.err { color: #ff8a9b; }
+  .meta { color: var(--muted); font-size: 12px; }
+  pre {
+    margin: 8px 0 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font: 12px/1.4 ui-monospace, monospace;
+    color: #d5dbeb;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Fernruf debug</h1>
+  <form id="auth">
+    <label>Monitor token <input id="token" type="password" autocomplete="off"></label>
+    <button type="submit">Connect</button>
+    <span id="status">Not connected</span>
+  </form>
+</header>
+<div id="layout">
+  <aside id="calls"><p class="empty">Connect to see calls on this machine.</p></aside>
+  <main id="timeline"><p class="empty">Pick a call to see its timeline.</p></main>
+</div>
+<script>
+const callsEl = document.getElementById("calls")
+const timelineEl = document.getElementById("timeline")
+const statusEl = document.getElementById("status")
+let token = ""
+let calls = []
+let selected = ""
+let socket = null
+
+function kindClass(event) {
+  return event.status === "ok" ? "kind" : "kind err"
+}
+
+function line(event) {
+  const bits = [event.name || event.kind, event.status]
+  if (event.duration_ms != null) bits.push(event.duration_ms + " ms")
+  return bits.filter(Boolean).join(" · ")
+}
+
+function renderCalls() {
+  if (!calls.length) {
+    callsEl.innerHTML = '<p class="empty">No calls yet.</p>'
+    return
+  }
+  callsEl.replaceChildren()
+  for (const call of calls) {
+    const button = document.createElement("button")
+    button.className = "call" + (call.call_id === selected ? " selected" : "")
+    button.type = "button"
+    const title = document.createElement("strong")
+    title.textContent = call.to_masked || call.call_id
+    const meta = document.createElement("small")
+    meta.textContent = call.call_id + " · " + call.events.length + " events"
+    button.append(title, meta)
+    button.addEventListener("click", function () {
+      selected = call.call_id
+      renderCalls()
+      renderTimeline()
+    })
+    callsEl.append(button)
+  }
+}
+
+function renderTimeline() {
+  const call = calls.find(function (item) { return item.call_id === selected })
+  timelineEl.replaceChildren()
+  if (!call) {
+    const empty = document.createElement("p")
+    empty.className = "empty"
+    empty.textContent = "Pick a call to see its timeline."
+    timelineEl.append(empty)
+    return
+  }
+  const heading = document.createElement("h2")
+  heading.textContent = call.to_masked || call.call_id
+  timelineEl.append(heading)
+  for (const event of call.events) {
+    const row = document.createElement("article")
+    row.className = "event"
+    const kind = document.createElement("div")
+    kind.className = kindClass(event)
+    kind.textContent = event.kind
+    const body = document.createElement("div")
+    const meta = document.createElement("div")
+    meta.className = "meta"
+    meta.textContent = line(event)
+    const detail = document.createElement("pre")
+    detail.textContent = JSON.stringify(event.detail, null, 2)
+    body.append(meta, detail)
+    row.append(kind, body)
+    timelineEl.append(row)
+  }
+  timelineEl.scrollTop = timelineEl.scrollHeight
+}
+
+function applySnapshot(payload) {
+  calls = payload.calls || []
+  if (!selected && calls.length) selected = calls[calls.length - 1].call_id
+  if (selected && !calls.some(function (call) { return call.call_id === selected })) {
+    selected = calls.length ? calls[calls.length - 1].call_id : ""
+  }
+  renderCalls()
+  renderTimeline()
+}
+
+function applyEvent(event) {
+  if (!event) return
+  let call = calls.find(function (item) { return item.call_id === event.call_id })
+  if (!call) {
+    call = { call_id: event.call_id, to_masked: "", started_ms: event.at_ms, events: [] }
+    calls.push(call)
+    if (!selected) selected = call.call_id
+  }
+  if (call.events.some(function (item) { return item.id === event.id })) return
+  call.events.push(event)
+  renderCalls()
+  if (call.call_id === selected) renderTimeline()
+}
+
+function connect(nextToken) {
+  token = nextToken
+  if (socket) socket.close()
+  statusEl.textContent = "Connecting"
+  const scheme = location.protocol === "https:" ? "wss" : "ws"
+  socket = new WebSocket(scheme + "://" + location.host + "/debug/live")
+  socket.addEventListener("open", function () {
+    socket.send(JSON.stringify({ type: "auth", token: token }))
+  })
+  socket.addEventListener("message", function (message) {
+    const payload = JSON.parse(message.data)
+    if (payload.type === "snapshot") {
+      statusEl.textContent = "Live"
+      applySnapshot(payload)
+    } else if (payload.type === "event") {
+      applyEvent(payload.event)
+    }
+  })
+  socket.addEventListener("close", function () {
+    if (statusEl.textContent !== "Live") statusEl.textContent = "Rejected"
+    else statusEl.textContent = "Disconnected"
+  })
+}
+
+document.getElementById("auth").addEventListener("submit", function (event) {
+  event.preventDefault()
+  const value = document.getElementById("token").value
+  document.getElementById("token").value = ""
+  if (value) connect(value)
+})
+</script>
+</body>
+</html>

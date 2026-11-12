@@ -480,6 +480,7 @@ class MoodTurn:
         tag = self._resolve_tag()
         self._log_decision(tag)
         self._tag_prefix = tag or "-"
+        self._note_debug_mood(raw, tag)
         if not tag:
             return raw
         return f"{tag} {raw.lstrip()}"
@@ -510,6 +511,40 @@ class MoodTurn:
             reading.confidence,
             min_confidence=self._settings.mood_min_confidence,
             fish_model=self._settings.effective_fish_model(),
+        )
+
+    def _note_debug_mood(self, line: str, tag: str) -> None:
+        from fernruf.debug.trace import note
+
+        reading = self._decision
+        choice = reading.choice if reading else "neutral"
+        confidence = reading.confidence if reading else 0.0
+        reason = ""
+        if reading is not None and reading.error:
+            reason = reading.error
+        elif reading is not None and reading.timed_out:
+            reason = "timed_out"
+        elif not tag:
+            reason = "below_confidence"
+        note(
+            kind="mood",
+            name=choice,
+            status="error"
+            if reason in {"error", "http", "auth", "timed_out"} or reason.startswith("http_")
+            else "ok",
+            duration_ms=None if reading is None else reading.latency_ms,
+            detail={
+                "choice": choice,
+                "confidence": confidence,
+                "reason": reason,
+                "line": line,
+                "fish": {
+                    "model": self._settings.effective_fish_model(),
+                    "inline_tag": tag,
+                    "latency": self._settings.fish_latency,
+                    "chunk_length": self._settings.fish_chunk_length,
+                },
+            },
         )
 
     def _log_decision(self, tag: str) -> None:

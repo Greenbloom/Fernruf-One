@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
+import functools
 import hashlib
 import json
 import logging
@@ -146,6 +148,75 @@ def _raise_call(exc: CallError) -> None:
     _tool_error(exc.code, exc.message, **exc.extra)
 
 
+def _plain(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, dict):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(item) for item in value]
+    return None
+
+
+def traced_tool(fn):
+    def _record(started: float, kwargs: dict, result: Any, status: str, error: str = "") -> None:
+        from fernruf.debug.trace import note
+
+        detail: dict[str, Any] = {}
+        for key, value in kwargs.items():
+            plain = _plain(value)
+            if plain is not None:
+                detail[key] = plain
+        if status == "ok":
+            plain_result = _plain(result)
+            if plain_result is not None:
+                detail["result"] = plain_result
+        else:
+            detail["error"] = error
+        call_id = ""
+        if isinstance(result, dict) and result.get("call_id"):
+            call_id = str(result["call_id"])
+        elif kwargs.get("call_id"):
+            call_id = str(kwargs["call_id"])
+        note(
+            kind="mcp",
+            name=fn.__name__,
+            status=status,
+            duration_ms=(time.monotonic() - started) * 1000,
+            detail=detail,
+            call_id=call_id or "mcp",
+            to=str(kwargs.get("to") or ""),
+        )
+
+    if asyncio.iscoroutinefunction(fn):
+
+        @functools.wraps(fn)
+        async def async_wrapped(*args, **kwargs):
+            started = time.monotonic()
+            try:
+                result = await fn(*args, **kwargs)
+            except Exception as exc:
+                _record(started, kwargs, None, "error", type(exc).__name__)
+                raise
+            _record(started, kwargs, result, "ok")
+            return result
+
+        return async_wrapped
+
+    @functools.wraps(fn)
+    def wrapped(*args, **kwargs):
+        started = time.monotonic()
+        try:
+            result = fn(*args, **kwargs)
+        except Exception as exc:
+            _record(started, kwargs, None, "error", type(exc).__name__)
+            raise
+        _record(started, kwargs, result, "ok")
+        return result
+
+    return wrapped
+
+
 async def _default_poster(url: str, body: dict[str, Any]) -> bool:
     try:
         async with httpx.AsyncClient(timeout=3.0, follow_redirects=False) as client:
@@ -173,6 +244,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
             )
 
     @mcp.tool()
+    @traced_tool
     async def get_calling_guide(ctx: Context) -> str:
         """How to place a call, the current limits, and whether the phone line is up.
 
@@ -190,11 +262,13 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
         return text
 
     @mcp.tool()
+    @traced_tool
     def get_balance() -> dict[str, Any]:
         """Monthly budget, spend, and how many calls have been placed today."""
         return runtime.manager.balance()
 
     @mcp.tool()
+    @traced_tool
     def get_call_settings() -> dict[str, Any]:
         """Voice, limits, allowlist, and quiet hours. The allowlist is read-only here."""
         data = public_settings(runtime.settings)
@@ -202,6 +276,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
         return data
 
     @mcp.tool()
+    @traced_tool
     def update_call_settings(
         ctx: Context,
         voice_reference_id: str | None = None,
@@ -250,6 +325,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
             raise
 
     @mcp.tool()
+    @traced_tool
     async def place_call(
         to: str,
         task: CallTaskIn,
@@ -286,6 +362,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
             raise AssertionError("unreachable")
 
     @mcp.tool()
+    @traced_tool
     async def place_call_and_wait(
         to: str,
         task: CallTaskIn,
@@ -330,6 +407,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
             raise AssertionError("unreachable")
 
     @mcp.tool()
+    @traced_tool
     def get_call(call_id: str) -> dict[str, Any]:
         """Status, timings, outcome, transcript, cost, and the post-call summary."""
         try:
@@ -339,6 +417,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
             raise AssertionError("unreachable")
 
     @mcp.tool()
+    @traced_tool
     def get_call_transcript(call_id: str) -> dict[str, Any]:
         """Transcript lines for one call. complete is true once the call is finalized."""
         try:
@@ -349,6 +428,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
         return view["transcript"]
 
     @mcp.tool()
+    @traced_tool
     def list_calls(limit: int = 20, since: str | None = None) -> list[dict[str, Any]]:
         """Recent calls. since is an ISO timestamp. summary is set once the call completed."""
         try:
@@ -358,6 +438,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
             raise AssertionError("unreachable")
 
     @mcp.tool()
+    @traced_tool
     def get_recording(call_id: str) -> dict[str, Any]:
         """Recording link. Not available when nothing was recorded or consent was refused."""
         try:
@@ -368,6 +449,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
         return {"url": None, "expires_at": None, "status": "not_available"}
 
     @mcp.tool()
+    @traced_tool
     async def hangup_call(call_id: str, ctx: Context) -> dict[str, Any]:
         """Hang up a queued or live call."""
         require_guide(ctx)
@@ -378,6 +460,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
             raise AssertionError("unreachable")
 
     @mcp.tool()
+    @traced_tool
     async def connect_webhook(
         url: str,
         ctx: Context,
@@ -468,6 +551,8 @@ async def _protect(request: Request, call_next, runtime: ServiceRuntime):
     path = request.url.path
     if path in ("/healthz", "/healthz/"):
         return JSONResponse({"ok": True})
+    if path == "/debug" or path.startswith("/debug/"):
+        return await call_next(request)
     if path in _OAUTH_PATHS:
         if path in _RATE_LIMITED and request.method != "OPTIONS":
             ip = client_ip(request, runtime.settings.trusted_proxy_set)
@@ -573,6 +658,9 @@ def create_app(
             "OAuth partially configured (need both FERNRUF_OAUTH_ISSUER and "
             "FERNRUF_OAUTH_RESOURCE); OAuth routes not mounted."
         )
+    from fernruf.debug.routes import install_debug_routes
+
+    install_debug_routes(app, settings)
     app.mount("/", mcp_asgi)
 
     @app.middleware("http")

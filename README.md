@@ -117,6 +117,10 @@ Marketing-style tasks are rejected. Premium-rate prefixes are blocked. You are r
 
 The same `fernruf serve` process can open a loopback socket for a tray window on that computer. The window, the auth token, and the frame format are in [docs/monitor.md](docs/monitor.md).
 
+## Local debug page
+
+The debug page is off. Set `FERNRUF_DEBUG_UI_ENABLED=true` and open `http://127.0.0.1:8787/debug/` on this machine. It asks for the same monitor or static token. Peers that are not loopback are refused. The trace stays in memory. Set `FERNRUF_DEBUG_UI_PERSIST=true` to also append redacted events to `data/debug-ui.jsonl`. `FERNRUF_DEBUG_UI_PATH` chooses a different file.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
