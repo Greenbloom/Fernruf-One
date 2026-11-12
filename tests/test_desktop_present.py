@@ -1,5 +1,3 @@
-"""A new call opens the monitor window. The frameless window has its own controls."""
-
 from __future__ import annotations
 
 import os
@@ -127,19 +125,18 @@ _PRESENT = textwrap.dedent(
         target = item(name)
         assert target.isVisible(), name
         order.append(target.mapToScene(QPointF(1, 1)).x())
-        tip = target.property("ToolTip.text")
-        assert tip, name
+        assert target.property("tip"), name
     assert order[0] < order[1] < order[2]
 
     window.showNormal()
     app.processEvents()
     assert item("maximizeWindow").property("iconName") == "window-maximize"
-    assert item("maximizeWindow").property("ToolTip.text") == "Maximize"
+    assert item("maximizeWindow").property("tip") == "Maximize"
     click("maximizeWindow")
     assert window.visibility() == QWindow.Visibility.Maximized
     assert window.property("unitRadius") == 0
     assert item("maximizeWindow").property("iconName") == "window-restore"
-    assert item("maximizeWindow").property("ToolTip.text") == "Restore"
+    assert item("maximizeWindow").property("tip") == "Restore"
     click("maximizeWindow")
     assert window.visibility() == QWindow.Visibility.Windowed
     assert window.property("unitRadius") == 24

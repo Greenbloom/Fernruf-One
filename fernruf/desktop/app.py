@@ -14,13 +14,13 @@ from pathlib import Path
 
 from fernruf.desktop.choices import (
     HANGUP_ENABLED,
-    RAISE_WINDOW_ON_CALL,
     SEND_DTMF,
     SHOW_RECORD_BUTTON,
     SHOW_TRAY_ICON,
     USE_OPAQUE_FALLBACK,
     listen_from_disk,
     listen_to_store,
+    monitor_auto_show,
 )
 from fernruf.desktop.i18n import install_translator, tr
 from fernruf.desktop.lines import make_line_model
@@ -146,11 +146,6 @@ def _load_window(model):
     context.setContextProperty("hangupEnabled", HANGUP_ENABLED)
     context.setContextProperty("showRecordButton", SHOW_RECORD_BUTTON)
     context.setContextProperty("frame", frame)
-    context.setContextProperty("raiseOnCall", RAISE_WINDOW_ON_CALL)
-    context.setContextProperty(
-        "canRaise",
-        os.environ.get("QT_QPA_PLATFORM", "") not in ("offscreen", "minimal"),
-    )
     engine.load(QUrl.fromLocalFile(str(qml)))
     model._engine = engine
     engine._frame = frame
@@ -158,7 +153,34 @@ def _load_window(model):
     window = roots[0] if roots else None
     if window is not None:
         _fit_call_window(window, frame)
+
+        def present() -> None:
+            present_call_window(window)
+
+        model._present_window = present
+        model.callStarted.connect(present)
     return window
+
+
+def should_present_call(seen_id: str, call_id: str, state: str, *, auto_show: bool) -> bool:
+    if not auto_show:
+        return False
+    if state in {"queued", "dialing"}:
+        return True
+    return bool(call_id) and call_id != seen_id
+
+
+def _call_window_is_open(window) -> bool:
+    from PySide6.QtGui import QWindow
+
+    return window.isVisible() and window.visibility() != QWindow.Visibility.Minimized
+
+
+def present_call_window(window) -> None:
+    if not _call_window_is_open(window):
+        window.showNormal()
+    window.raise_()
+    window.requestActivate()
 
 
 def _fit_call_window(window, frame) -> None:
@@ -278,6 +300,7 @@ class CallModel:
                 self._ask_dismissed = False
                 self._started_at: float | None = None
                 self._timing = False
+                self._seen_call = ""
                 self.line_model = make_line_model(self)
                 self.fact_model = QStringListModel(self)
                 self.step_model = QStringListModel(self)
@@ -434,6 +457,12 @@ class CallModel:
             def apply_lifecycle(self, msg: dict) -> None:
                 self._number = str(msg.get("to_masked") or "")
                 state = str(msg.get("state") or "")
+                call_id = str(msg.get("call_id") or "")
+                present = should_present_call(
+                    self._seen_call, call_id, state, auto_show=monitor_auto_show()
+                )
+                if call_id:
+                    self._seen_call = call_id
                 self._state = state
                 if state == "dialing":
                     self.line_model.clear()
@@ -452,8 +481,6 @@ class CallModel:
                     self.send_listen()
                     if not self._listening:
                         self._close_sinks()
-                    if RAISE_WINDOW_ON_CALL:
-                        self.callStarted.emit()
                 elif state in ("ended", "finalized"):
                     self._timing = False
                     self._tick()
@@ -461,6 +488,8 @@ class CallModel:
                 if isinstance(summary, dict):
                     self._apply_summary(summary)
                 self.changed.emit()
+                if present:
+                    self.callStarted.emit()
 
             def _apply_summary(self, summary: dict) -> None:
                 self._summary = str(summary.get("one_line") or summary.get("outcome") or "")

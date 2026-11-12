@@ -12,7 +12,7 @@ ApplicationWindow {
     flags: Qt.FramelessWindowHint | Qt.Window | Qt.WindowStaysOnTopHint
 
     readonly property color cyan: "#9BE7FF"
-    readonly property int unitRadius: 24
+    readonly property int unitRadius: visibility === Window.Maximized ? 0 : 24
     property bool chatOpen: true
     property int phonePage: 1
     property string tracked: ""
@@ -65,15 +65,6 @@ ApplicationWindow {
 
     Connections {
         target: monitor
-        function onCallStarted() {
-            if (!raiseOnCall)
-                return
-            window.show()
-            if (canRaise) {
-                window.raise()
-                window.requestActivate()
-            }
-        }
         function onChanged() {
             if (monitor.state === "dialing" && window.tracked !== "dialing")
                 window.phonePage = 1
@@ -1142,13 +1133,33 @@ ApplicationWindow {
             WindowButton {
                 objectName: "minimizeWindow"
                 iconName: "window-minimize"
-                Accessible.name: qsTr("Minimize")
+                property string tip: qsTr("Minimize")
+                Accessible.name: tip
+                ToolTip.visible: hovered
+                ToolTip.text: tip
                 onClicked: window.showMinimized()
+            }
+            WindowButton {
+                objectName: "maximizeWindow"
+                property string tip: window.visibility === Window.Maximized ? qsTr("Restore") : qsTr("Maximize")
+                iconName: window.visibility === Window.Maximized ? "window-restore" : "window-maximize"
+                Accessible.name: tip
+                ToolTip.visible: hovered
+                ToolTip.text: tip
+                onClicked: {
+                    if (window.visibility === Window.Maximized)
+                        window.showNormal()
+                    else
+                        window.showMaximized()
+                }
             }
             WindowButton {
                 objectName: "closeWindow"
                 iconName: "window-close"
-                Accessible.name: qsTr("Close")
+                property string tip: qsTr("Close")
+                Accessible.name: tip
+                ToolTip.visible: hovered
+                ToolTip.text: tip
                 onClicked: window.hide()
             }
         }
