@@ -17,6 +17,8 @@ from pipecat.frames.frames import (
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
+from fernruf.settings import Settings
+from fernruf.voice.call_log import log_spoken_text
 from fernruf.voice.call_session import M2CallSession
 from fernruf.voice.frames.metrics_frames import (
     FishTtsFirstAudioFrame,
@@ -39,6 +41,7 @@ class ConversationMetricsProcessor(FrameProcessor):
         model: str,
         latency_log: LatencyLog | None,
         session: M2CallSession | None = None,
+        settings: Settings | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -47,6 +50,7 @@ class ConversationMetricsProcessor(FrameProcessor):
         self._model = model
         self._latency_log = latency_log
         self._session = session
+        self._settings = settings
         self._turn = 0
         self._row: TurnLatency | None = None
         self._llm_buf = ""
@@ -110,7 +114,11 @@ class ConversationMetricsProcessor(FrameProcessor):
             row = self._row
             if row:
                 row.mark("stt_final")
-            LOG.info("STT final: %s", frame.text.strip())
+            spoken = frame.text.strip()
+            if self._settings is None:
+                LOG.info("STT final: (%s chars)", len(spoken))
+            else:
+                log_spoken_text(LOG, "STT final", spoken, self._settings)
 
         if isinstance(frame, LlmInferenceStartedFrame):
             row = self._ensure_row()

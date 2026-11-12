@@ -116,6 +116,14 @@
             <translation>Minimieren</translation>
         </message>
         <message>
+            <source>Maximize</source>
+            <translation>Maximieren</translation>
+        </message>
+        <message>
+            <source>Restore</source>
+            <translation>Wiederherstellen</translation>
+        </message>
+        <message>
             <source>Connection to the call was lost.</source>
             <translation>Verbindung zum Anruf verloren.</translation>
         </message>
@@ -170,6 +178,10 @@
         <message>
             <source>Notice: You are speaking with an AI assistant from Fernruf. This call is being transcribed.</source>
             <translation>Hinweis: Sie sprechen mit einem KI-Assistenten von Fernruf. Dieses Gespräch wird transkribiert.</translation>
+        </message>
+        <message>
+            <source>Transcript is off.</source>
+            <translation>Transkript ist aus.</translation>
         </message>
         <message>
             <source>Agent (AI)</source>

@@ -66,7 +66,7 @@ def test_tool_list_matches_expected_mcp_names(tmp_path) -> None:
 
 
 def test_writes_require_the_guide_in_the_same_session(tmp_path) -> None:
-    app, settings, _token, posted = _app(tmp_path)
+    app, settings, _token, posted = _app(tmp_path, FERNRUF_TRANSCRIPT_ALLOWED=True)
 
     async def run():
         async with Client(app.state.mcp, mode="legacy") as client:
@@ -314,7 +314,7 @@ VROOM_TASK = {
 
 
 def test_language_argument_overrides_detection_through_mcp(tmp_path) -> None:
-    app, _settings, _token, _posted = _app(tmp_path)
+    app, _settings, _token, _posted = _app(tmp_path, FERNRUF_TRANSCRIPT_ALLOWED=True)
 
     async def run():
         async with Client(app.state.mcp, mode="legacy") as client:

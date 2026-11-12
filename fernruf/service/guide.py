@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from fernruf.call_settings.store import transcript_allowed
 from fernruf.service.policy_gate import PolicyLimits
 from fernruf.service.records import spend_snapshot
 from fernruf.settings import Settings
@@ -18,6 +19,31 @@ def render_calling_guide(
     principal = settings.require_principal()
     remaining = max(0.0, limits.monthly_budget_eur - spent_eur)
     line = "up" if line_ready else "down"
+    kept = transcript_allowed(settings)
+    if kept:
+        check_result = "Check the transcript."
+        transcript_mode = (
+            "Transcript storage is on. `get_call`, the call monitor, and "
+            "`call.finalized` include the transcript."
+        )
+        after_call = (
+            "`get_call` returns status, timings, outcome, transcript, cost, and, "
+            "for a completed call, `summary` (outcome, key facts, follow-ups, consent)."
+        )
+    else:
+        check_result = "Check the summary. A transcript is not stored."
+        transcript_mode = (
+            "Transcript storage is off. Spoken words are used for the call and the "
+            "summary, then dropped. `get_call`, the call monitor, and `call.finalized` "
+            "do not include a transcript. To turn storage on, set "
+            "`FERNRUF_TRANSCRIPT_ALLOWED=true` before the settings database is created, "
+            "or run `fernruf settings transcript on`."
+        )
+        after_call = (
+            "`get_call` returns status, timings, outcome, cost, and, for a completed "
+            "call, `summary` (outcome, key facts, follow-ups, consent). It does not "
+            "return a transcript while storage is off."
+        )
     return f"""# Fernruf calling guide
 
 This service places a real outbound phone call through your SIP line. You are mission control. You do not speak on the call.
@@ -25,7 +51,7 @@ This service places a real outbound phone call through your SIP line. You are mi
 ## Before every write
 
 1. Read this guide in the current MCP session. `place_call`, `place_call_and_wait`, `hangup_call`, `update_call_settings`, and `connect_webhook` fail with `guide_required` until you do.
-2. Show the operator the number, the goal, and the limits in chat and get an explicit yes. A network `completed` outcome does not mean the task succeeded. Check the transcript.
+2. Show the operator the number, the goal, and the limits in chat and get an explicit yes. A network `completed` outcome does not mean the task succeeded. {check_result}
 3. One call at a time. A second `place_call` returns `concurrent_call`.
 
 ## The brief (`task`)
@@ -71,10 +97,11 @@ Every call starts with a fixed AI disclosure the model cannot change. In German 
 - Remaining budget: {remaining:.2f} EUR. Spent this month: {spent_eur:.2f} EUR.
 - Line (Asterisk registered to SIP): {line}. If it is down, `place_call` returns `line_unavailable`.
 - Mobile flat rate: {"on" if limits.mobile_flat_enabled else "off"}.
+- {transcript_mode}
 
 ## After the call
 
-`get_call` returns status, timings, outcome, transcript, cost, and, for a completed call, `summary` (outcome, key facts, follow-ups, consent). `outcome` on the call itself is only the network result. `get_recording` is `not_available` when nothing was recorded. `connect_webhook` stores a URL; a signed `call.finalized` event is posted when the call ends and includes the summary.
+{after_call} `outcome` on the call itself is only the network result. `get_recording` is `not_available` when nothing was recorded. `connect_webhook` stores a URL; a signed `call.finalized` event is posted when the call ends and includes the summary.
 """
 
 

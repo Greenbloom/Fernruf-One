@@ -515,6 +515,7 @@ def test_m2_test_call_simulate_english_task(
     monkeypatch.setenv("FERNRUF_LATENCY_LOG", str(tmp_path / "latency.jsonl"))
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-token-value")
     monkeypatch.setenv("FERNRUF_WHISPER_LANGUAGE", "")
+    monkeypatch.setenv("FERNRUF_TRANSCRIPT_ALLOWED", "true")
 
     def handler(_request: httpx.Request) -> httpx.Response:
         return _answer("en", 0.96)

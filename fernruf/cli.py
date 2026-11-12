@@ -255,25 +255,31 @@ def m2_test_call(
         if missing_model:
             LOG.error("%s", missing_model)
             raise SystemExit(2)
+        from fernruf.call_settings.store import log_transcript_mode
         from fernruf.voice.simulate import SimulateConversation
 
+        allowed = log_transcript_mode(settings)
         result = asyncio.run(SimulateConversation(settings, task, llm_model_override=model).run())
         payload = {
             "mode": "simulate",
             "llm_model": result.llm_model,
             "llm_model_source": result.llm_model_source,
             "llm_provider": result.llm_provider,
-            "first_line": result.transcript[0].text if result.transcript else "",
-            "lines": [
-                {"t_ms": ln.t_ms, "speaker": ln.speaker, "text": ln.text}
-                for ln in result.transcript
-            ],
             "median_latency": result.median,
             "latency_simulated": True,
             "latency_log": str(result.latency_path),
             "call_id": result.call_id,
             "call_language": result.call_language,
         }
+        if allowed:
+            payload["first_line"] = result.transcript[0].text if result.transcript else ""
+            payload["lines"] = [
+                {"t_ms": ln.t_ms, "speaker": ln.speaker, "text": ln.text}
+                for ln in result.transcript
+            ]
+        else:
+            payload["transcript_reason"] = "transcript_disabled"
+            result.transcript.clear()
         click.echo(json.dumps(payload, indent=2, ensure_ascii=False))
         return
 
@@ -322,7 +328,9 @@ def m2_test_call(
         password=settings.asterisk_ari_password,
     )
     from fernruf.ari.m2 import run_m2_test_call_with_signals
+    from fernruf.call_settings.store import log_transcript_mode
 
+    allowed = log_transcript_mode(settings)
     try:
         out = asyncio.run(
             run_m2_test_call_with_signals(
@@ -339,6 +347,10 @@ def m2_test_call(
         )
     finally:
         ari.close()
+    if not allowed:
+        out.pop("transcript", None)
+        out.pop("first_agent_line", None)
+        out["transcript_reason"] = "transcript_disabled"
     click.echo(json.dumps(out, indent=2, ensure_ascii=False))
 
 
@@ -861,6 +873,16 @@ def settings_set_llm_model(model_id: str) -> None:
 
     rec = update_call_settings({"llm_model": model_id})
     click.echo(f"llm_model={rec.llm_model} (applies to next call, no restart)")
+
+
+@settings_group.command("transcript")
+@click.argument("mode", type=click.Choice(["on", "off"]))
+def settings_transcript(mode: str) -> None:
+    """Store and show transcripts on the next call, or keep only the summary."""
+    from fernruf.call_settings.store import update_call_settings
+
+    rec = update_call_settings({"transcript_allowed": mode == "on"})
+    click.echo(f"transcript_allowed={str(rec.transcript_allowed).lower()}")
 
 
 def json_summary(decision: PolicyDecision, sip_dial: str, result: dict | None) -> str:

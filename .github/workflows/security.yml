@@ -1,0 +1,71 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Export locked requirements
+        run: uv export --frozen --all-extras --all-groups --no-emit-project --format requirements-txt --output-file "$RUNNER_TEMP/requirements.txt" >/dev/null
+
+      - name: Audit locked dependencies
+        run: |
+          set -euo pipefail
+          mapfile -t ids < <(uv run --python 3.12 --no-project python scripts/security/pip_audit_ignores.py .github/security/pip-audit-ignores.toml)
+          cmd=(
+            uvx --python 3.12 pip-audit==2.10.1
+            -r "$RUNNER_TEMP/requirements.txt"
+            --progress-spinner off
+            --disable-pip
+          )
+          for vuln_id in "${ids[@]}"; do
+            if [ -n "$vuln_id" ]; then
+              cmd+=(--ignore-vuln "$vuln_id")
+            fi
+          done
+          "${cmd[@]}"
+
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@9418214df1f2c4b8128c770156c409013b07d6b9 # v3.39.3
+        with:
+          languages: python
+          build-mode: none
+          queries: code-scanning
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@9418214df1f2c4b8128c770156c409013b07d6b9 # v3.39.3
+        with:
+          category: "/language:python"
+          output: ${{ github.workspace }}/codeql-sarif
+
+      - name: Fail on CodeQL findings
+        run: python3 scripts/security/fail_on_codeql_sarif.py "${{ github.workspace }}/codeql-sarif"

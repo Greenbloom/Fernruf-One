@@ -31,6 +31,7 @@ class _CallView:
     to_masked: str = "••••"
     outcome: str | None = None
     summary: dict[str, Any] | None = None
+    transcript_allowed: bool = True
     started: float = field(default_factory=time.monotonic)
 
 
@@ -42,10 +43,13 @@ class CallMonitor:
         self._history: list[dict[str, Any]] = []
         self._outbound: dict[str, PlaybackPacer] = {}
 
-    def begin(self, call_id: str, *, to_e164: str) -> bool:
+    def begin(self, call_id: str, *, to_e164: str, transcript_allowed: bool = True) -> bool:
         if call_id in self._calls:
             return False
-        view = _CallView(to_masked=mask_e164(to_e164))
+        view = _CallView(
+            to_masked=mask_e164(to_e164),
+            transcript_allowed=bool(transcript_allowed),
+        )
         self._calls[call_id] = view
         return self.advance(call_id, CallLifecycle.DIALING)
 
@@ -76,6 +80,7 @@ class CallMonitor:
                 to_masked=view.to_masked,
                 outcome=view.outcome,
                 summary=view.summary if nxt is CallLifecycle.FINALIZED else None,
+                transcript_allowed=view.transcript_allowed,
             )
         )
         return True
@@ -90,7 +95,10 @@ class CallMonitor:
         final: bool = True,
     ) -> None:
         text = text.strip()
-        if call_id not in self._calls or speaker not in ("agent", "callee") or not text:
+        view = self._calls.get(call_id)
+        if view is None or not view.transcript_allowed:
+            return
+        if speaker not in ("agent", "callee") or not text:
             return
         self._publish(
             transcript_message(

@@ -106,13 +106,15 @@ Whisper, OAuth, mood, and the monitor port are in `.env.example`.
 
 **Consent before recording.** The system prompt keeps recording off until the callee agrees. If the agent asks, it has to use the fixed consent question for that language. `record` defaults to false. `get_recording` returns `not_available`. This version does not store a call recording for MCP clients. `fernruf demo-call` can write a wav on the host for its own playback. That file is not served by `get_recording`.
 
+**Transcripts.** Fernruf can transcribe a call while it runs, show that text in the local call window, and store the transcript and a summary. The transcript is off by default, so a new install keeps the summary and drops the words at the end of the call. To turn it on, set `FERNRUF_TRANSCRIPT_ALLOWED=true` in `.env` before the settings database is created, or run `fernruf settings transcript on`. Showing, storing, or using what the other person said may require their consent. That depends on the jurisdiction.
+
 **Allowlist.** Fernruf dials only numbers on the allowlist. The MCP token cannot add a number. Add one on the host with `fernruf settings allow-number`.
 
 **Cost caps.** A deployment can lower the daily call cap, the daily minute cap, and the monthly euro budget. It cannot raise them above 50 calls, 300 minutes, or 100 EUR.
 
 **Quiet hours.** The default window is 20:00 to 08:00. Turning quiet hours off requires `FERNRUF_QUIET_HOURS_ALLOW_OFF`.
 
-Marketing-style tasks are rejected. Premium-rate prefixes are blocked. You are responsible for every call placed on your line. In Germany, recording needs consent first under §201 StGB, and unsolicited advertising calls are restricted under UWG §7. Fernruf is not legal advice. Data flows are in [PRIVACY.md](PRIVACY.md).
+Marketing-style tasks are rejected. Premium-rate prefixes are blocked. You are responsible for every call placed on your line. In Germany, the DSGVO covers stored text of what someone said, audio recording under §201 StGB needs prior consent, and unsolicited advertising calls are restricted under UWG §7. Fernruf is not legal advice. Data flows are in [PRIVACY.md](PRIVACY.md).
 
 ## Local call monitor
 

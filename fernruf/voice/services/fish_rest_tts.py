@@ -25,6 +25,7 @@ from fernruf.tts.fish_rest_client import warm_fish_rest_connection
 from fernruf.tts.fish_rest_pipeline import FishRestPipeline
 from fernruf.tts.fish_ws_session import FishLiveWsSession
 from fernruf.tts.rest_stream import stream_tts_sentences
+from fernruf.voice.call_log import log_spoken_text
 from fernruf.voice.frames.metrics_frames import FishTtsFirstAudioFrame
 
 LOG = logging.getLogger("fernruf.voice.tts")
@@ -124,7 +125,8 @@ class FishRestTTSService(TTSService):
         await self.push_frame(frame, direction)
 
     async def run_tts(self, text: str, context_id: str) -> AsyncGenerator[Frame | None, None]:
-        LOG.info("TTS start: %s", text[:120] + ("…" if len(text) > 120 else ""))
+        shown = text[:120] + ("…" if len(text) > 120 else "")
+        log_spoken_text(LOG, "TTS start", shown, self._call_settings)
         if self._synth_log is not None:
             self._synth_log.append(text.strip())
         if self._use_fixture or (

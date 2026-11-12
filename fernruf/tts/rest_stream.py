@@ -150,7 +150,10 @@ async def stream_tts_sentences(
                     language=_cache_language(settings),
                 )
         except FishTtsError as exc:
-            LOG.warning("Fish TTS failed for sentence %r: %s", sentence[:80], exc)
+            if settings.transcript_allowed:
+                LOG.warning("Fish TTS failed for sentence %r: %s", sentence[:80], exc)
+            else:
+                LOG.warning("Fish TTS failed (%s chars): %s", len(sentence), exc)
             fallback = settings.filler_phrase.strip() or "Einen Moment, die Verbindung stockt kurz."
             cached = read_fish_cache(
                 settings,

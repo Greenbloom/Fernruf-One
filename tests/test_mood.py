@@ -308,7 +308,11 @@ def test_tts_log_and_synth_log_keep_the_spoken_text(
         yield b"\x01\x02" * 20, 1.0
 
     monkeypatch.setattr("fernruf.tts.fish_rest_pipeline.astream_fish_tts_pcm_rest", _stream)
-    settings = _settings(fish_audio_api_key="fish-test", fish_first_clause=False)
+    settings = _settings(
+        fish_audio_api_key="fish-test",
+        fish_first_clause=False,
+        transcript_allowed=True,
+    )
     synth: list[str] = []
     client = _Scripted(MoodReading("freundlich", 1.0, latency_ms=55))
     turn = MoodTurn(settings, client=client)

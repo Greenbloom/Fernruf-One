@@ -10,6 +10,13 @@ from fernruf.tts.fish import TTS_SAMPLE_RATE, _decode_fish_audio_body
 LOG = logging.getLogger("fernruf.tts.fish_cache")
 
 
+def _log_cache(settings: Settings, label: str, text: str) -> None:
+    if settings.transcript_allowed:
+        LOG.info("%s text=%s…", label, text[:40])
+    else:
+        LOG.info("%s (%s chars)", label, len(text))
+
+
 def fish_cache_dir(settings: Settings) -> Path:
     base = Path(settings.call_settings_db).parent
     path = base / "fish-tts-cache"
@@ -45,13 +52,20 @@ def read_fish_cache(
         return None
     record = path.with_suffix(".voice")
     if not record.is_file():
-        LOG.info("Fish TTS cache stale, no voice record text=%s…", text[:40])
+        _log_cache(settings, "Fish TTS cache stale, no voice record", text)
         return None
     recorded = record.read_text(encoding="utf-8").strip()
     if recorded != (voice_id or "").strip():
-        LOG.info("Fish TTS cache stale, voice mismatch text=%s…", text[:40])
+        _log_cache(settings, "Fish TTS cache stale, voice mismatch", text)
         return None
-    LOG.info("Fish TTS cache hit (%s bytes) text=%s…", path.stat().st_size, text[:40])
+    if settings.transcript_allowed:
+        LOG.info("Fish TTS cache hit (%s bytes) text=%s…", path.stat().st_size, text[:40])
+    else:
+        LOG.info(
+            "Fish TTS cache hit (%s bytes) (%s chars)",
+            path.stat().st_size,
+            len(text),
+        )
     return path.read_bytes()
 
 
