@@ -5,7 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from pipecat.frames.frames import CancelFrame, EndFrame, Frame, InputAudioRawFrame, StartFrame, TTSAudioRawFrame
+from pipecat.frames.frames import (
+    CancelFrame,
+    EndFrame,
+    Frame,
+    InputAudioRawFrame,
+    StartFrame,
+    TTSAudioRawFrame,
+)
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
 from fernruf.monitor.hub import CallMonitor

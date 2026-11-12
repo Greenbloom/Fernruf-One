@@ -1,1 +1,1 @@
-"""M3 fernruf service: MCP tools, call manager, and the HTTP front door."""
+"""MCP tools, the call manager, and the HTTP front door."""

@@ -6,13 +6,14 @@ import asyncio
 import json
 from datetime import datetime
 
+from tests.m3_support import service_settings
+
 from fernruf.quiet_hours import BERLIN
 from fernruf.service.line_health import StaticLineHealth
 from fernruf.service.manager import CallError, CallManager
 from fernruf.service.records import save_webhook, upsert_call
-from fernruf.service.summary import summarize_completed_call
 from fernruf.service.runner import CallJob, CallRunResult
-from tests.m3_support import service_settings
+from fernruf.service.summary import summarize_completed_call
 
 NOON = datetime(2026, 6, 15, 12, 0, tzinfo=BERLIN)
 TASK = {"goal": "Frag, ob Dienstag passt.", "questions": ["Passt Dienstag?"]}
@@ -175,10 +176,7 @@ def test_configured_model_is_used_when_place_omits_one(tmp_path) -> None:
 
 
 VROOM_TASK = {
-    "goal": (
-        "Tell Alex that the ExampleApp test release v1.0.0 is ready, "
-        "then end the call."
-    ),
+    "goal": ("Tell Alex that the ExampleApp test release v1.0.0 is ready, then end the call."),
     "context": (
         "Alex asked to be called when the release was ready. "
         "The download link is already in his their team chat."
@@ -283,9 +281,7 @@ def test_place_keeps_language_and_detection_text_on_the_job(tmp_path) -> None:
 
     manager, settings = _manager(tmp_path, runner=runner)
     update_call_settings({"default_language": "de"}, settings=settings)
-    view = asyncio.run(
-        manager.place(to="+493023125123", task=VROOM_TASK, language="EN", wait=True)
-    )
+    view = asyncio.run(manager.place(to="+493023125123", task=VROOM_TASK, language="EN", wait=True))
     assert seen["language"] == "en"
     assert seen["hits"] == 0
     assert seen["spoken"] == "en"
@@ -354,10 +350,10 @@ def test_completed_call_stores_mocked_summary_and_webhook(tmp_path) -> None:
     async def summarize(**_kwargs):
         return {
             "outcome": "callee answered",
-            "key_facts": ["two bottles"],
+            "key_facts": ["two seats left"],
             "follow_ups": ["confirm the count"],
             "consent": "not_asked",
-            "one_line": "two bottles",
+            "one_line": "two seats left",
             "task_status": "completed",
         }
 
@@ -372,7 +368,7 @@ def test_completed_call_stores_mocked_summary_and_webhook(tmp_path) -> None:
             duration_s=12.0,
             transcript=[
                 {"t_ms": 0, "speaker": "agent", "text": "Hello."},
-                {"t_ms": 1500, "speaker": "callee", "text": "I have like two bottles."},
+                {"t_ms": 1500, "speaker": "callee", "text": "We have two seats left."},
             ],
         )
 
@@ -397,26 +393,26 @@ def test_completed_call_stores_mocked_summary_and_webhook(tmp_path) -> None:
         raise AssertionError("call did not finish")
 
     view = asyncio.run(run())
-    assert view["summary"]["key_facts"] == ["two bottles"]
+    assert view["summary"]["key_facts"] == ["two seats left"]
     assert view["summary"]["follow_ups"] == ["confirm the count"]
     assert view["summary"]["consent"] == "not_asked"
     assert posted
     event = posted[0]["body"]
     assert event["event"] == "call.finalized"
     assert event["data"]["summary"]["outcome"] == "callee answered"
-    assert event["data"]["summary"]["key_facts"] == ["two bottles"]
+    assert event["data"]["summary"]["key_facts"] == ["two seats left"]
 
 
 def test_summary_uses_the_mocked_model_text(tmp_path) -> None:
     async def complete(prompt: str) -> str:
-        assert "two bottles" in prompt
+        assert "two seats left" in prompt
         return json.dumps(
             {
                 "outcome": "answered",
-                "key_facts": ["two bottles"],
+                "key_facts": ["two seats left"],
                 "follow_ups": [],
                 "consent": "granted",
-                "one_line": "two bottles",
+                "one_line": "two seats left",
                 "task_status": "completed",
             }
         )
@@ -430,13 +426,13 @@ def test_summary_uses_the_mocked_model_text(tmp_path) -> None:
     async def run():
         return await summarize_completed_call(
             settings=settings,
-            transcript=[{"t_ms": 1, "speaker": "callee", "text": "I have like two bottles."}],
-            task="Ask what they have.",
+            transcript=[{"t_ms": 1, "speaker": "callee", "text": "We have two seats left."}],
+            task="Ask how many seats are left.",
             outcome="completed",
             complete=complete,
         )
 
     summary = asyncio.run(run())
     assert summary["consent"] == "granted"
-    assert summary["key_facts"] == ["two bottles"]
+    assert summary["key_facts"] == ["two seats left"]
     assert summary["outcome"] == "answered"

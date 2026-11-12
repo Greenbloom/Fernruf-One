@@ -61,7 +61,9 @@ def cues_from_srt(text: str) -> list[CaptionCue]:
         lines = [line.strip() for line in block.split("\n") if line.strip()]
         if len(lines) < 2:
             continue
-        stamp = lines[1] if "-->" in lines[1] else next((line for line in lines if "-->" in line), "")
+        stamp = (
+            lines[1] if "-->" in lines[1] else next((line for line in lines if "-->" in line), "")
+        )
         if "-->" not in stamp:
             continue
         start_s, end_s = (part.strip() for part in stamp.split("-->", 1))
@@ -201,7 +203,9 @@ def _length(font, text: str) -> float:
     return float(len(text) * 16)
 
 
-def _centered(draw: ImageDraw.ImageDraw, text: str, y: int, font, fill: tuple[int, int, int]) -> None:
+def _centered(
+    draw: ImageDraw.ImageDraw, text: str, y: int, font, fill: tuple[int, int, int]
+) -> None:
     width = _length(font, text)
     draw.text(((WIDTH - width) / 2, y), text, font=font, fill=fill)
 

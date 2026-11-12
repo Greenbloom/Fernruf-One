@@ -3,6 +3,8 @@ name = "fernruf"
 version = "0.1.0"
 description = "AI phone calls for agents, via your own SIP line"
 readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Greenbloom", email = "53740246+Greenbloom@users.noreply.github.com" }]
 requires-python = ">=3.12"
 dependencies = [
   "audioop-lts>=0.2.2; python_version >= '3.13'",
@@ -33,6 +35,10 @@ cuda = [
   "nvidia-cudnn-cu12>=9.1.0.70; sys_platform == 'linux'",
 ]
 
+[project.urls]
+Repository = "https://github.com/Greenbloom/Fernruf-One"
+Issues = "https://github.com/Greenbloom/Fernruf-One/issues"
+
 [project.scripts]
 fernruf = "fernruf.cli:main"
 
@@ -51,4 +57,23 @@ packages = ["fernruf"]
 [dependency-groups]
 dev = [
   "pytest>=8.3",
+  "ruff>=0.8",
 ]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["fernruf", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+# E501: spoken prompts and guides are long strings on purpose.
+# UP042: str+Enum is the existing behavior. StrEnum would change formatting.
+# UP031: one test embeds a script that already contains braces.
+ignore = ["E501", "UP042"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_desktop_i18n.py" = ["UP031"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fernruf"]

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fernruf.data_dir import open_append
 from fernruf.policy import PolicyDecision
-
 
 _SECRET_KEYS = frozenset(
     {
@@ -22,7 +21,7 @@ _SECRET_KEYS = frozenset(
 
 def append_audit_event(path: Path, event: dict) -> None:
     """Append one JSONL audit record. Drops secret-looking keys."""
-    record = {"at": datetime.now(tz=timezone.utc).isoformat()}
+    record = {"at": datetime.now(tz=UTC).isoformat()}
     for key, value in event.items():
         if key.lower() in _SECRET_KEYS:
             continue
@@ -40,7 +39,7 @@ def append_call_audit(
     extra: dict | None = None,
 ) -> None:
     record = {
-        "at": datetime.now(tz=timezone.utc).isoformat(),
+        "at": datetime.now(tz=UTC).isoformat(),
         "to": to_e164,
         "policy_outcome": decision.outcome.value,
         "policy_reason": decision.reason,

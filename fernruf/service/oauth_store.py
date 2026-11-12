@@ -276,7 +276,14 @@ class OAuthStore:
                         token_hash, grant_id, status, expires_at, scopes, resource, subject
                     ) VALUES (?, ?, 'current', ?, ?, ?, ?)
                     """,
-                    (token_hash(refresh_token), grant_id, refresh_expires_at, scope_text, resource, subject),
+                    (
+                        token_hash(refresh_token),
+                        grant_id,
+                        refresh_expires_at,
+                        scope_text,
+                        resource,
+                        subject,
+                    ),
                 )
                 conn.execute(
                     """

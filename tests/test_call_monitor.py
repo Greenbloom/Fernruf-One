@@ -10,18 +10,18 @@ from datetime import datetime
 import pytest
 import websockets
 from pipecat.frames.frames import InputAudioRawFrame, TTSAudioRawFrame
+from tests.m3_support import service_settings
 
 from fernruf.desktop.prefs import load_listen_pref, save_listen_pref
-from fernruf.quiet_hours import BERLIN
 from fernruf.monitor.protocol import unpack_audio
 from fernruf.monitor.server import start_monitor_server
 from fernruf.monitor.state import CallLifecycle, next_state
+from fernruf.quiet_hours import BERLIN
 from fernruf.service.line_health import StaticLineHealth
 from fernruf.service.manager import CallManager
 from fernruf.service.mcp_app import create_app
 from fernruf.service.security import BindError
 from fernruf.voice.processors.audio_tap import note_frame
-from tests.m3_support import service_settings
 
 TASK = {"goal": "Frag, ob Dienstag passt.", "questions": ["Passt Dienstag?"]}
 

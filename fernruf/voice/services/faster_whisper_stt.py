@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pipecat.frames.frames import (
     Frame,
@@ -99,5 +99,5 @@ class FasterWhisperSTTService(SegmentedSTTService):
             self._verify_state.transcript.append(
                 {"speaker": "callee", "text": text},
             )
-        ts = datetime.now(timezone.utc).isoformat()
+        ts = datetime.now(UTC).isoformat()
         yield TranscriptionFrame(text=text, user_id=self._user_id, timestamp=ts)

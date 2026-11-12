@@ -3,36 +3,38 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import functools
+import hashlib
 import json
 import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI
+from mcp.server.auth.routes import build_resource_metadata_url
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from mcp.server.auth.routes import build_resource_metadata_url
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from fernruf.service.guide import guide_for_settings
-from fernruf.service.mcp_hosts import mcp_allowed_hosts
-from fernruf.service.line_health import LineHealth, line_health_for
-from fernruf.service.manager import CallError, CallManager, limits_for
-from fernruf.service.records import save_webhook
 from fernruf.call_settings.store import get_call_settings
 from fernruf.service.github_oauth import GitHubLogin, oauth_routes
+from fernruf.service.guide import guide_for_settings
+from fernruf.service.line_health import LineHealth, line_health_for
+from fernruf.service.manager import CallError, CallManager, limits_for
+from fernruf.service.mcp_hosts import mcp_allowed_hosts
 from fernruf.service.oauth_provider import FernrufOAuthProvider
 from fernruf.service.oauth_store import OAuthStore
+from fernruf.service.records import save_webhook
 from fernruf.service.security import (
     AUTH_LOG_LINE,
     AuthLockout,
@@ -97,22 +99,42 @@ class ServiceRuntime:
         self.oauth_limiter = WindowLimiter(max(1, int(settings.oauth_rate_per_min)))
         resource = (settings.oauth_resource or "").strip()
         if resource:
-            self.resource_metadata_url = str(
-                build_resource_metadata_url(AnyHttpUrl(resource))
-            )
+            self.resource_metadata_url = str(build_resource_metadata_url(AnyHttpUrl(resource)))
         else:
             self.resource_metadata_url = ""
-        self.guide_sessions: set[str] = set()
+        self.guide_sessions: dict[str, float] = {}
+
+    def guide_read(self, key: str) -> None:
+        now = time.monotonic()
+        self.guide_sessions = {k: t for k, t in self.guide_sessions.items() if t > now}
+        self.guide_sessions[key] = now + GUIDE_TTL_S
+
+    def guide_is_read(self, key: str) -> bool:
+        expires = self.guide_sessions.get(key)
+        return expires is not None and expires > time.monotonic()
+
+
+GUIDE_TTL_S = 7200.0
+_PRINCIPAL: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "fernruf_principal", default=None
+)
 
 
 def session_key(ctx: Context) -> str:
-    """Stable id for one MCP session. ServerSession itself is per request."""
+    """Stable id for the guide gate.
+
+    A real MCP session id wins. Protocol 2026-07-28 has no sessions and builds a new
+    connection per request, so there the key is the authenticated principal instead.
+    """
     session = ctx.request_context.session
     connection = getattr(session, "_connection", None)
     if connection is not None:
         sid = getattr(connection, "session_id", None)
         if sid:
             return str(sid)
+        principal = _PRINCIPAL.get()
+        if principal:
+            return f"principal:{principal}"
         return f"conn:{id(connection)}"
     return f"session:{id(session)}"
 
@@ -169,6 +191,7 @@ def traced_tool(fn):
         )
 
     if asyncio.iscoroutinefunction(fn):
+
         @functools.wraps(fn)
         async def async_wrapped(*args, **kwargs):
             started = time.monotonic()
@@ -216,7 +239,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
     )
 
     def require_guide(ctx: Context) -> None:
-        if session_key(ctx) not in runtime.guide_sessions:
+        if not runtime.guide_is_read(session_key(ctx)):
             _tool_error(
                 "guide_required",
                 "Call get_calling_guide in this MCP session before using a write tool.",
@@ -237,7 +260,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
             line_ready=runtime.manager.line_health.ready(),
             now=runtime.manager.now(),
         )
-        runtime.guide_sessions.add(session_key(ctx))
+        runtime.guide_read(session_key(ctx))
         return text
 
     @mcp.tool()
@@ -461,7 +484,7 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
         webhook_id = uuid.uuid4().hex[:12]
         body = {
             "event": "webhook.test",
-            "at": datetime.now(tz=timezone.utc).isoformat(),
+            "at": datetime.now(tz=UTC).isoformat(),
             "data": {"ok": True},
         }
         try:
@@ -558,7 +581,11 @@ async def _protect(request: Request, call_next, runtime: ServiceRuntime):
         AUTH_LOG.warning(AUTH_LOG_LINE, ip, reason or "bad_token")
         return _unauthorized(runtime.resource_metadata_url)
     runtime.lockout.record_success(ip)
-    return await call_next(request)
+    token = _PRINCIPAL.set(hashlib.sha256(presented.encode()).hexdigest()[:16])
+    try:
+        return await call_next(request)
+    finally:
+        _PRINCIPAL.reset(token)
 
 
 def create_app(
@@ -626,9 +653,7 @@ def create_app(
     issuer = (settings.oauth_issuer or "").strip()
     resource = (settings.oauth_resource or "").strip()
     if issuer and resource:
-        for route in reversed(
-            oauth_routes(settings, runtime.store, provider, github_login)
-        ):
+        for route in reversed(oauth_routes(settings, runtime.store, provider, github_login)):
             app.router.routes.insert(0, route)
     elif issuer or resource:
         LOG.warning(

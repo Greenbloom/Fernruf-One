@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pipecat.frames.frames import (
+    FunctionCallResultProperties,
     InputTransportMessageFrame,
     LLMMessagesAppendFrame,
     StartFrame,
@@ -25,7 +26,6 @@ from fernruf.settings import Settings
 from fernruf.voice.call_session import M2CallSession
 from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.m2_pipeline import _llm_tools, build_m2_pipeline
-from pipecat.frames.frames import FunctionCallResultProperties
 
 
 def _unblock_asterisk_output(transport: AsteriskWebsocketTransport) -> None:
@@ -146,7 +146,9 @@ def test_end_call_tool_result_skips_follow_up_llm() -> None:
     assert session.pending_tool_tts == ["Vielen Dank für den Test. Auf Wiederhören!"]
 
 
-def test_end_call_goodbye_tts_then_hangup_no_second_llm(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_end_call_goodbye_tts_then_hangup_no_second_llm(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     from fernruf.tts.audio import _fixture_pcm
     from fernruf.tts.rest_stream import pcm_to_wav
 

@@ -175,7 +175,9 @@ class CallHangup(FrameProcessor):
     def _estimate_s(self) -> float:
         if self._audio_s > 0:
             return self._audio_s
-        text = self._wait_phrase or self._session.phase.spoken_text or self._session.phase.goodbye_tts
+        text = (
+            self._wait_phrase or self._session.phase.spoken_text or self._session.phase.goodbye_tts
+        )
         if text:
             return max(len(text) / 14.0, 0.3)
         return 0.3
@@ -509,7 +511,11 @@ class CallHangup(FrameProcessor):
         if not self._armed or not text:
             return
         self._heard += text
-        if self._wait_phrase and not self._phrase_seen and _phrase_in(self._wait_phrase, self._heard):
+        if (
+            self._wait_phrase
+            and not self._phrase_seen
+            and _phrase_in(self._wait_phrase, self._heard)
+        ):
             self._phrase_seen = True
             if self._utt_started_at is not None:
                 self._tts_started_at = self._utt_started_at
@@ -664,12 +670,7 @@ class CallHangup(FrameProcessor):
         if isinstance(frame, TTSStoppedFrame):
             self._bot_speaking = False
             text, closed = self._close_tts(getattr(frame, "context_id", None))
-            if (
-                closed
-                and self._speak_pushed
-                and self._wait_phrase
-                and not self._goodbye_tts_done
-            ):
+            if closed and self._speak_pushed and self._wait_phrase and not self._goodbye_tts_done:
                 if text and _phrase_in(self._wait_phrase, text):
                     self._goodbye_ctx_done = True
                     self._phrase_seen = True
@@ -714,7 +715,11 @@ class CallHangup(FrameProcessor):
                     waiting_for_goodbye_tts = (
                         self._speak_pushed and self._wait_phrase and not self._goodbye_tts_done
                     )
-                    if not self._goodbye_sealed and not self._tts_open and not waiting_for_goodbye_tts:
+                    if (
+                        not self._goodbye_sealed
+                        and not self._tts_open
+                        and not waiting_for_goodbye_tts
+                    ):
                         self._mark_goodbye_written()
                 else:
                     LOG.info(

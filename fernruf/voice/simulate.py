@@ -13,10 +13,10 @@ from fernruf.call_settings.resolver import resolve_llm_endpoint_for_call
 from fernruf.language import prepare_call_settings
 from fernruf.llm.client import StreamingChatClient
 from fernruf.settings import Settings
+from fernruf.tts.rest_stream import stream_tts_sentences
 from fernruf.voice.events import GLOBAL_EVENT_BUS
 from fernruf.voice.latency import LatencyLog
 from fernruf.voice.prompt import build_system_prompt
-from fernruf.tts.rest_stream import stream_tts_sentences
 
 LOG = logging.getLogger("fernruf.voice.simulate")
 
@@ -192,9 +192,7 @@ class SimulateConversation:
                     self._end = True
 
             self._speaking = True
-            result = await self.llm.stream_turn(
-                self.messages, on_token=on_token, on_tool=on_tool
-            )
+            result = await self.llm.stream_turn(self.messages, on_token=on_token, on_tool=on_tool)
             self.messages.append({"role": "assistant", "content": result.assistant_text})
             async for _pcm, _rate, _ttfa in stream_tts_sentences(
                 result.assistant_text, settings=self.settings

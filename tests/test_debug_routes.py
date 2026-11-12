@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 from starlette.testclient import TestClient
+from tests.m3_support import service_settings
 
 from fernruf.debug.trace import configure_trace, note
 from fernruf.service.mcp_app import create_app
-from tests.m3_support import service_settings
 
 
 @pytest.fixture(autouse=True)
@@ -15,6 +15,7 @@ def _reset_debug_trace():
     configure_trace(enabled=False)
     yield
     configure_trace(enabled=False)
+
 
 _SECRET = "sk-test-secret-value-not-real"
 

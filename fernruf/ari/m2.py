@@ -8,16 +8,15 @@ import signal
 import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-import httpx
 import websockets
 from fastapi import FastAPI, WebSocket
-from pathlib import Path
 
 from fernruf.ari.client import AriSession
-from fernruf.ari.teardown import ari_teardown_channels, shielded_ari_teardown
+from fernruf.ari.teardown import shielded_ari_teardown
 from fernruf.ari.websocket_endpoint import WS_MEDIA_ENDPOINT
 from fernruf.quiet_hours import BERLIN
 from fernruf.settings import Settings
@@ -162,7 +161,8 @@ class M2AriSession(AriSession):
                 sim.call_id = call_id
             result = await sim.run()
             transcript = [
-                {"t_ms": ln.t_ms, "speaker": ln.speaker, "text": ln.text} for ln in result.transcript
+                {"t_ms": ln.t_ms, "speaker": ln.speaker, "text": ln.text}
+                for ln in result.transcript
             ]
             return {
                 "mode": "simulate",
@@ -305,6 +305,7 @@ class M2AriSession(AriSession):
             ari_channels["pstn"] = channel_id
             ari_channels["ws"] = ws_channel_id
             ari_channels["bridge"] = bridge_id
+
         start = time.monotonic()
         done = asyncio.Event()
 
@@ -388,9 +389,7 @@ class M2AriSession(AriSession):
             self.active_channel_id = channel_id
             self.subscribe_channel(channel_id)
             _sync_ari_channel_state()
-            deadline = start + (
-                float(max_seconds) if max_seconds is not None else max_minutes * 60
-            )
+            deadline = start + (float(max_seconds) if max_seconds is not None else max_minutes * 60)
             polite_sent = False
             goodbye_grace_s = 20.0
             try:
@@ -435,14 +434,14 @@ class M2AriSession(AriSession):
                     await read_task
                 try:
                     await asyncio.wait_for(pipeline_finished.wait(), timeout=25.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     LOG.warning("pipecat pipeline did not finish within 25s after call end")
                     if hooks.request_pipeline_shutdown:
                         with contextlib.suppress(Exception):
                             await hooks.request_pipeline_shutdown()
                         try:
                             await asyncio.wait_for(pipeline_finished.wait(), timeout=5.0)
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             LOG.warning("pipecat pipeline still running after forced shutdown")
                 await stop_embedded_uvicorn(server, server_task, timeout=5.0)
                 self.active_channel_id = None

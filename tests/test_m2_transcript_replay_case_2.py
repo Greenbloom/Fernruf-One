@@ -11,16 +11,20 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pipecat.frames.frames import (
-    BotStoppedSpeakingFrame,
     InputTransportMessageFrame,
     LLMMessagesAppendFrame,
     StartFrame,
-    TTSStoppedFrame,
 )
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.workers.runner import WorkerRunner
 from pipecat_asterisk import AsteriskWebsocketTransport
+from tests.m2_pipeline_harness import (
+    cancel_asterisk_output_tasks,
+    prime_transport_flow,
+    unblock_asterisk_output,
+    wire_transport_bot_stopped_to_guard,
+)
 
 from fernruf.settings import Settings
 from fernruf.tts.audio import _fixture_pcm
@@ -30,12 +34,6 @@ from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.latency import LatencyLog
 from fernruf.voice.m2_pipeline import build_m2_pipeline
 from fernruf.voice.verify_orchestration import median_latency_report
-from tests.m2_pipeline_harness import (
-    cancel_asterisk_output_tasks,
-    prime_transport_flow,
-    unblock_asterisk_output,
-    wire_transport_bot_stopped_to_guard,
-)
 
 # Real call 00:29 — STT misheard "Hi" as "Bye.", then corrections; LLM must not end_call yet.
 TRANSCRIPT_0029 = [
@@ -113,13 +111,7 @@ class _Replay0029LLMHandler(BaseHTTPRequestHandler):
                 },
                 {
                     "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {"index": 0, "function": {"arguments": args}}
-                                ]
-                            }
-                        }
+                        {"delta": {"tool_calls": [{"index": 0, "function": {"arguments": args}}]}}
                     ]
                 },
                 {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
@@ -153,11 +145,7 @@ class _Replay0029LLMHandler(BaseHTTPRequestHandler):
             },
             {
                 "choices": [
-                    {
-                        "delta": {
-                            "tool_calls": [{"index": 0, "function": {"arguments": args}}]
-                        }
-                    }
+                    {"delta": {"tool_calls": [{"index": 0, "function": {"arguments": args}}]}}
                 ]
             },
             {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
@@ -268,7 +256,7 @@ def test_replay_0029_merged_user_no_end_call_before_answer(
         await worker.cancel()
         try:
             await asyncio.wait_for(run_task, timeout=8.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             run_task.cancel()
 
     try:
@@ -276,11 +264,7 @@ def test_replay_0029_merged_user_no_end_call_before_answer(
     finally:
         server.shutdown()
 
-    users = [
-        m.get("content")
-        for m in built.llm_context.messages
-        if m.get("role") == "user"
-    ]
+    users = [m.get("content") for m in built.llm_context.messages if m.get("role") == "user"]
     assert len(users) == 1
     merged = users[0].lower()
     assert "bye" in merged or "hi" in merged

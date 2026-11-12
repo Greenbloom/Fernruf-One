@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import pytest
@@ -6,7 +5,9 @@ import pytest
 from fernruf.settings import Settings, load_settings
 
 
-def test_load_settings_fernruf_env_file_none_ignores_dotenv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_load_settings_fernruf_env_file_none_ignores_dotenv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     dotenv = tmp_path / ".env"
     dotenv.write_text("FERNRUF_QUIET_HOURS=off\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)

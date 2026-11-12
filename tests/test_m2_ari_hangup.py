@@ -75,5 +75,3 @@ def test_end_call_execute_hangup_before_pipeline_shutdown() -> None:
     guard._hooks.request_pipeline_shutdown = tracked_shutdown
     asyncio.run(guard._execute_hangup())
     assert order == ["hangup", "shutdown"]
-
-

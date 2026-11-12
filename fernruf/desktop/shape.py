@@ -57,7 +57,9 @@ def apply_kwin_blur(window, radius: int) -> bool:
     if display == 0 or window_id == 0:
         return False
     try:
-        return _set_x11_blur(display, window_id, int(window.width()), int(window.height()), int(radius))
+        return _set_x11_blur(
+            display, window_id, int(window.width()), int(window.height()), int(radius)
+        )
     except (OSError, AttributeError):
         return False
 
@@ -83,7 +85,12 @@ def _set_x11_blur(connection: int, window_id: int, width: int, height: int, radi
             ("atom", ctypes.c_uint32),
         ]
 
-    xcb.xcb_intern_atom.argtypes = [ctypes.c_void_p, ctypes.c_uint8, ctypes.c_uint16, ctypes.c_char_p]
+    xcb.xcb_intern_atom.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint8,
+        ctypes.c_uint16,
+        ctypes.c_char_p,
+    ]
     xcb.xcb_intern_atom.restype = _Cookie
     xcb.xcb_intern_atom_reply.argtypes = [ctypes.c_void_p, _Cookie, ctypes.c_void_p]
     xcb.xcb_intern_atom_reply.restype = ctypes.POINTER(_InternReply)

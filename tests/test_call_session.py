@@ -21,7 +21,9 @@ def test_end_call_allowed_with_goodbye_argument() -> None:
         min_user_turns_before_hangup=3,
         min_call_duration_before_hangup_s=0.0,
     )
-    assert session.validate_end_call("done", settings, goodbye="Vielen Dank, auf Wiederhören!") is None
+    assert (
+        session.validate_end_call("done", settings, goodbye="Vielen Dank, auf Wiederhören!") is None
+    )
 
 
 def test_end_call_blocked_when_question_unanswered() -> None:
@@ -54,18 +56,19 @@ def test_end_call_allowed_after_callee_answered_question() -> None:
         _env_file=None,
         min_call_duration_before_hangup_s=0.0,
     )
-    assert session.validate_end_call(
-        "Test ok",
-        settings,
-        goodbye="Auf Wiederhören!",
-    ) is None
+    assert (
+        session.validate_end_call(
+            "Test ok",
+            settings,
+            goodbye="Auf Wiederhören!",
+        )
+        is None
+    )
 
 
 def test_end_call_allowed_after_mutual_goodbye_without_goodbye_arg() -> None:
     session = M2CallSession()
-    session.commit_assistant_turn(
-        "Ich wollte nur kurz testen... Vielen Dank und auf Wiederhören!"
-    )
+    session.commit_assistant_turn("Ich wollte nur kurz testen... Vielen Dank und auf Wiederhören!")
     session.note_user_transcript("Okay.")
     session.note_user_transcript("Auf Wiederhören.")
     session.user_turn_count = 4
@@ -87,11 +90,14 @@ def test_callee_goodbye_ciao_bypasses_min_turns() -> None:
         min_call_duration_before_hangup_s=999.0,
     )
     assert session.callee_goodbye_seen
-    assert session.validate_end_call(
-        "callee said ciao",
-        settings,
-        goodbye="Auf Wiederhören!",
-    ) is None
+    assert (
+        session.validate_end_call(
+            "callee said ciao",
+            settings,
+            goodbye="Auf Wiederhören!",
+        )
+        is None
+    )
 
 
 def test_empty_goodbye_allowed_after_mutual_ciao_and_tschuess() -> None:

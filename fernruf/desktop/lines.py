@@ -50,11 +50,7 @@ def make_line_model(parent=None):
 
         def add(self, speaker: str, text: str, *, final: bool, clock: str) -> None:
             row = {"speaker": speaker, "text": text, "final": bool(final), "clock": clock}
-            if (
-                self._rows
-                and self._rows[-1]["speaker"] == speaker
-                and not self._rows[-1]["final"]
-            ):
+            if self._rows and self._rows[-1]["speaker"] == speaker and not self._rows[-1]["final"]:
                 self._rows[-1] = row
                 top = self.index(len(self._rows) - 1)
                 self.dataChanged.emit(top, top)

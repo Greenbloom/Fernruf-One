@@ -51,7 +51,6 @@ def test_self_introduction_name_forms(principal: str) -> None:
 def test_titled_principal_possessives_unchanged(principal: str) -> None:
     tokens = principal_tokens(principal)
     without_title = tokens[1]
-    first = tokens[-1]
     unchanged: list[str] = [
         f"I'm {without_title}'s assistant.",
         f"This is {without_title}'s office.",

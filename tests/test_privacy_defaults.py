@@ -7,13 +7,13 @@ from pathlib import Path
 
 import httpx
 import pytest
+from pipecat.frames.frames import InputTransportMessageFrame, TTSSpeakFrame
+from pipecat.processors.frame_processor import FrameDirection
 
 from fernruf.call_settings.store import update_call_settings
 from fernruf.language import detect_call_language, prepare_call_settings
 from fernruf.settings import Settings
 from fernruf.voice.processors.opener import DisclosureOpenerProcessor
-from pipecat.frames.frames import InputTransportMessageFrame, TTSSpeakFrame
-from pipecat.processors.frame_processor import FrameDirection
 
 
 def test_typesafe_and_mood_default_off(monkeypatch: pytest.MonkeyPatch) -> None:

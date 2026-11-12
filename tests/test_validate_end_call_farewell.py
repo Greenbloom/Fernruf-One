@@ -16,6 +16,4 @@ def test_empty_goodbye_allowed_when_user_says_farewell() -> None:
         ]
     )
     settings = Settings(_env_file=None, min_call_duration_before_hangup_s=0.0)
-    assert (
-        session.validate_end_call("Test ok", settings, goodbye="") is None
-    )
+    assert session.validate_end_call("Test ok", settings, goodbye="") is None

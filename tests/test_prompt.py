@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import pytest
+from tests.conftest import PRINCIPAL_TEST_NAMES
 
 from fernruf.llm.tools import CALL_TOOLS
 from fernruf.principal import format_phrase_templates
 from fernruf.settings import Settings
 from fernruf.voice.prompt import build_system_prompt
-from tests.conftest import PRINCIPAL_TEST_NAMES
 
 
 @pytest.mark.parametrize("principal_name", PRINCIPAL_TEST_NAMES)

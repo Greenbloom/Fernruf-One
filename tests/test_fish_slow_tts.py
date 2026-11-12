@@ -4,14 +4,12 @@ import asyncio
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-from fernruf.settings import Settings
-from fernruf.tts.rest_stream import pcm_to_wav
-from fernruf.tts.audio import _fixture_pcm
 from pipecat.frames.frames import TTSAudioRawFrame
 
-from fernruf.voice.services.fish_rest_tts import FishRestTTSService, _FISH_STOP_FRAME_TIMEOUT_S
+from fernruf.settings import Settings
+from fernruf.tts.audio import _fixture_pcm
+from fernruf.tts.rest_stream import pcm_to_wav
+from fernruf.voice.services.fish_rest_tts import _FISH_STOP_FRAME_TIMEOUT_S, FishRestTTSService
 
 
 def test_fish_run_tts_survives_slow_http(tmp_path: Path) -> None:

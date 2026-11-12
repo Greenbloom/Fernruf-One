@@ -12,13 +12,13 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 from click.testing import CliRunner
+from tests.m3_support import fresh_token, service_settings
 
 from fernruf.cli import main
 from fernruf.service.github_oauth import GitHubLogin
 from fernruf.service.mcp_app import create_app
 from fernruf.service.oauth_store import token_hash
 from fernruf.service.security import AuthConfigError
-from tests.m3_support import fresh_token, service_settings
 
 GITHUB_TOKEN = "gho_SHOULD_NOT_BE_STORED"
 GITHUB_SECRET = "ghsec_SHOULD_NOT_BE_STORED"
@@ -60,7 +60,9 @@ def _pkce() -> tuple[str, str]:
     return verifier, challenge
 
 
-def _register(client: httpx.AsyncClient, redirect: str = REDIRECT, name: str = "Example MCP Client"):
+def _register(
+    client: httpx.AsyncClient, redirect: str = REDIRECT, name: str = "Example MCP Client"
+):
     return client.post(
         "/register",
         json={
@@ -158,7 +160,9 @@ def test_metadata_and_pkce_are_required(tmp_path) -> None:
             assert meta["code_challenge_methods_supported"] == ["S256"]
             assert meta["registration_endpoint"].endswith("/register")
             assert meta["authorization_endpoint"].endswith("/authorize")
-            missing = await client.get("/authorize", params={"response_type": "code", "client_id": "nope"})
+            missing = await client.get(
+                "/authorize", params={"response_type": "code", "client_id": "nope"}
+            )
             assert missing.status_code == 400
             plain = await client.get(
                 "/authorize",
@@ -242,7 +246,13 @@ def test_full_flow_hashes_tokens_and_rotates_refresh(tmp_path) -> None:
                     headers={"Authorization": f"Bearer {new_body['access_token']}"},
                 )
                 assert dead.status_code == 401
-            return access, refresh, new_body["access_token"], new_body["refresh_token"], issued["code"]
+            return (
+                access,
+                refresh,
+                new_body["access_token"],
+                new_body["refresh_token"],
+                issued["code"],
+            )
 
     access, refresh, access2, refresh2, code = asyncio.run(run())
     raw = open(settings.call_settings_db, "rb").read()

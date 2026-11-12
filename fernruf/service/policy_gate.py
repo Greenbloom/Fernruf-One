@@ -73,8 +73,7 @@ def is_marketing_task(task: dict) -> bool:
     if purpose in _PURPOSE:
         return True
     blob = " ".join(
-        str(task.get(key) or "")
-        for key in ("goal", "context", "fallback", "purpose", "kind")
+        str(task.get(key) or "") for key in ("goal", "context", "fallback", "purpose", "kind")
     )
     return is_marketing_text(blob)
 

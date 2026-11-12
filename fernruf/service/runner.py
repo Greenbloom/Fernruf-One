@@ -72,7 +72,9 @@ async def _run_simulate(job: CallJob) -> CallRunResult:
         stop.cancel()
         await asyncio.gather(task, stop, return_exceptions=True)
     if job.shutdown.is_set() and task.cancelled():
-        return CallRunResult(outcome="canceled", answered=False, call_language=job.settings.call_language)
+        return CallRunResult(
+            outcome="canceled", answered=False, call_language=job.settings.call_language
+        )
     if task.cancelled():
         return CallRunResult(outcome="canceled", answered=False)
     exc = task.exception()
@@ -80,7 +82,8 @@ async def _run_simulate(job: CallJob) -> CallRunResult:
         raise exc
     result = task.result()
     transcript = [
-        {"t_ms": line.t_ms, "speaker": line.speaker, "text": line.text} for line in result.transcript
+        {"t_ms": line.t_ms, "speaker": line.speaker, "text": line.text}
+        for line in result.transcript
     ]
     outcome = "hung_up_by_agent" if job.shutdown.is_set() else "completed"
     return CallRunResult(

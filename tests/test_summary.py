@@ -11,9 +11,7 @@ import pytest
 from fernruf.service.summary import summarize_completed_call
 from fernruf.settings import Settings
 
-TASK = (
-    "Ask whether Tuesday at 15:00 still works, and whether they want a reminder."
-)
+TASK = "Ask whether Tuesday at 15:00 still works, and whether they want a reminder."
 TRANSCRIPT = [
     {"t_ms": 0, "speaker": "agent", "text": "Does Tuesday at 15:00 still work?"},
     {"t_ms": 1000, "speaker": "callee", "text": "Mhm."},

@@ -23,7 +23,14 @@ import asyncio
 import logging
 
 from fastapi import WebSocket
-from pipecat.frames.frames import CancelFrame, EndFrame, Frame, InterruptionFrame, StopFrame, TTSStoppedFrame
+from pipecat.frames.frames import (
+    CancelFrame,
+    EndFrame,
+    Frame,
+    InterruptionFrame,
+    StopFrame,
+    TTSStoppedFrame,
+)
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
 from pipecat_asterisk.frames import AsteriskCommandFrame

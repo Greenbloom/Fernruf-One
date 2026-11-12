@@ -3,10 +3,6 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock
 
-from fernruf.settings import Settings
-from fernruf.voice.call_session import M2CallSession
-from fernruf.voice.hooks import M2CallHooks
-from fernruf.voice.processors.call_hangup import CallHangup
 from pipecat.frames.frames import (
     BotStoppedSpeakingFrame,
     TextType,
@@ -15,6 +11,11 @@ from pipecat.frames.frames import (
     TTSTextFrame,
 )
 from pipecat.processors.frame_processor import FrameDirection
+
+from fernruf.settings import Settings
+from fernruf.voice.call_session import M2CallSession
+from fernruf.voice.hooks import M2CallHooks
+from fernruf.voice.processors.call_hangup import CallHangup
 
 GOODBYE = "Auf Wiederhören."
 TAIL = "Der Test war erfolgreich."
@@ -48,7 +49,9 @@ def test_replay_1447_goodbye_tts_text_arms_hangup_not_prior_segment() -> None:
         await guard.process_frame(BotStoppedSpeakingFrame(), FrameDirection.DOWNSTREAM)
         assert hangup.await_count == 0
 
-        await guard.process_frame(TTSStartedFrame(context_id="seg-goodbye"), FrameDirection.DOWNSTREAM)
+        await guard.process_frame(
+            TTSStartedFrame(context_id="seg-goodbye"), FrameDirection.DOWNSTREAM
+        )
         await guard.process_frame(
             TTSTextFrame(text=GOODBYE, text_type=TextType.SENTENCE, context_id="seg-goodbye"),
             FrameDirection.DOWNSTREAM,
@@ -63,9 +66,6 @@ def test_replay_1447_goodbye_tts_text_arms_hangup_not_prior_segment() -> None:
 
 
 def test_replay_1447_metrics_two_completed_turns(tmp_path) -> None:
-    from fernruf.voice.latency import LatencyLog
-    from fernruf.voice.processors.metrics import ConversationMetricsProcessor
-    from fernruf.voice.verify_orchestration import median_latency_report
     from pipecat.frames.frames import (
         LLMFullResponseEndFrame,
         LLMFullResponseStartFrame,
@@ -73,7 +73,11 @@ def test_replay_1447_metrics_two_completed_turns(tmp_path) -> None:
         TTSStoppedFrame,
         UserStoppedSpeakingFrame,
     )
+
     from fernruf.voice.frames.metrics_frames import LlmFirstTokenFrame, LlmInferenceStartedFrame
+    from fernruf.voice.latency import LatencyLog
+    from fernruf.voice.processors.metrics import ConversationMetricsProcessor
+    from fernruf.voice.verify_orchestration import median_latency_report
 
     log = LatencyLog(tmp_path / "1447.jsonl")
     session = M2CallSession()

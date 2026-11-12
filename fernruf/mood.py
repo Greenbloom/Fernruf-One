@@ -529,7 +529,9 @@ class MoodTurn:
         note(
             kind="mood",
             name=choice,
-            status="error" if reason in {"error", "http", "auth", "timed_out"} or reason.startswith("http_") else "ok",
+            status="error"
+            if reason in {"error", "http", "auth", "timed_out"} or reason.startswith("http_")
+            else "ok",
             duration_ms=None if reading is None else reading.latency_ms,
             detail={
                 "choice": choice,

@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock
 from pipecat.frames.frames import (
     BotStoppedSpeakingFrame,
     TextType,
+    TTSSpeakFrame,
     TTSStartedFrame,
     TTSStoppedFrame,
-    TTSSpeakFrame,
     TTSTextFrame,
 )
 from pipecat.processors.frame_processor import FrameDirection
@@ -26,9 +26,7 @@ def test_Alex_transcript_end_call_without_second_goodbye_hangs_up() -> None:
     session = M2CallSession()
     session.user_turn_count = 4
     session.call_started_at = time.monotonic() - 120
-    session.commit_assistant_turn(
-        "Ich wollte nur kurz testen... Vielen Dank und auf Wiederhören!"
-    )
+    session.commit_assistant_turn("Ich wollte nur kurz testen... Vielen Dank und auf Wiederhören!")
     session.note_user_transcript("Okay.")
     session.note_user_transcript("Auf Wiederhören.")
 
@@ -38,11 +36,14 @@ def test_Alex_transcript_end_call_without_second_goodbye_hangs_up() -> None:
         min_call_duration_before_hangup_s=0.0,
         hangup_after_bot_stopped_margin_s=0.05,
     )
-    assert session.validate_end_call(
-        "Der Gesprächspartner hat sich verabschiedet.",
-        settings,
-        goodbye="",
-    ) is None
+    assert (
+        session.validate_end_call(
+            "Der Gesprächspartner hat sich verabschiedet.",
+            settings,
+            goodbye="",
+        )
+        is None
+    )
 
     hangup = AsyncMock()
     guard = CallHangup(
@@ -143,7 +144,6 @@ def test_no_filler_while_call_is_ending() -> None:
     filler.push_frame = capture  # type: ignore[method-assign]
 
     async def run() -> None:
-        from pipecat.frames.frames import TranscriptionFrame
 
         from pipecat.frames.frames import LLMFullResponseStartFrame
 

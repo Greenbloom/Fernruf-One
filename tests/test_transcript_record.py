@@ -28,6 +28,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.workers.runner import WorkerRunner
+from tests.m3_support import service_settings
 
 from fernruf.ari.m2 import _transcript_from_session
 from fernruf.quiet_hours import BERLIN
@@ -44,7 +45,6 @@ from fernruf.voice.processors.consolidate_spoken_assistant import (
 )
 from fernruf.voice.processors.spoken_assistant_context import SpokenAssistantContextProcessor
 from fernruf.voice.services.fish_rest_tts import FishRestTTSService
-from tests.m3_support import service_settings
 
 FAREWELL = "Vielen Dank. Dann meldet sich Alex am Montag um 10:30 Uhr. Auf Wiederhören."
 
@@ -98,7 +98,7 @@ def _speak_one_turn(text: str) -> tuple[list[str], list[str], list[dict]]:
         await worker.cancel()
         try:
             await asyncio.wait_for(run_task, timeout=5.0)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
+        except (TimeoutError, asyncio.CancelledError):
             run_task.cancel()
             await asyncio.gather(run_task, return_exceptions=True)
         return spoken, assistants, lines
@@ -206,9 +206,7 @@ def test_end_call_goodbye_is_the_last_transcript_line() -> None:
         await consolidator.process_frame(EndFrame(), FrameDirection.DOWNSTREAM)
         assert session.transcript_lines[-1]["speaker"] == "callee"
 
-        await guard.process_frame(
-            TTSStartedFrame(context_id="bye"), FrameDirection.DOWNSTREAM
-        )
+        await guard.process_frame(TTSStartedFrame(context_id="bye"), FrameDirection.DOWNSTREAM)
         await guard.process_frame(spoken, FrameDirection.DOWNSTREAM)
         await guard.process_frame(TTSStoppedFrame(), FrameDirection.DOWNSTREAM)
         await guard.process_frame(BotStoppedSpeakingFrame(), FrameDirection.DOWNSTREAM)

@@ -49,7 +49,7 @@ def test_capture_keeps_the_timeline_and_can_persist_only_when_asked(tmp_path) ->
             "api_key": _SECRET,
             "model": "openrouter/test-model",
             "usage": {"prompt_tokens": 10, "completion_tokens": 4},
-            "tools": [{"name": "end_call", "arguments": "{\"reason\": \"task_complete\"}"}],
+            "tools": [{"name": "end_call", "arguments": '{"reason": "task_complete"}'}],
         },
         to=_PHONE,
     )

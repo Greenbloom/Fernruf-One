@@ -285,9 +285,7 @@ def test_finished_score_tags_only_the_first_fish_clause(monkeypatch: pytest.Monk
             "Eins zwei drei vier, die Verbindung steht und klingt gut."
         ):
             pass
-        async for _pcm, _ttfa in pipeline.stream_text(
-            "Und hier kommt noch ein zweiter Satz dazu."
-        ):
+        async for _pcm, _ttfa in pipeline.stream_text("Und hier kommt noch ein zweiter Satz dazu."):
             pass
 
     asyncio.run(_run())
@@ -297,7 +295,9 @@ def test_finished_score_tags_only_the_first_fish_clause(monkeypatch: pytest.Monk
     assert client.calls[0][0] == "Ach, das ist wirklich schade."
 
 
-def test_tts_log_and_synth_log_keep_the_spoken_text(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_tts_log_and_synth_log_keep_the_spoken_text(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     from fernruf.voice.services.fish_rest_tts import FishRestTTSService
 
     calls: list[str] = []

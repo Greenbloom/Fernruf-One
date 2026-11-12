@@ -28,9 +28,7 @@ def test_place_call_rejects_missing_llm_model(tmp_path) -> None:
     )
     manager = CallManager(settings, line_health=StaticLineHealth(True))
     with pytest.raises(CallError) as exc:
-        asyncio.run(
-            manager.place(to="+493023125123", task={"goal": "Test"}, wait=False)
-        )
+        asyncio.run(manager.place(to="+493023125123", task={"goal": "Test"}, wait=False))
     assert exc.value.code == "llm_model_missing"
 
 

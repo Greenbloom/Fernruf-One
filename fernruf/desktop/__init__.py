@@ -1,1 +1,1 @@
-"""Placeholder desktop client for the local call monitor."""
+"""Tray window for a live call on this computer."""
