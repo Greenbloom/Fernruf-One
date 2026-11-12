@@ -36,32 +36,32 @@ def test_every_stt_final_is_stored_in_order() -> None:
         await asyncio.sleep(0.01)
 
     async def run() -> None:
-        await say("I have like two bottles.")
+        await say("We have two seats left.")
         # The aggregator committed a different segment. It must not replace
         # the final or block lines that arrive after the goodbye.
         session.observe_committed_lines(
             [
                 ("agent", "Hello, this is an automated call."),
                 ("callee", "That's the next one."),
-                ("agent", "How many do you have?"),
+                ("agent", "How many seats are left?"),
             ]
         )
         session.note_transcript_line("agent", "Thank you. Goodbye.")
         await say("Goodbye.")
         await say("Hello?")
-        await say("You didn't hang up, bro.")
+        await say("Are you still there?")
 
     asyncio.run(run())
     callee = [line["text"] for line in session.transcript_lines if line["speaker"] == "callee"]
     assert callee == [
-        "I have like two bottles.",
+        "We have two seats left.",
         "Goodbye.",
         "Hello?",
-        "You didn't hang up, bro.",
+        "Are you still there?",
     ]
     assert "That's the next one." not in callee
     stamps = [int(line["t_ms"]) for line in session.transcript_lines]
     assert stamps == sorted(stamps)
     assert stamps[0] >= 1000
     assert session.transcript_lines[-1]["speaker"] == "callee"
-    assert session.transcript_lines[-1]["text"] == "You didn't hang up, bro."
+    assert session.transcript_lines[-1]["text"] == "Are you still there?"
