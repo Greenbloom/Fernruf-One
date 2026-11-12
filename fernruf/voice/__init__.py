@@ -1,1 +1,1 @@
-"""M2 voice conversation (Pipecat + mock path)."""
+"""Live and simulated phone conversation."""
