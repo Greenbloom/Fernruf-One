@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -74,6 +74,8 @@ class M2CallSession:
     # often hangs up on QUEUE_DRAINED before that frame is processed.
     uncommitted_agent_text: str = ""
     spoken_goodbye: str = ""
+    companion_text: str = ""
+    speak_companion: Callable[[str], Awaitable[None]] | None = None
     transcript_sink: Callable[[str, str, int, bool], None] | None = None
 
     @property

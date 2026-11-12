@@ -124,7 +124,13 @@ async def astream_fish_tts_pcm_rest(
                         sample_rate=sample_rate,
                     )
                     ttfa_ms = (time.monotonic() - t0) * 1000
-                    LOG.info("Fish REST TTFA %.0fms (wav) chars=%s", ttfa_ms, len(text))
+                    LOG.info(
+                        "Fish REST TTFA %.0fms (wav) model=%s reference_id=%s chars=%s",
+                        ttfa_ms,
+                        model,
+                        voice_id or "-",
+                        len(text),
+                    )
                     step = max(2, sample_rate // 25 * 2)
                     for i in range(0, len(pcm), step):
                         yield pcm[i : i + step], (ttfa_ms if i == 0 else None)
@@ -136,8 +142,11 @@ async def astream_fish_tts_pcm_rest(
                     if first_audio:
                         ttfa_ms = (time.monotonic() - t0) * 1000
                         LOG.info(
-                            "Fish REST TTFA %.0fms latency=%s chunk_length=%s chars=%s",
+                            "Fish REST TTFA %.0fms model=%s reference_id=%s "
+                            "latency=%s chunk_length=%s chars=%s",
                             ttfa_ms,
+                            model,
+                            voice_id or "-",
                             settings.fish_latency,
                             settings.fish_chunk_length,
                             len(text),

@@ -71,9 +71,13 @@ class FishRestPipeline:
         self,
         text: str,
         *,
+        single: bool = False,
         on_ttfa: callable | None = None,
     ) -> AsyncIterator[tuple[bytes, float | None]]:
-        segments = self._segments_for_text(text)
+        if single and text.strip():
+            segments = [text.strip()]
+        else:
+            segments = self._segments_for_text(text)
         if not segments:
             return
         prefetch: asyncio.Task[list[tuple[bytes, float | None]]] | None = None

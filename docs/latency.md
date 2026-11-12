@@ -6,7 +6,8 @@ Per-turn latency is logged as JSONL (`FERNRUF_LATENCY_LOG`) and INFO lines for
 ## M2 hangup and identity
 
 - **Call phase** (`opening` → `talking` → `ending` → `hung_up`) is the only end-call state. Hangup waits for phone playout (`QUEUE_DRAINED`, else the output playout clock), not for `BotStoppedSpeaking`. See [call-flow.md](call-flow.md).
-- A blocked `end_call` returns `run_llm=false` and does not speak again. A spoken farewell (`Auf Wiederhören`, `Tschüss`) after the callee has answered ends the call the same way.
+- A blocked `end_call` returns `run_llm=false` and does not call the model again. The response is still spoken. A spoken farewell (`Auf Wiederhören`, `Tschüss`) after the callee has answered ends the call the same way.
+- A statement waits until that response ends, so a goodbye in the same response is the only line the callee hears. A question still starts as soon as its question mark arrives.
 - **Identity guard** rewrites assistant text that falsely claims to be the principal or a human before TTS.
 - **Ctrl-C** on live M2 uses `external_shutdown` + graceful pipeline teardown (see `tests/test_m2_sigint_shutdown.py`).
 
@@ -34,6 +35,7 @@ Env flags (defaults tuned for `s2.1-pro-free`):
 
 - `FERNRUF_FISH_FIRST_CLAUSE=1` — send the first comma/clause chunk (≥ ~4 words) to Fish before the rest of the sentence.
 - Pipelining — while sentence *N* plays, sentence *N+1* is fetched (max two HTTP streams in flight); barge-in cancels in-flight synthesis.
+- A farewell is one request. Sentence splitting and the first-clause split leave it whole, so a cached short goodbye is not spliced into a longer farewell.
 - Disk cache under `data/fish-tts-cache/` for fixed phrases (AI disclosure opener, filler, standard goodbyes), keyed by language+text+voice+model+latency.
 - Warm `POST /v1/tts` with `"."` at call start to keep HTTP/2 hot.
 

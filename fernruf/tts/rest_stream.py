@@ -34,6 +34,12 @@ def split_sentences(text: str) -> list[str]:
     return parts or ([text.strip()] if text.strip() else [])
 
 
+def _farewell_utterance(text: str) -> bool:
+    from fernruf.voice.call_phase import farewell_in_text
+
+    return farewell_in_text(text)
+
+
 def _should_cache_phrase(settings: Settings, text: str) -> bool:
     t = text.strip()
     if not t:
@@ -76,8 +82,10 @@ async def stream_tts_sentences(
 
     model = settings.effective_fish_model()
     voice = settings.fish_voice_id or ""
+    together = _farewell_utterance(text)
+    units = [text.strip()] if together and text.strip() else split_sentences(text)
 
-    for sentence in split_sentences(text):
+    for sentence in units:
         if _should_cache_phrase(settings, sentence):
             cached = read_fish_cache(
                 settings,
@@ -110,7 +118,7 @@ async def stream_tts_sentences(
 
         try:
             stream = (
-                pipeline.stream_text(sentence)
+                pipeline.stream_text(sentence, single=together)
                 if pipeline is not None
                 else astream_fish_tts_pcm_rest(
                     sentence,

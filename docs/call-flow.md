@@ -32,6 +32,12 @@ stateDiagram-v2
 - Tool-shaped assistant text (`end_call(...)`, JSON tool blobs, `<tool_call>`, bare
   function names) is never spoken. A textual `end_call(...)` becomes a real `end_call`;
   only its `goodbye` argument is spoken.
+- When that `end_call` carries a goodbye, the other text in the same response is not
+  spoken. If that text already is a farewell, it is the one line and the tool does not
+  say another. A refused `end_call` still speaks the response.
+- The goodbye is one Fish request. It is not split on sentences or on the first comma,
+  and a cached short "Auf Wiederhören" is not played as the second half. Every Fish
+  request in the call uses the same reference id, model, latency, and chunk length.
 
 A refused `end_call` returns the tool error with `run_llm=false`. The bot waits for the
 next user turn. It does not ask the model again, and it does not apologize for the refusal.
