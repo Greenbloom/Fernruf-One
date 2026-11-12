@@ -1,5 +1,3 @@
-"""The debug page is loopback-only and requires the monitor token."""
-
 from __future__ import annotations
 
 import pytest

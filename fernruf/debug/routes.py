@@ -1,5 +1,3 @@
-"""Loopback debug page. The token is checked here and never written to a log."""
-
 from __future__ import annotations
 
 import asyncio

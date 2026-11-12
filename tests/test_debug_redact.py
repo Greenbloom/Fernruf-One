@@ -1,5 +1,3 @@
-"""Secrets and phone numbers are removed before the debug page can show them."""
-
 from __future__ import annotations
 
 from fernruf.debug.redact import redact, redact_text

@@ -1,5 +1,3 @@
-"""Strip secrets and mask phone numbers before a value can be shown."""
-
 from __future__ import annotations
 
 import re

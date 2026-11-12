@@ -159,8 +159,6 @@ def _plain(value: Any) -> Any:
 
 
 def traced_tool(fn):
-    """Record one MCP tool call. Arguments are redacted inside the trace."""
-
     def _record(started: float, kwargs: dict, result: Any, status: str, error: str = "") -> None:
         from fernruf.debug.trace import note
 

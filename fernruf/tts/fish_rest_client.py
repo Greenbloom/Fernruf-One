@@ -227,7 +227,6 @@ async def astream_fish_tts_pcm_rest(
     client: httpx.AsyncClient | None = None,
     tts_url: str | None = None,
 ) -> AsyncIterator[tuple[bytes, float | None]]:
-    """Stream PCM chunks from Fish and record the redacted request."""
     started = time.monotonic()
     chunks = 0
     ttfa_ms: float | None = None

@@ -1,5 +1,3 @@
-"""In-memory call trace. Nothing is logged or written unless persist is on."""
-
 from __future__ import annotations
 
 import contextvars

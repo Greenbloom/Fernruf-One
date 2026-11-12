@@ -1,5 +1,3 @@
-"""The debug trace records call events and stays out of logs and disk by default."""
-
 from __future__ import annotations
 
 import json
