@@ -14,6 +14,8 @@ from pipecat.frames.frames import (
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
+from fernruf.settings import Settings
+from fernruf.voice.call_log import log_spoken_text
 from fernruf.voice.hooks import M2CallHooks
 
 LOG = logging.getLogger("fernruf.voice.llm.mock")
@@ -30,12 +32,14 @@ class MockLLMService(FrameProcessor):
         hooks: M2CallHooks,
         task: str,
         on_dtmf: DtmfTap = None,
+        settings: Settings | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self._hooks = hooks
         self._task = task
         self._on_dtmf = on_dtmf
+        self._settings = settings
         self._turn = 0
         self._dtmf_sent = False
 
@@ -51,7 +55,10 @@ class MockLLMService(FrameProcessor):
         else:
             text = "Vielen Dank, auf Wiederhören."
 
-        LOG.info("LLM (mock) turn=%s: %s", self._turn, text)
+        if self._settings is None:
+            LOG.info("LLM (mock) turn=%s: %s", self._turn, text)
+        else:
+            log_spoken_text(LOG, f"LLM (mock) turn={self._turn}", text, self._settings)
         await self.push_frame(LLMFullResponseStartFrame(), direction)
         await self.push_frame(LLMTextFrame(text=text), direction)
         await self.push_frame(LLMFullResponseEndFrame(), direction)

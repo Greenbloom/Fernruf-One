@@ -169,6 +169,7 @@ def test_end_call_goodbye_tts_then_hangup_no_second_llm(
         min_call_duration_before_hangup_s=0.0,
         disclosure_prefix="",
         llm_first_token_timeout_s=0.0,
+        transcript_allowed=True,
     )
     session = M2CallSession()
     session.note_user_transcript("Ja, das war der Test.")

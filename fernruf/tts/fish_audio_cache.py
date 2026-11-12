@@ -43,7 +43,14 @@ def read_fish_cache(
     path = fish_cache_dir(settings) / f"{key}.pcm"
     if not path.is_file():
         return None
-    LOG.info("Fish TTS cache hit (%s bytes) text=%s…", path.stat().st_size, text[:40])
+    if settings.transcript_allowed:
+        LOG.info("Fish TTS cache hit (%s bytes) text=%s…", path.stat().st_size, text[:40])
+    else:
+        LOG.info(
+            "Fish TTS cache hit (%s bytes) (%s chars)",
+            path.stat().st_size,
+            len(text),
+        )
     return path.read_bytes()
 
 

@@ -16,7 +16,7 @@ from typing import Any
 from fernruf.audit import append_audit_event
 from fernruf.call_settings.model import validate_llm_model_id
 from fernruf.call_settings.resolver import llm_model_missing_reason, resolve_call_llm_model
-from fernruf.call_settings.store import get_call_settings
+from fernruf.call_settings.store import get_call_settings, log_transcript_mode, transcript_allowed
 from fernruf.dial import normalize_e164
 from fernruf.language import normalize_language_code, task_detection_text
 from fernruf.monitor.hub import CallMonitor
@@ -118,9 +118,10 @@ def limits_for(settings: Settings) -> PolicyLimits:
 
 
 def public_call(row: dict[str, Any]) -> dict[str, Any]:
-    lines = list(row.get("transcript") or [])
     status = row.get("status")
-    return {
+    kept = row.get("transcript_allowed") is not False
+    lines = list(row.get("transcript") or []) if kept else []
+    view: dict[str, Any] = {
         "call_id": row.get("call_id"),
         "to": row.get("to"),
         "status": status,
@@ -132,11 +133,14 @@ def public_call(row: dict[str, Any]) -> dict[str, Any]:
         "cost_estimate_eur": row.get("cost_estimate_eur") or 0,
         "call_language": row.get("call_language") or "de",
         "last_lines": lines[-10:],
-        "transcript": {"lines": lines, "complete": status == "finalized"},
+        "transcript": {"lines": lines, "complete": status == "finalized"} if kept else None,
         "summary": row.get("summary"),
         "llm_model": row.get("llm_model") or "",
         "llm_model_source": row.get("llm_model_source") or "",
     }
+    if not kept:
+        view["transcript_reason"] = "transcript_disabled"
+    return view
 
 
 class CallManager:
@@ -163,10 +167,15 @@ class CallManager:
         self.monitor = monitor or CallMonitor()
         self._lock = asyncio.Lock()
         self._active: dict[str, Any] | None = None
+        self._transcript_allowed = False
 
     def _observe_begin(self, call_id: str, number: str) -> None:
         try:
-            self.monitor.begin(call_id, to_e164=number)
+            self.monitor.begin(
+                call_id,
+                to_e164=number,
+                transcript_allowed=self._transcript_allowed,
+            )
         except Exception:
             LOG.warning("call monitor begin failed id=%s", call_id)
 
@@ -332,6 +341,8 @@ class CallManager:
             detection_text = task_detection_text(task)
             call_id = uuid.uuid4().hex[:12]
             started = self.now().isoformat()
+            keep_transcript = transcript_allowed(self.settings)
+            self.settings.transcript_allowed = keep_transcript
             reserved = estimate_cost(
                 e164,
                 requested * 60,
@@ -357,6 +368,7 @@ class CallManager:
                 reserved_minutes=requested,
                 counts_toward_caps=True,
                 transcript=[],
+                transcript_allowed=keep_transcript,
                 summary=None,
                 task=format_task(task, persona=persona, language=language, dtmf_prefix=dtmf_prefix),
                 record=bool(record),
@@ -384,6 +396,7 @@ class CallManager:
                     str(item).strip() for item in (task.get("must_say") or []) if str(item).strip()
                 ),
                 monitor=self.monitor,
+                transcript_allowed=keep_transcript,
             )
             active = {
                 "call_id": call_id,
@@ -423,12 +436,18 @@ class CallManager:
             cost_estimate_eur=0,
             counts_toward_caps=False,
             transcript=[],
+            transcript_allowed=transcript_allowed(self.settings),
             summary=None,
             task=str(task.get("goal") or "")[:200],
         )
 
     async def _execute(self, active: dict[str, Any], job: CallJob, limits: PolicyLimits) -> None:
         call_id = job.call_id
+        self._transcript_allowed = log_transcript_mode(
+            self.settings,
+            call_id=call_id,
+            allowed=job.transcript_allowed,
+        )
         started = asyncio.get_running_loop().time()
         try:
             upsert_call(self.settings, call_id, status="dialing", dial_started=True)
@@ -458,6 +477,9 @@ class CallManager:
                     span = duration if duration and duration > 0 else 0.001
                     answered_at = (ended_dt - timedelta(seconds=span)).isoformat()
             summary = await self._summary_for(result, job)
+            stored_lines = list(result.transcript or []) if self._transcript_allowed else []
+            if not self._transcript_allowed:
+                result.transcript.clear()
             self._observe(call_id, CallLifecycle.ENDED, outcome=result.outcome)
             upsert_call(
                 self.settings,
@@ -470,7 +492,8 @@ class CallManager:
                 cost_estimate_eur=actual.total_eur,
                 mobile_cost_eur=actual.mobile_eur,
                 ai_cost_eur=actual.ai_eur,
-                transcript=result.transcript,
+                transcript=stored_lines,
+                transcript_allowed=self._transcript_allowed,
                 call_language=result.call_language or row.get("call_language") or "de",
                 llm_model=result.llm_model or row.get("llm_model") or "",
                 llm_model_source=result.llm_model_source or row.get("llm_model_source") or "",

@@ -276,6 +276,7 @@ class CallModel:
                 self._details = False
                 self._example = False
                 self._ask_dismissed = False
+                self._transcript_allowed = True
                 self._started_at: float | None = None
                 self._timing = False
                 self.line_model = make_line_model(self)
@@ -375,6 +376,10 @@ class CallModel:
             def hasSummaryCard(self) -> bool:
                 return self.hasFacts or self.hasSteps
 
+            @Property(bool, notify=changed)
+            def transcriptAllowed(self) -> bool:
+                return self._transcript_allowed
+
             @Slot(bool)
             def setListening(self, enabled: bool) -> None:
                 self._listening = bool(enabled)
@@ -435,6 +440,10 @@ class CallModel:
                 self._number = str(msg.get("to_masked") or "")
                 state = str(msg.get("state") or "")
                 self._state = state
+                if "transcript_allowed" in msg:
+                    self._transcript_allowed = bool(msg.get("transcript_allowed"))
+                    if not self._transcript_allowed:
+                        self.line_model.clear()
                 if state == "dialing":
                     self.line_model.clear()
                     self.fact_model.setStringList([])
@@ -478,6 +487,8 @@ class CallModel:
                 )
 
             def apply_transcript(self, msg: dict) -> None:
+                if not self._transcript_allowed:
+                    return
                 speaker = str(msg.get("speaker") or "")
                 text = str(msg.get("text") or "").strip()
                 if speaker not in ("agent", "callee") or not text:
@@ -488,6 +499,7 @@ class CallModel:
 
             def show_example(self) -> None:
                 self._example = True
+                self._transcript_allowed = True
                 self.apply_lifecycle(
                     {"state": "dialing", "to_masked": "+49 30 0000 0000", "summary": None}
                 )

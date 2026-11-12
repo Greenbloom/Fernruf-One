@@ -133,6 +133,7 @@ def test_replay_0031_goodbye_plays_before_hangup_single_end_call(
         hangup_after_bot_stopped_margin_s=0.2,
         disclosure_prefix="",
         llm_first_token_timeout_s=30.0,
+        transcript_allowed=True,
     )
     session = M2CallSession()
     hangup = AsyncMock()

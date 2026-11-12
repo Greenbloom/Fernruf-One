@@ -10,6 +10,7 @@ from typing import Any
 
 from fernruf.call_record import remember_call
 from fernruf.call_settings.resolver import resolve_llm_endpoint_for_call
+from fernruf.call_settings.store import transcript_allowed
 from fernruf.language import prepare_call_settings
 from fernruf.llm.client import StreamingChatClient
 from fernruf.settings import Settings
@@ -54,12 +55,15 @@ class SimulateConversation:
         language: str | None = None,
         detection_text: str | None = None,
         monitor: object | None = None,
+        keep_transcript: bool | None = None,
     ) -> None:
         self.settings = settings
         self.task = task
         self.language = language
         self.detection_text = detection_text
         self.monitor = monitor
+        self._keep_override = keep_transcript
+        self._keep_transcript = False
         self.call_id = str(uuid.uuid4())[:8]
         self.bus = GLOBAL_EVENT_BUS
         self.endpoint, self.llm_resolution = resolve_llm_endpoint_for_call(
@@ -83,6 +87,8 @@ class SimulateConversation:
     def _say_agent(self, text: str) -> None:
         line = TranscriptLine(self._t_ms(), "agent", text)
         self.transcript.append(line)
+        if not self._keep_transcript:
+            return
         self.bus.emit(self.call_id, "transcript", speaker="agent", text=text)
         self._observe_line(line)
 
@@ -136,6 +142,11 @@ class SimulateConversation:
                 detection_text=self.detection_text,
             )
             self.messages[0]["content"] = build_system_prompt(self.settings, self.task)
+        if self._keep_override is None:
+            self._keep_transcript = transcript_allowed(self.settings)
+        else:
+            self._keep_transcript = self._keep_override
+        self.settings.transcript_allowed = self._keep_transcript
         if hasattr(self.llm, "language"):
             self.llm.language = self.settings.call_language or "de"
         remember_call(
@@ -164,8 +175,9 @@ class SimulateConversation:
             await asyncio.sleep(0.05)
             callee_line = TranscriptLine(self._t_ms(), "callee", callee_text)
             self.transcript.append(callee_line)
-            self.bus.emit(self.call_id, "transcript", speaker="callee", text=callee_text)
-            self._observe_line(callee_line)
+            if self._keep_transcript:
+                self.bus.emit(self.call_id, "transcript", speaker="callee", text=callee_text)
+                self._observe_line(callee_line)
             self._observe_audio("inbound", b"\x00\x00" * 160, 16000)
             self._turn += 1
             row = self.latency.start_turn(

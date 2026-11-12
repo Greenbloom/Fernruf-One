@@ -31,7 +31,7 @@ def _manager(tmp_path, *, line_up: bool = True, runner=None, keepalive_s: float 
 
 
 def test_simulated_call_persists_transcript_cost_and_disclosure(tmp_path) -> None:
-    manager, _settings = _manager(tmp_path)
+    manager, _settings = _manager(tmp_path, FERNRUF_TRANSCRIPT_ALLOWED=True)
 
     async def run():
         queued = await manager.place(to="+493023125123", task=TASK, model="openai/gpt-test")
@@ -196,7 +196,7 @@ def test_english_language_speaks_english_disclosure_not_saved_opening_line(tmp_p
     from fernruf.call_settings.store import update_call_settings
     from fernruf.principal import format_phrase_templates
 
-    manager, settings = _manager(tmp_path)
+    manager, settings = _manager(tmp_path, FERNRUF_TRANSCRIPT_ALLOWED=True)
     saved_german = format_phrase_templates("de", settings.require_principal())["ai_notice"]
     update_call_settings(
         {
@@ -223,7 +223,7 @@ def test_english_language_speaks_english_disclosure_not_saved_opening_line(tmp_p
 
 def test_explicit_language_is_spoken_on_the_simulated_path(tmp_path) -> None:
     """Empty Jev credentials would otherwise leave the call in German."""
-    manager, _settings = _manager(tmp_path)
+    manager, _settings = _manager(tmp_path, FERNRUF_TRANSCRIPT_ALLOWED=True)
 
     view = asyncio.run(
         manager.place(

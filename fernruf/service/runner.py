@@ -27,6 +27,7 @@ class CallJob:
     goal: str = ""
     must_say: tuple[str, ...] = ()
     monitor: object | None = None
+    transcript_allowed: bool = False
 
 
 @dataclass
@@ -60,6 +61,7 @@ async def _run_simulate(job: CallJob) -> CallRunResult:
         language=job.language,
         detection_text=job.detection_text or None,
         monitor=job.monitor,
+        keep_transcript=job.transcript_allowed,
     )
     sim.call_id = job.call_id
     task = asyncio.create_task(sim.run())
@@ -85,6 +87,9 @@ async def _run_simulate(job: CallJob) -> CallRunResult:
         {"t_ms": line.t_ms, "speaker": line.speaker, "text": line.text}
         for line in result.transcript
     ]
+    if not job.transcript_allowed:
+        sim.transcript.clear()
+        result.transcript.clear()
     outcome = "hung_up_by_agent" if job.shutdown.is_set() else "completed"
     return CallRunResult(
         outcome=outcome,

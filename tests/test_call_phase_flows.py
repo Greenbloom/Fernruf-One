@@ -183,6 +183,7 @@ def _pipeline(
         min_call_duration_before_hangup_s=0.0,
         disclosure_prefix="",
         call_language=call_language,
+        transcript_allowed=True,
     )
     session = M2CallSession()
     hangup = AsyncMock()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import time
 from dataclasses import asdict, dataclass, field, fields
@@ -9,6 +10,8 @@ from typing import Any
 
 from fernruf.call_settings.model import validate_llm_model_id
 from fernruf.settings import Settings, load_settings
+
+LOG = logging.getLogger("fernruf.transcript")
 
 DEFAULT_DB = "data/fernruf.sqlite"
 
@@ -29,6 +32,7 @@ class CallSettingsRecord:
     allowlist_enabled: bool = True
     allowlist: list[str] = field(default_factory=list)
     international_enabled: bool = False
+    transcript_allowed: bool = False
     quiet_hours: str = "20:00-08:00"
     updated_at: str = ""
 
@@ -69,6 +73,7 @@ def _defaults_from_env(settings: Settings) -> CallSettingsRecord:
         allowlist_enabled=True,
         allowlist=sorted(settings.allowlist_numbers),
         international_enabled=settings.international_enabled,
+        transcript_allowed=bool(settings.transcript_allowed),
         quiet_hours=settings.quiet_hours,
     )
 
@@ -78,23 +83,56 @@ def _record_from_json(data: dict[str, Any]) -> CallSettingsRecord:
     return CallSettingsRecord(**{k: data[k] for k in names if k in data})
 
 
+def _load_record(conn: sqlite3.Connection, settings: Settings) -> CallSettingsRecord:
+    row = conn.execute("SELECT json FROM call_settings WHERE id = 1").fetchone()
+    if not row:
+        rec = _defaults_from_env(settings)
+        _save(conn, rec)
+        return rec
+    raw = json.loads(row["json"])
+    if not isinstance(raw, dict):
+        raw = {}
+    rec = _record_from_json(raw)
+    if not rec.llm_model.strip():
+        rec.llm_model = settings.llm_model
+    if "transcript_allowed" not in raw:
+        rec.transcript_allowed = bool(settings.transcript_allowed)
+        _save(conn, rec)
+    return rec
+
+
 def get_call_settings(settings: Settings | None = None) -> CallSettingsRecord:
     s = settings or load_settings()
     path = _db_path(s)
     conn = _connect(path)
     try:
         _init_schema(conn)
-        row = conn.execute("SELECT json FROM call_settings WHERE id = 1").fetchone()
-        if not row:
-            rec = _defaults_from_env(s)
-            _save(conn, rec)
-            return rec
-        rec = _record_from_json(json.loads(row["json"]))
-        if not rec.llm_model.strip():
-            rec.llm_model = s.llm_model
-        return rec
+        return _load_record(conn, s)
     finally:
         conn.close()
+
+
+def transcript_allowed(settings: Settings | None = None) -> bool:
+    """Effective switch. The row wins after it exists. Env seeds a new row."""
+    s = settings or load_settings()
+    if not _db_path(s).is_file():
+        return bool(s.transcript_allowed)
+    return bool(get_call_settings(s).transcript_allowed)
+
+
+def log_transcript_mode(
+    settings: Settings,
+    *,
+    call_id: str = "",
+    allowed: bool | None = None,
+) -> bool:
+    value = transcript_allowed(settings) if allowed is None else bool(allowed)
+    LOG.info(
+        "call start id=%s transcript_allowed=%s",
+        call_id or "-",
+        str(value).lower(),
+    )
+    return value
 
 
 def _save(conn: sqlite3.Connection, rec: CallSettingsRecord) -> None:
@@ -118,17 +156,16 @@ def update_call_settings(
     conn = _connect(path)
     try:
         _init_schema(conn)
-        row = conn.execute("SELECT json FROM call_settings WHERE id = 1").fetchone()
-        if row:
-            current = _record_from_json(json.loads(row["json"]))
-        else:
-            current = _defaults_from_env(s)
+        current = _load_record(conn, s)
         for key, val in patch.items():
             if key not in {f.name for f in fields(CallSettingsRecord)}:
                 raise ValueError(f"unknown setting: {key}")
             if key == "llm_model" and val is not None:
                 val = validate_llm_model_id(str(val))
                 current.llm_model_user_set = True
+            if key == "transcript_allowed":
+                if not isinstance(val, bool):
+                    raise ValueError("transcript_allowed must be true or false")
             if key == "allowlist" and val is not None:
                 val = list(val)
             setattr(current, key, val)
