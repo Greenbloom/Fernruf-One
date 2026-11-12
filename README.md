@@ -1,39 +1,40 @@
 # Fernruf One
 
-**AI phone calls for agents, via your own SIP line.**
+[![CI](https://github.com/Greenbloom/Fernruf-One/actions/workflows/ci.yml/badge.svg)](https://github.com/Greenbloom/Fernruf-One/actions/workflows/ci.yml)
 
-Fernruf connects an MCP-capable agent to the public telephone network through **your** SIP trunk (Asterisk registered as a LAN IP phone on a home router or SIP registrar). The agent queues outbound calls, reads transcripts, and respects hard safety limits (allowlist-only dialing, fixed AI disclosure, no marketing tasks).
+Fernruf One places phone calls for an MCP agent on a SIP line you control. The agent queues a call, reads the transcript, and hangs up. Asterisk registers as an IP phone and carries the audio.
 
 ## Architecture
 
 ```
-Agent (MCP) → Fernruf service → M2 voice pipeline → Asterisk → SIP → PSTN
+Agent (MCP) → Fernruf service → voice pipeline → Asterisk → SIP → PSTN
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [docs/call-flow.md](docs/call-flow.md), and [docs/SERVER.md](docs/SERVER.md).
+Speech-to-text runs on the host with faster-whisper. The language model is any OpenAI-compatible endpoint. Fish Audio speaks the agent's lines. [ARCHITECTURE.md](ARCHITECTURE.md) lists the components. [docs/call-flow.md](docs/call-flow.md) is the call state diagram.
 
 ## Quick start
 
-1. Install [Python 3.12+](https://www.python.org/downloads/) and [uv](https://docs.astral.sh/uv/), then run `uv sync` from the repo root (`uv sync --group dev` for tests).
-2. Copy `.env.example` to `.env` and set at least:
-   - `FERNRUF_PRINCIPAL_NAME` (required — spoken in the fixed AI disclosure; example: `Alex Example`, replace with your name)
-   - `SIP_*`, `ASTERISK_ARI_PASSWORD`
-   - `FERNRUF_ALLOWLIST` or use `fernruf settings allow-number +493023125123`
-   - `FERNRUF_LLM_MODEL`, `OPENROUTER_API_KEY`, `FISH_AUDIO_API_KEY`, `FISH_VOICE_ID`
-3. Create the Asterisk bind-mount directories, then start Asterisk:
+Install Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
 
-   ```bash
-   mkdir -p data/asterisk-sounds data/asterisk-generated data/asterisk-monitor
-   docker compose up -d asterisk
-   ```
+```bash
+uv sync
+cp .env.example .env
+```
 
-   Those directories ship as empty placeholders. Create them before Compose when they are missing. Docker creates a missing `./data` as root, and Fernruf then cannot write `data/audit.jsonl`, `data/latency.jsonl`, generated sounds, or the demo MixMonitor wav.
-4. CLI test (mock): `FERNRUF_LLM_MOCK=true FERNRUF_VOICE_MOCK=true uv run fernruf m2-test-call --simulate --to +493023125123 --task "Kurzer Test"`
-5. MCP service: `uv run fernruf serve` (default `127.0.0.1:8787`; set `FERNRUF_MCP_TOKEN` or configure GitHub OAuth)
+Set `FERNRUF_PRINCIPAL_NAME`, the SIP registrar values, `ASTERISK_ARI_PASSWORD`, and one allowlisted number. The name in `.env.example` is a placeholder.
 
-Setup details: [docs/SETUP.md](docs/SETUP.md). **AI agents (full host bootstrap):** [docs/AGENT-SETUP.md](docs/AGENT-SETUP.md). Testing: [docs/TESTING.md](docs/TESTING.md).
+```bash
+mkdir -p data/asterisk-sounds data/asterisk-generated data/asterisk-monitor
+docker compose up -d asterisk
+FERNRUF_LLM_MOCK=true FERNRUF_VOICE_MOCK=true uv run fernruf m2-test-call --simulate --to +493023125123 --task "Kurzer Test"
+uv run fernruf serve
+```
 
-### MCP client (example)
+Create those three directories before Compose. If Docker creates `./data` as root, Fernruf cannot write its logs or generated sounds.
+
+`fernruf serve` listens on `127.0.0.1:8787`. Set `FERNRUF_MCP_TOKEN`, or the GitHub OAuth variables, before you expose it. The rest of host setup is in [docs/SETUP.md](docs/SETUP.md).
+
+An MCP client points at the service like this.
 
 ```json
 {
@@ -48,46 +49,76 @@ Setup details: [docs/SETUP.md](docs/SETUP.md). **AI agents (full host bootstrap)
 }
 ```
 
-Use GitHub OAuth instead of a static token when configured (`FERNRUF_GITHUB_*`, `FERNRUF_OAUTH_*`).
+Use GitHub OAuth instead of a static token when `FERNRUF_GITHUB_CLIENT_ID` and `FERNRUF_GITHUB_CLIENT_SECRET` are set.
 
-### Local call monitor (KDE)
+Optional CUDA speech-to-text wheels are `uv sync --extra cuda`. Those wheels follow the GPU vendor license.
 
-`fernruf serve` also listens on `127.0.0.1:8791` (override the port with `FERNRUF_MONITOR_PORT`). That socket is loopback only. It does not follow `FERNRUF_BIND_OVERRIDE`. Set `FERNRUF_MONITOR_ENABLED=false` to leave it closed. Auth is `FERNRUF_MONITOR_TOKEN` when that is set, otherwise the same static `FERNRUF_MCP_TOKEN`. An OAuth-only service has no monitor until one of those tokens is set.
+## Configuration
 
-On the Plasma machine:
+Copy `.env.example` to `.env`. Fernruf reads `.env` from the working directory. Set `FERNRUF_ENV_FILE` to `none` to skip that file. Do not commit `.env`.
 
-```bash
-uv sync --extra desktop
-uv run --extra desktop fernruf monitor
-```
+| Variable | Default | Role |
+| --- | --- | --- |
+| `FERNRUF_PRINCIPAL_NAME` | empty | Name spoken in the fixed AI disclosure. Required before a real call. |
+| `SIP_HOST`, `SIP_USER`, `SIP_PASSWORD` | `192.0.2.1`, empty, empty | Registrar host, username, and password. |
+| `LAN_CIDR` | `192.0.2.0/24` | Documentation range in the example. Set the LAN that may reach SIP. |
+| `ASTERISK_ARI_URL` | `http://127.0.0.1:8088` | Asterisk ARI. |
+| `ASTERISK_ARI_PASSWORD` | empty | Required. A placeholder value is refused. |
+| `FERNRUF_ALLOWLIST` | empty | Comma-separated E.164 numbers. Empty blocks every call. |
+| `FERNRUF_QUIET_HOURS` | `20:00-08:00` | Local quiet hours. |
+| `FERNRUF_CALLS_PER_DAY` | 10 | Daily call cap. The ceiling is 50. |
+| `FERNRUF_MINUTES_PER_DAY` | 100 | Daily minute cap. The ceiling is 300. |
+| `FERNRUF_MONTHLY_BUDGET_EUR` | 25 | Monthly budget in EUR. The ceiling is 100. |
+| `FERNRUF_MCP_TOKEN` | empty | Static bearer token for MCP. |
+| `FERNRUF_BIND_HOST` | `127.0.0.1` | Address the MCP service binds. |
+| `FERNRUF_BIND_PORT` | 8787 | MCP port. |
+| `FERNRUF_LLM_MODEL` | empty | Model id for the OpenAI-compatible endpoint. |
+| `OPENROUTER_API_KEY` | empty | Key for that endpoint. |
+| `FISH_AUDIO_API_KEY`, `FISH_VOICE_ID` | empty | Speech synthesis. |
 
-The process sits in the tray and raises a window when a call starts. The window is the glass layout in `fernruf/desktop/MonitorPlaceholder.qml`. Its language follows the system locale, with English as the fallback. Set `FERNRUF_UI_LANG` to `en` or `de` to override that. Listening is off for each call until you turn it on, and that choice is not saved. Volume and mute are saved in `~/.config/fernruf/listen.json` and affect only this computer's playback. The keypad does not send tones. Hang-up stays off. The window cannot speak into the call. Nothing from this socket leaves the machine.
+Whisper, OAuth, mood, and the monitor port are in `.env.example`.
 
-Text frames are JSON with `"v": 1`.
+## MCP tools
 
-- Client, if the handshake has no `Authorization: Bearer` header: `{"type":"auth","token":"..."}`. Server replies `{"type":"auth_ok"}`.
-- Client: `{"type":"listen","enabled":true}`. Audio is not sent until this is true. The server replies with the same shape.
-- Server lifecycle: `{"type":"lifecycle","call_id","state","at","to_masked","outcome","summary"}`. `state` is `dialing`, `ringing`, `answered`, `ended`, then `finalized`. `to_masked` keeps the country code and the last four digits. `summary` is present only on `finalized`.
-- Server transcript: `{"type":"transcript","call_id","speaker","text","t_ms","final"}`. `speaker` is `agent` or `callee`. Current calls send `final: true`.
+`get_calling_guide` has to succeed before a write tool in the same MCP session. Protocol 2026-07-28 opens a new connection per request and has no session id. For that protocol the gate follows a short hash of the bearer token for two hours.
 
-Binary frames are little-endian `FR1`. The direction byte is 1 for the callee and 2 for the bot's speech. Then the frame carries the sample rate, the channel count, a timestamp, the call id, and s16le PCM. A subscriber that falls behind loses frames. The call does not wait.
+| Tool | What it does |
+| --- | --- |
+| `get_calling_guide` | Limits, line state, and the rules for a call. Unlocks the write tools. |
+| `get_balance` | Monthly budget, spend, and how many calls were placed today. |
+| `get_call_settings` | Voice, limits, allowlist, and quiet hours. |
+| `update_call_settings` | Changes settings that do not widen who can be called. |
+| `place_call` | Queues one call and returns. |
+| `place_call_and_wait` | Places a call and waits until it ends. |
+| `get_call` | Status, transcript, cost, and the post-call summary. |
+| `get_call_transcript` | Transcript lines for one call. |
+| `list_calls` | Recent calls. |
+| `get_recording` | Recording link. Returns `not_available` in this version. |
+| `hangup_call` | Hangs up a queued or live call. |
+| `connect_webhook` | Stores a webhook URL and sends a test event. |
 
-Optional CUDA STT acceleration: `uv sync --extra cuda` (proprietary GPU vendor wheels).
+`update_call_settings`, `place_call`, `place_call_and_wait`, `hangup_call`, and `connect_webhook` are the write tools.
 
-## Legal & abuse notice
+## Safety
 
-**You are responsible for every call Fernruf places on your line.**
+**AI notice.** Every call starts with a fixed sentence. It says that an AI assistant is calling for `FERNRUF_PRINCIPAL_NAME`. The model cannot skip that sentence or rewrite it.
 
-- **Germany — §201 StGB:** Recording a call requires prior consent. Fernruf does **not** record calls in this version; it may produce local transcripts/summaries and send text to configured providers as described in [PRIVACY.md](PRIVACY.md). The optional consent question in prompts is a hint only until recording exists. The local monitor can play a live call on this computer. That switch defaults to off. It does not save audio. It does not change the disclosure or the consent question.
-- **Germany — UWG §7(2):** Unsolicited advertising calls to consumers are prohibited; B2B calls require a legitimate interest or consent. Fernruf rejects marketing-style tasks and is **allowlist-only**.
-- **Transparency:** Every call begins with a mandatory fixed AI disclosure naming `FERNRUF_PRINCIPAL_NAME`. The model cannot skip or rewrite it. Optional `FERNRUF_SPOKEN_PRIVACY_ENABLED=true` adds a fixed per-language processing notice after the disclosure (off by default). See [PRIVACY.md](PRIVACY.md).
-- **Caller ID:** Follow BundesnetzAgentur rules; do not spoof numbers you do not legitimately use.
-- **No robocold-calling:** Configure only numbers you own or that have **prior express consent**. The operator is liable for misuse.
+**Consent before recording.** The system prompt keeps recording off until the callee agrees. If the agent asks, it has to use the fixed consent question for that language. `record` defaults to false. `get_recording` returns `not_available`. This version does not store a call recording for MCP clients. `fernruf demo-call` can write a wav on the host for its own playback. That file is not served by `get_recording`.
 
-Fernruf is a tool, not legal advice. Read your SIP provider, Fish Audio, and OpenRouter terms before production use. **Data flows and GDPR responsibilities:** [PRIVACY.md](PRIVACY.md).
+**Allowlist.** Fernruf dials only numbers on the allowlist. The MCP token cannot add a number. Add one on the host with `fernruf settings allow-number`.
+
+**Cost caps.** A deployment can lower the daily call cap, the daily minute cap, and the monthly euro budget. It cannot raise them above 50 calls, 300 minutes, or 100 EUR.
+
+**Quiet hours.** The default window is 20:00 to 08:00. Turning quiet hours off requires `FERNRUF_QUIET_HOURS_ALLOW_OFF`.
+
+Marketing-style tasks are rejected. Premium-rate prefixes are blocked. You are responsible for every call placed on your line. In Germany, recording needs consent first under §201 StGB, and unsolicited advertising calls are restricted under UWG §7. Fernruf is not legal advice. Data flows are in [PRIVACY.md](PRIVACY.md).
+
+## Local call monitor
+
+The same `fernruf serve` process can open a loopback socket for a tray window on that computer. The window, the auth token, and the frame format are in [docs/monitor.md](docs/monitor.md).
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-Trademarks: third-party names (Fish Audio, OpenRouter, TypeSafe, Asterisk, Pipecat, and others) belong to their owners. Fernruf is not affiliated with or endorsed by them.
+Third-party names belong to their owners. Fernruf is not affiliated with them.
