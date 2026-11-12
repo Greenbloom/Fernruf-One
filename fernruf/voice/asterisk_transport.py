@@ -92,6 +92,16 @@ class FernrufAsteriskOutputTransport(AsteriskWebsocketOutputTransport):
         """Drop any audio handed over after the goodbye has been written."""
         self._sealed = True
 
+    def unseal_playout(self) -> None:
+        """Accept later audio after a cancelled hangup.
+
+        Audio already queued still plays. The cancelled goodbye's clock is
+        not the next final turn, or that turn would hang up on a deadline
+        that is already in the past.
+        """
+        self._sealed = False
+        self.playout_clock.reset()
+
     def playback_idle(self) -> bool:
         """True once the sealed goodbye has been played out.
 

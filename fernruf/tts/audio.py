@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fernruf.settings import Settings
 from fernruf.tts.fish import FishTtsError, fish_tts_pcm_rest, fish_tts_pcm_ws
+from fernruf.tts.fish_voice import fish_reference_id
 from fernruf.tts.pcm_codec import pcm16_mono_to_alaw, resample_pcm16_mono
 
 LOG = logging.getLogger("fernruf")
@@ -74,8 +75,8 @@ def _write_m1_prompt(settings: Settings, dest_alaw: Path) -> str:
 
     if settings.fish_audio_api_key.strip():
         api_key = settings.fish_audio_api_key
-        model = settings.fish_audio_model
-        voice = settings.fish_voice_id or None
+        model = settings.effective_fish_model()
+        voice = fish_reference_id(settings) or None
         fish_errors: list[str] = []
         for label, fn in (
             (

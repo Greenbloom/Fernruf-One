@@ -18,7 +18,7 @@ Use the repository URL your operator provides.
 | **GPU (optional)** | Faster local STT: `uv sync --extra cuda` (proprietary GPU vendor wheels). CPU STT works without it. |
 | **SIP** | A SIP account or LAN IP phone on a home router with registrar support, or a hosted SIP provider. |
 | **LLM** | OpenAI-compatible API (e.g. OpenRouter): `OPENROUTER_API_KEY`, `FERNRUF_LLM_MODEL`. |
-| **TTS** | Fish Audio (or mocks for offline tests): `FISH_AUDIO_API_KEY`, `FISH_VOICE_ID`. |
+| **TTS** | Fish Audio (or mocks for offline tests): `FISH_AUDIO_API_KEY`, `FISH_VOICE_ID`. The model is `FERNRUF_FISH_MODEL` when set, otherwise `FISH_AUDIO_MODEL`, otherwise `s2.1-pro-free`. |
 | **Privacy** | Read [PRIVACY.md](../PRIVACY.md). Defaults: **no** TypeSafe/Jev (`FERNRUF_TYPESAFE_ENABLED=false`, `FERNRUF_MOOD_ENABLED=false`). STT stays **local**. LLM + TTS still send text to configured providers. |
 
 Optional loopback verification also needs **SIPp** (`sip-tester`), **tcpdump**, and passwordless **sudo** for Docker/tcpdump (see [TESTING.md](TESTING.md)). The verify SIP UAS runs SIPp **as root only for raw-socket RTP pcap playback**, and only on **loopback** (`127.0.0.1`); see `scripts/verify/check_sipp_scenario.sh` and `./scripts/verify-run.sh`.

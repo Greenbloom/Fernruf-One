@@ -578,10 +578,12 @@ def fish_smoke(text: str) -> None:
     """Synthesize one sentence via Fish REST TTS (live API key required)."""
     from fernruf.tts.fish import FishTtsError
     from fernruf.tts.fish_rest_client import astream_fish_tts_pcm_rest
+    from fernruf.tts.fish_voice import fish_reference_id
 
     settings = load_settings()
     if not settings.fish_audio_api_key.strip():
         raise SystemExit("FISH_AUDIO_API_KEY is not set")
+    voice = fish_reference_id(settings) or None
 
     async def _run() -> tuple[bytes, int, float | None]:
         chunks: list[bytes] = []
@@ -590,8 +592,8 @@ def fish_smoke(text: str) -> None:
             text,
             settings=settings,
             api_key=settings.fish_audio_api_key,
-            model=settings.fish_audio_model,
-            voice_id=settings.fish_voice_id or None,
+            model=settings.effective_fish_model(),
+            voice_id=voice,
         ):
             if first_ttfa is not None:
                 ttfa_ms = first_ttfa
@@ -613,8 +615,8 @@ def fish_smoke(text: str) -> None:
                 "sample_rate": rate,
                 "duration_s": round(duration_s, 3),
                 "ttfa_ms": round(ttfa_ms, 1) if ttfa_ms is not None else None,
-                "model": settings.fish_audio_model,
-                "voice_id": settings.fish_voice_id or None,
+                "model": settings.effective_fish_model(),
+                "voice_id": voice,
                 "fish_latency": settings.fish_latency,
                 "fish_chunk_length": settings.fish_chunk_length,
             },

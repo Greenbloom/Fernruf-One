@@ -10,6 +10,7 @@ import httpx
 
 from fernruf.settings import Settings
 from fernruf.tts.fish import TTS_FORMAT, TTS_SAMPLE_RATE, FishTtsError, _decode_fish_audio_body
+from fernruf.tts.fish_voice import fish_reference_id
 
 LOG = logging.getLogger("fernruf.tts.fish")
 
@@ -70,6 +71,7 @@ async def astream_fish_tts_pcm_rest(
             yield pcm[i : i + step], (0.0 if i == 0 else None)
         return
 
+    reference = fish_reference_id(settings, voice_id)
     body: dict[str, Any] = {
         "text": text,
         "format": audio_format,
@@ -77,8 +79,13 @@ async def astream_fish_tts_pcm_rest(
         "latency": settings.fish_latency,
         "chunk_length": settings.fish_chunk_length,
     }
-    if voice_id:
-        body["reference_id"] = voice_id
+    if reference:
+        body["reference_id"] = reference
+    elif text.strip() not in {"", "."}:
+        LOG.warning(
+            "Fish REST request has no reference_id, so Fish uses its default voice (chars=%s)",
+            len(text),
+        )
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -124,7 +131,13 @@ async def astream_fish_tts_pcm_rest(
                         sample_rate=sample_rate,
                     )
                     ttfa_ms = (time.monotonic() - t0) * 1000
-                    LOG.info("Fish REST TTFA %.0fms (wav) chars=%s", ttfa_ms, len(text))
+                    LOG.info(
+                        "Fish REST TTFA %.0fms (wav) model=%s reference_id=%s chars=%s",
+                        ttfa_ms,
+                        model,
+                        reference or "-",
+                        len(text),
+                    )
                     step = max(2, sample_rate // 25 * 2)
                     for i in range(0, len(pcm), step):
                         yield pcm[i : i + step], (ttfa_ms if i == 0 else None)
@@ -136,8 +149,11 @@ async def astream_fish_tts_pcm_rest(
                     if first_audio:
                         ttfa_ms = (time.monotonic() - t0) * 1000
                         LOG.info(
-                            "Fish REST TTFA %.0fms latency=%s chunk_length=%s chars=%s",
+                            "Fish REST TTFA %.0fms model=%s reference_id=%s "
+                            "latency=%s chunk_length=%s chars=%s",
                             ttfa_ms,
+                            model,
+                            reference or "-",
                             settings.fish_latency,
                             settings.fish_chunk_length,
                             len(text),
@@ -185,6 +201,7 @@ async def warm_fish_rest_connection(
         "Content-Type": "application/json",
         "model": model,
     }
+    reference = fish_reference_id(settings, voice_id)
     body: dict[str, Any] = {
         "text": ".",
         "format": TTS_FORMAT,
@@ -192,8 +209,8 @@ async def warm_fish_rest_connection(
         "latency": settings.fish_latency,
         "chunk_length": settings.fish_chunk_length,
     }
-    if voice_id:
-        body["reference_id"] = voice_id
+    if reference:
+        body["reference_id"] = reference
     try:
         async with http.stream("POST", "/v1/tts", headers=headers, json=body) as response:
             if response.status_code >= 400:

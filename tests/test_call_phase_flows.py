@@ -164,26 +164,45 @@ def _pipeline(
     fallback: str,
     task: str = "Kurzer Testanruf",
     call_language: str = "de",
+    hold_max_s: float | None = None,
+    fish_audio_model: str | None = None,
+    hangup_margin_s: float | None = None,
+    fish_http: bool = False,
 ):
     pcm = _fixture_pcm("phase", sample_rate=16000, duration_s=0.2)
     wav = tmp_path / "fish.wav"
     wav.write_bytes(pcm_to_wav(pcm, 16000))
+    extra: dict[str, object] = {}
+    if hold_max_s is not None:
+        extra["hold_max_s"] = hold_max_s
+    if fish_audio_model is not None:
+        extra["fish_audio_model"] = fish_audio_model
+    if fish_http:
+        extra["fish_audio_api_key"] = "test-key"
+        extra["fish_voice_id"] = "voice-test"
+        extra.setdefault("fish_audio_model", "drama-3")
+        extra["fish_latency"] = "balanced"
+        extra["fish_chunk_length"] = 100
+        extra["fish_first_clause"] = True
+        extra["call_settings_db"] = str(tmp_path / "calls.sqlite")
+    else:
+        extra["fish_tts_rest_fixture"] = str(wav)
     settings = Settings(
         _env_file=None,
         llm_base_url=base_url,
         llm_api_key="test-key",
         llm_model="test/model",
         llm_fallback_model=fallback,
-        fish_tts_rest_fixture=str(wav),
         voice_mock=False,
         llm_mock=False,
         llm_filler_delay_s=30.0,
         llm_first_token_timeout_s=timeout_s,
-        hangup_after_bot_stopped_margin_s=0.05,
+        hangup_after_bot_stopped_margin_s=(0.05 if hangup_margin_s is None else hangup_margin_s),
         min_call_duration_before_hangup_s=0.0,
         disclosure_prefix="",
         call_language=call_language,
         transcript_allowed=True,
+        **extra,
     )
     session = M2CallSession()
     hangup = AsyncMock()

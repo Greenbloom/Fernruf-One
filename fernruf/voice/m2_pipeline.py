@@ -92,10 +92,18 @@ def _llm_tools(hooks: M2CallHooks, session: M2CallSession, settings: Settings) -
 
     async def end_call(params: FunctionCallParams, reason: str, goodbye: str = "") -> None:
         """Accept or refuse end_call. A refusal does not run the LLM again."""
+
+        async def _take_companion(*, speak: bool) -> None:
+            text = session.companion_text
+            session.companion_text = ""
+            if speak and text.strip() and session.speak_companion is not None:
+                await session.speak_companion(text)
+
         tool_id = getattr(params, "tool_call_id", None) or ""
         reason = coerce_tool_str(reason)
         goodbye = coerce_tool_str(goodbye)
         if tool_id and tool_id in session.handled_tool_call_ids:
+            await _take_companion(speak=False)
             await params.result_callback(
                 {"ok": True, "message": "Call is already ending."},
                 properties=FunctionCallResultProperties(run_llm=False),
@@ -105,6 +113,7 @@ def _llm_tools(hooks: M2CallHooks, session: M2CallSession, settings: Settings) -
             messages = list(getattr(params.context, "messages", []) or [])
             session.sync_from_llm_messages(messages)
         if session.phase.is_hung_up or session.phase.is_ending:
+            await _take_companion(speak=False)
             if hooks.schedule_hangup and session.phase.is_ending:
                 await hooks.schedule_hangup()
             await params.result_callback(
@@ -115,11 +124,13 @@ def _llm_tools(hooks: M2CallHooks, session: M2CallSession, settings: Settings) -
         err = session.validate_end_call(reason, settings, goodbye=goodbye)
         if err:
             LOG.warning("%s", err)
+            await _take_companion(speak=True)
             await params.result_callback(
                 {"ok": False, "error": err},
                 properties=FunctionCallResultProperties(run_llm=False),
             )
             return
+        await _take_companion(speak=False)
         spoken = session.in_flight_assistant_completion()
         if farewell_in_text(spoken, session.phase.goodbye_phrase or goodbye):
             goodbye = ""
@@ -186,12 +197,13 @@ def build_m2_pipeline(
     log_live_stt_kwargs(settings)
     ep, resolution = resolve_llm_endpoint_for_call(settings, call_model_override=llm_model_override)
     LOG.info(
-        "M2 pipeline call=%s llm model=%s provider=%s source=%s verify=%s",
+        "M2 pipeline call=%s llm model=%s provider=%s source=%s verify=%s fish_model=%s",
         call_id,
         ep.model,
         ep.provider,
         resolution.source,
         verify,
+        settings.effective_fish_model(),
     )
 
     flow_state = (
@@ -273,6 +285,7 @@ def build_m2_pipeline(
         request_queue_drained=getattr(output, "request_queue_drained", None),
         accept_queue_drained=getattr(output, "accept_queue_drained", None),
         seal_playout=getattr(output, "seal_playout", None),
+        unseal_playout=getattr(output, "unseal_playout", None),
         output_pending=getattr(output, "output_audio_pending", None),
         note_queued_audio=getattr(output, "note_audio_queued", None),
         playout_done=getattr(output, "playback_idle", None),

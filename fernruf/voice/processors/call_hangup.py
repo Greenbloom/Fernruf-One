@@ -101,6 +101,7 @@ class CallHangup(FrameProcessor):
         request_queue_drained: Callable[[], Awaitable[bool]] | None = None,
         accept_queue_drained: Callable[[], bool] | None = None,
         seal_playout: Callable[[], None] | None = None,
+        unseal_playout: Callable[[], None] | None = None,
         output_pending: Callable[[], bool] | None = None,
         note_queued_audio: Callable[[float], None] | None = None,
         playout_done: Callable[[], bool] | None = None,
@@ -114,6 +115,7 @@ class CallHangup(FrameProcessor):
         self._request_queue_drained = request_queue_drained
         self._accept_queue_drained = accept_queue_drained
         self._seal_playout = seal_playout
+        self._unseal_playout = unseal_playout
         self._output_pending = output_pending
         self._note_queued_audio = note_queued_audio
         self._playout_done = playout_done
@@ -160,6 +162,44 @@ class CallHangup(FrameProcessor):
     def _cancel(self, task: asyncio.Task | None) -> None:
         if task and not task.done():
             task.cancel()
+
+    def disarm(self) -> None:
+        if self._done or not self._armed:
+            return
+        self.cancel_pending()
+        self._armed = False
+        self._need_speak = False
+        self._speak_pushed = False
+        self._wait_phrase = ""
+        self._heard = ""
+        self._phrase_seen = False
+        self._playback_stopped = False
+        self._audio_s = 0.0
+        self._tts_started_at = None
+        self._utt_started_at = None
+        self._utt_audio_s = 0.0
+        self._drain_asked = False
+        self._queue_drained = False
+        self._tts_open = False
+        self._tts_depth = 0
+        self._ctx_seq = 0
+        self._ctx_order = []
+        self._ctx_text = {}
+        self._nonmatching_tts = False
+        self._goodbye_ctx_done = False
+        self._goodbye_tts_done = False
+        self._goodbye_sealed = False
+        self._hard_deadline = None
+        self._playout_end = None
+        self._deadline_clock_end = 0.0
+        self._drain_mono = None
+        self._dropped_late_audio = False
+        self._final_turn_logged = False
+        if self._unseal_playout is not None:
+            try:
+                self._unseal_playout()
+            except Exception:
+                LOG.warning("Failed to unseal playout after a cancelled hangup", exc_info=True)
 
     def cancel_pending(self) -> None:
         """Stop the playout waits. The pipeline exit calls this so they cannot
@@ -601,6 +641,8 @@ class CallHangup(FrameProcessor):
     async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
         if self._session.phase.is_ending and not self._armed and not self._done:
             await self.arm()
+        if self._armed and not self._done and not self._session.phase.is_ending:
+            self.disarm()
         if self._need_speak and not self._done:
             self._need_speak = False
             phrase = self._wait_phrase
@@ -621,15 +663,14 @@ class CallHangup(FrameProcessor):
                 speak.interruptible = False
                 await self.push_frame(speak, FrameDirection.UPSTREAM)
 
-        if (
-            isinstance(frame, TranscriptionFrame)
-            and self._armed
-            and not self._done
-            and self._goodbye_tts_done
-            and (frame.text or "").strip()
-        ):
-            LOG.info("Callee spoke after the goodbye; hanging up when the margin elapses")
-            self._hangup_after_callee_reply()
+        heard = (frame.text or "").strip() if isinstance(frame, TranscriptionFrame) else ""
+        if heard and self._armed and not self._done and self._session.phase.is_ending:
+            if self._session.resume_from_playout(heard):
+                LOG.info("Callee spoke before hangup; cancelling the pending hangup")
+                self.disarm()
+            elif self._goodbye_tts_done:
+                LOG.info("Callee spoke after the goodbye; hanging up when the margin elapses")
+                self._hangup_after_callee_reply()
 
         if isinstance(frame, (CancelFrame, EndFrame)) and self._done:
             self.cancel_pending()

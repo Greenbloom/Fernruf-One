@@ -9,7 +9,9 @@ stateDiagram-v2
     opening --> talking: first user turn or first assistant completion
     talking --> talking: user turn resets the open question
     talking --> talking: end_call refused (tool result run_llm=false, no extra speech)
+    talking --> talking: callee asks to wait (silent hold, then one re-ask)
     talking --> ending: end_call accepted, or a spoken farewell after the callee answered
+    ending --> talking: callee speaks before hangup, and it is not a farewell
     ending --> hung_up: final-turn playout end + margin
     ending --> hung_up: QUEUE_DRAINED only after that playout end
     ending --> hung_up: cap at 20s
@@ -30,13 +32,32 @@ stateDiagram-v2
 - Tool-shaped assistant text (`end_call(...)`, JSON tool blobs, `<tool_call>`, bare
   function names) is never spoken. A textual `end_call(...)` becomes a real `end_call`;
   only its `goodbye` argument is spoken.
+- When that `end_call` carries a goodbye, the other text in the same response is not
+  spoken. If that text already is a farewell, it is the one line and the tool does not
+  say another. A refused `end_call` still speaks the response.
+- The goodbye is one Fish request. It is not split on sentences or on the first comma,
+  and a cached short "Auf Wiederhören" is not played as the second half. Every Fish
+  request in the call uses the same reference id, model, latency, and chunk length.
+  The reference id is the call voice. When that is empty, the stored voice_reference_id
+  is sent instead. A cached clip plays only when a voice record for that key exists.
 
 A refused `end_call` returns the tool error with `run_llm=false`. The bot waits for the
 next user turn. It does not ask the model again, and it does not apologize for the refusal.
 
+A wait or hold ("warte", "Moment", "einen Augenblick", "hold on", "wait") is not an
+answer, a refusal, or a goodbye. `end_call` is refused, including when the same turn
+says the agent will wait. The agent stays silent for up to `FERNRUF_HOLD_MAX_S`
+(default 20 seconds) and then asks the question again.
+
+Speech after `end_call` was accepted, and before hangup, cancels the pending hangup
+and continues the call. A farewell in that window still hangs up. "nicht auflegen"
+is not a request to hang up.
+
 ## While `ending`
 
-No LLM run, no filler, no delay apology, no rerun. Then one hangup path.
+No LLM run, no filler, no delay apology, and no rerun, until the callee speaks.
+Speech that is not a farewell leaves `ending` and the conversation continues.
+A farewell stays on this path, and hangup then follows one path.
 
 `BotStoppedSpeaking` means the pipeline finished **queueing** audio. Pipecat writes
 that queue on a later task, and a fast TTS (or a cache hit) can queue several

@@ -64,6 +64,82 @@ _ASK_RE = re.compile(
 )
 
 
+_NOT_HANGUP = re.compile(r"(?i)\bnicht\s+(?:sofort\s+|gleich\s+|jetzt\s+|mehr\s+)?aufleg")
+# The request has to lead the turn. "im Moment" later in an answer is not a hold.
+_HOLD_LEAD = re.compile(
+    r"""(?ix)
+    ^
+    (?:
+        (?:na|hey|oh|ähm|aehm|ah|bitte|please|just|so|ok|okay|also)
+        [\s,;:.!?…]+
+    ){0,3}
+    (?:
+        warte(?:n|t)?(?:\s+mal)?
+      | (?:einen|ein|eine|noch\s+einen)?\s*moment(?:\s+mal|\s+bitte)?
+      | (?:einen|ein)?\s*augenblick
+      | (?:eine|einen)?\s*sekunde
+      | hold\s+on
+      | hang\s+on
+      | one\s+moment
+      | just\s+a\s+(?:moment|second|sec)
+      | wait(?:\s+(?:a\s+)?(?:moment|second|sec|minute|bit))?
+    )
+    \b
+    """
+)
+_ASSISTANT_WAIT = re.compile(
+    r"""(?ix)
+    \b(?:
+        ich\s+warte(?!\s+nicht)
+      | warte\s+kurz
+      | i(?:'ll|\s+will)\s+wait
+      | i'll\s+hold
+      | hold\s+on
+    )\b
+    """
+)
+
+
+def callee_asked_to_wait(text: str) -> bool:
+    """True when this callee turn asks the agent to pause.
+
+    A yes, no, digit, or question after the request is the turn's real
+    content, so it is not only a hold.
+    """
+    raw = (text or "").strip()
+    if not raw:
+        return False
+    match = _HOLD_LEAD.search(raw)
+    if match is None:
+        return False
+    rest = raw[match.end() :].strip(" \t,.;:!?…")
+    if not rest:
+        return True
+    if _YES_NO.search(rest) or re.search(r"\d", rest):
+        return False
+    if "?" in rest or re.search(r"(?i)\b(?:frage|question)\b", rest):
+        return False
+    return True
+
+
+def assistant_agrees_to_wait(text: str) -> bool:
+    """True when this assistant turn tells the callee it will wait."""
+    return _ASSISTANT_WAIT.search(text or "") is not None
+
+
+def callee_requested_hangup(text: str) -> bool:
+    """True when the callee asked to end the call.
+
+    "nicht auflegen" is the opposite request. A goodbye word still counts.
+    """
+    raw = text or ""
+    if _CALLEE_GOODBYE.search(raw):
+        return True
+    if _NOT_HANGUP.search(raw):
+        return False
+    return _CALLEE_END.search(raw) is not None
+
+
 def assistant_turn_asks(text: str) -> bool:
     """True when this assistant turn asks or requests something.
 
@@ -214,6 +290,7 @@ class CallPhase:
     reask_used: bool = False
     pending_reask: bool = False
     reask_spoken: bool = False
+    holding: bool = False
 
     @property
     def is_ending(self) -> bool:
@@ -236,7 +313,7 @@ class CallPhase:
             return
         if _CALLEE_REFUSAL.search(text):
             self.callee_refused = True
-        if _CALLEE_GOODBYE.search(text) or _CALLEE_END.search(text):
+        if callee_requested_hangup(text):
             self.callee_said_goodbye = True
 
     def callee_may_end_early(self) -> bool:
@@ -262,6 +339,13 @@ class CallPhase:
         self.user_turns_seen = turn_index
         if self.name is Phase.OPENING:
             self.name = Phase.TALKING
+        if callee_asked_to_wait(text) and not self.callee_may_end_early():
+            self.holding = True
+            self.question_open = True
+            self.callee_spoke_since_question = False
+            self.awaiting_answer = True
+            return
+        self.holding = False
         self.question_open = False
         self.callee_spoke_since_question = True
         # A greeting is not the answer, and it does not use up the one retry.
@@ -284,10 +368,12 @@ class CallPhase:
         A farewell spoken as plain text, after the callee has answered or
         said goodbye, is an end_call with no extra goodbye line.
         """
-        if self.suppresses_llm:
+        if self.suppresses_llm or self.holding:
             return
         text = (text or "").strip()
         if not text:
+            return
+        if assistant_agrees_to_wait(text):
             return
         if self.name is Phase.OPENING:
             self.name = Phase.TALKING
@@ -331,11 +417,34 @@ class CallPhase:
         """
         if self.is_ending or self.is_hung_up:
             return True
+        if self.holding:
+            return False
         if self.question_open:
             return False
         if self.callee_said_goodbye:
             return True
         return self.callee_spoke_since_question
+
+    def resume_from_playout(self, text: str) -> bool:
+        """Leave ending when the callee says something new before hangup.
+
+        The context frame that commits the goodbye still carries the answer
+        that ended the call. That line is not new speech. A farewell is not
+        either. Anything else continues the call.
+        """
+        text = (text or "").strip()
+        if self.name is not Phase.ENDING or not text:
+            return False
+        if text == (self.last_user_text or "").strip():
+            return False
+        if callee_requested_hangup(text) or farewell_in_text(text, self.goodbye_phrase):
+            return False
+        self.name = Phase.TALKING
+        self.hangup_reason = ""
+        self.goodbye_tts = ""
+        self.spoken_text = ""
+        self.await_playback = False
+        return True
 
     def begin_ending(
         self,

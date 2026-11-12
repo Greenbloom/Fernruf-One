@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 from fernruf.settings import Settings
-from fernruf.voice.call_phase import CallPhase
+from fernruf.voice.call_phase import (
+    CallPhase,
+    assistant_agrees_to_wait,
+    callee_asked_to_wait,
+)
 
 LOG = logging.getLogger("fernruf.voice.session")
 
@@ -70,6 +74,8 @@ class M2CallSession:
     # often hangs up on QUEUE_DRAINED before that frame is processed.
     uncommitted_agent_text: str = ""
     spoken_goodbye: str = ""
+    companion_text: str = ""
+    speak_companion: Callable[[str], Awaitable[None]] | None = None
     transcript_sink: Callable[[str, str, int, bool], None] | None = None
 
     @property
@@ -291,6 +297,21 @@ class M2CallSession:
         self.assistant_turn_text = text
         self.phase.note_assistant_completion(text)
 
+    def resume_from_playout(self, text: str) -> bool:
+        """Cancel a pending hangup because the callee spoke during playout."""
+        text = (text or "").strip()
+        if not self.phase.resume_from_playout(text):
+            return False
+        self.spoken_goodbye = ""
+        turn = max(self.user_turn_count, self.phase.user_turns_seen) + 1
+        self.user_turn_count = max(self.user_turn_count, turn)
+        self.phase.on_user_turn(
+            text,
+            turn_index=turn,
+            opener_spoken=self._opener_spoken(),
+        )
+        return True
+
     def in_flight_assistant_completion(self) -> str:
         completion = self.llm_completion_text.strip()
         if completion:
@@ -312,6 +333,10 @@ class M2CallSession:
             return None
         if not coerce_tool_str(reason):
             return "end_call blocked: provide a short reason."
+        if self.phase.holding or callee_asked_to_wait(self.phase.last_user_text):
+            return "end_call blocked: the callee asked to wait. Stay silent until they continue."
+        if assistant_agrees_to_wait(text):
+            return "end_call blocked: do not end the call in the same turn as agreeing to wait."
         if self.phase.question_open and not self.phase.callee_may_end_early():
             return (
                 "end_call blocked: assistant asked a question in this turn; "

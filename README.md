@@ -75,6 +75,7 @@ Copy `.env.example` to `.env`. Fernruf reads `.env` from the working directory. 
 | `FERNRUF_LLM_MODEL` | empty | Model id for the OpenAI-compatible endpoint. |
 | `OPENROUTER_API_KEY` | empty | Key for that endpoint. |
 | `FISH_AUDIO_API_KEY`, `FISH_VOICE_ID` | empty | Speech synthesis. |
+| `FISH_AUDIO_MODEL`, `FERNRUF_FISH_MODEL` | `s2.1-pro-free` | TTS model. `FERNRUF_FISH_MODEL` wins when it is set. |
 
 Whisper, OAuth, mood, and the monitor port are in `.env.example`.
 

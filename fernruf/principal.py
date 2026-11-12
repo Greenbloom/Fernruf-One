@@ -23,6 +23,7 @@ PHRASE_TEMPLATE_KEYS = (
     "identity_line",
     "privacy_notice",
     "reask",
+    "hold_reask",
     "farewell_example",
 )
 
@@ -48,6 +49,7 @@ PHRASE_TEMPLATES: dict[str, dict[str, str]] = {
             "Entschuldigung, das habe ich nicht verstanden. "
             "Könnten Sie das bitte noch einmal sagen?"
         ),
+        "hold_reask": "Sind Sie soweit? Ich stelle die Frage noch einmal.",
         "farewell_example": (
             "Vielen Dank, dann meldet sich {principal} um 16 Uhr. Auf Wiederhören."
         ),
@@ -70,6 +72,7 @@ PHRASE_TEMPLATES: dict[str, dict[str, str]] = {
         "delay_apology": "Sorry, I'm having a short delay.",
         "identity_line": "I am an AI assistant of {principal}.",
         "reask": "Sorry, I didn't catch that. Could you say that once more?",
+        "hold_reask": "Are you ready? I'll ask again.",
         "farewell_example": "Thank you, then {principal} will get in touch at 7 p.m. Goodbye.",
         "privacy_notice": (
             "Brief notice: speech and call content may be processed by AI services."
@@ -86,6 +89,7 @@ PHRASE_TEMPLATES: dict[str, dict[str, str]] = {
         "delay_apology": "抱歉，我这边稍微延迟了一下。",
         "identity_line": "我是 {principal} 的人工智能助手。",
         "reask": "抱歉，我没听清。请再说一次好吗？",
+        "hold_reask": "您准备好了吗？我再问一次。",
         "farewell_example": "谢谢，那么 {principal} 会在下午四点跟您联系。再见。",
         "privacy_notice": "简短说明：通话语音与内容可能会由人工智能服务处理。",
     },

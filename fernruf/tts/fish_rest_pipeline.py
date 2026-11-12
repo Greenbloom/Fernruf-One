@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from fernruf.settings import Settings
 from fernruf.tts.fish_clause import split_first_clause
 from fernruf.tts.fish_rest_client import astream_fish_tts_pcm_rest
+from fernruf.tts.fish_voice import fish_reference_id
 
 LOG = logging.getLogger("fernruf.tts.fish_pipeline")
 
@@ -71,11 +72,16 @@ class FishRestPipeline:
         self,
         text: str,
         *,
+        single: bool = False,
         on_ttfa: callable | None = None,
     ) -> AsyncIterator[tuple[bytes, float | None]]:
-        segments = self._segments_for_text(text)
+        if single and text.strip():
+            segments = [text.strip()]
+        else:
+            segments = self._segments_for_text(text)
         if not segments:
             return
+        voice = fish_reference_id(self.settings, self.voice_id) or None
         prefetch: asyncio.Task[list[tuple[bytes, float | None]]] | None = None
         for idx, segment in enumerate(segments):
             if self._cancel.is_set():
@@ -99,7 +105,7 @@ class FishRestPipeline:
                     settings=self.settings,
                     api_key=self.api_key,
                     model=self.model,
-                    voice_id=self.voice_id,
+                    voice_id=voice,
                     rest_fixture_path=self.rest_fixture_path,
                 ):
                     if self._cancel.is_set():
@@ -115,7 +121,7 @@ class FishRestPipeline:
                         settings=self.settings,
                         api_key=self.api_key,
                         model=self.model,
-                        voice_id=self.voice_id,
+                        voice_id=voice,
                         rest_fixture_path=self.rest_fixture_path,
                         cancel=self._cancel,
                     )

@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from typing import Any
 
 from openai.types.chat import ChatCompletionChunk
-from pipecat.frames.frames import LLMContextFrame, LLMTextFrame, TTSSpeakFrame
+from pipecat.frames.frames import InterruptionFrame, LLMContextFrame, LLMTextFrame, TTSSpeakFrame
 from pipecat.metrics.metrics import LLMTokenUsage
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
@@ -20,12 +21,48 @@ from fernruf.language import phrase
 from fernruf.llm.stream_liveness import delta_has_llm_liveness
 from fernruf.settings import Settings
 from fernruf.voice.call_phase import assistant_turn_asks, farewell_in_text
-from fernruf.voice.call_session import M2CallSession
+from fernruf.voice.call_session import M2CallSession, message_text
 from fernruf.voice.frames.metrics_frames import LlmFirstTokenFrame, LlmInferenceStartedFrame
 from fernruf.voice.processors.merge_user_context import merge_consecutive_user_messages
 from fernruf.voice.tool_text import ToolTextGate
 
 LOG = logging.getLogger("fernruf.voice.llm")
+
+
+_STATEMENT_END = re.compile(r"[.!?？…]")
+
+
+def _split_ready_questions(text: str) -> tuple[str, str]:
+    ready_end = 0
+    pos = 0
+    while pos < len(text):
+        match = _STATEMENT_END.search(text, pos)
+        if match is None:
+            break
+        if text[match.start()] not in "?？":
+            break
+        end = match.end()
+        while end < len(text) and text[end].isspace():
+            end += 1
+        ready_end = end
+        pos = end
+    return text[:ready_end], text[ready_end:]
+
+
+def _goodbye_from_calls(pairs: Sequence[tuple[str, str]]) -> str:
+    for name, raw in pairs:
+        if name != "end_call":
+            continue
+        try:
+            data = json.loads(raw or "{}")
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        goodbye = str(data.get("goodbye") or "").strip()
+        if goodbye:
+            return goodbye
+    return ""
 
 
 def _delta_field(delta: Any, name: str) -> str | None:
@@ -39,6 +76,16 @@ def _delta_field(delta: Any, name: str) -> str | None:
     if isinstance(val, str):
         return val
     return str(val)
+
+
+def _latest_user_text(frame: LLMContextFrame) -> str:
+    context = getattr(frame, "context", None)
+    messages = list(getattr(context, "messages", []) or [])
+    for msg in reversed(messages):
+        role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", None)
+        if role == "user":
+            return message_text(msg)
+    return ""
 
 
 def _chunk_provider(chunk: ChatCompletionChunk) -> str | None:
@@ -65,6 +112,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
         self._call_settings = call_settings
         self._call_session = call_session
         self._completion_skipped = False
+        self._hold_task: asyncio.Task | None = None
         self._primary_model: str = ""
         if hasattr(self, "_settings") and self._settings is not None:
             self._primary_model = getattr(self._settings, "model", "") or ""
@@ -107,16 +155,72 @@ class FernrufOpenAILLMService(OpenAILLMService):
         if function_calls:
             await super().run_function_calls(function_calls)
 
+    def _cancel_hold(self) -> None:
+        task = self._hold_task
+        if task is not None and not task.done():
+            task.cancel()
+        self._hold_task = None
+
+    def _arm_hold(self) -> None:
+        self._cancel_hold()
+        delay = 20.0
+        if self._call_settings is not None:
+            delay = float(self._call_settings.hold_max_s)
+        coro = self._hold_then_reask(delay)
+        task_manager = getattr(self, "_task_manager", None)
+        if task_manager:
+            self._hold_task = self.create_task(coro, "silent_hold")
+        else:
+            self._hold_task = asyncio.get_running_loop().create_task(coro)
+
+    async def _hold_then_reask(self, delay: float) -> None:
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+        session = self._call_session
+        if session is None or not session.phase.holding or session.phase.suppresses_llm:
+            return
+        session.phase.holding = False
+        session.phase.question_open = True
+        session.phase.awaiting_answer = True
+        session.phase.callee_spoke_since_question = False
+        text = "Sind Sie soweit? Ich stelle die Frage noch einmal."
+        if self._call_settings is not None:
+            try:
+                text = phrase(self._call_settings, "hold_reask")
+            except (KeyError, ValueError):
+                pass
+        LOG.info("Hold ended; asking again")
+        session.speakable_llm_this_turn = True
+        await self.push_frame(
+            TTSSpeakFrame(text=text, append_to_context=False),
+            FrameDirection.DOWNSTREAM,
+        )
+
     async def process_frame(self, frame, direction: FrameDirection):
         session = self._call_session
-        if (
-            isinstance(frame, LLMContextFrame)
-            and session is not None
-            and session.phase.suppresses_llm
-        ):
-            LOG.info("No assistant turn after end_call")
-            await FrameProcessor.process_frame(self, frame, direction)
-            return
+        if isinstance(frame, InterruptionFrame):
+            self._cancel_hold()
+        if isinstance(frame, LLMContextFrame) and session is not None:
+            if session.phase.is_ending and not session.phase.is_hung_up:
+                latest = _latest_user_text(frame)
+                if latest and session.resume_from_playout(latest):
+                    LOG.info("Callee spoke before hangup; continuing the call")
+                else:
+                    LOG.info("No assistant turn after end_call")
+                    await FrameProcessor.process_frame(self, frame, direction)
+                    return
+            elif session.phase.suppresses_llm:
+                LOG.info("No assistant turn after end_call")
+                await FrameProcessor.process_frame(self, frame, direction)
+                return
+            if session.phase.holding and not session.phase.suppresses_llm:
+                LOG.info("Callee asked to wait; staying silent")
+                await FrameProcessor.process_frame(self, frame, direction)
+                self._arm_hold()
+                return
+            self._cancel_hold()
         await super().process_frame(frame, direction)
 
     async def _push_llm_text(self, text: str) -> None:
@@ -158,6 +262,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
         if self._call_session is not None:
             self._call_session.llm_in_flight = True
             self._call_session.llm_turns += 1
+            self._call_session.speak_companion = self._push_llm_text
         try:
             await self._process_context_with_timeout(context)
         finally:
@@ -310,6 +415,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
         first_byte_at: float | None = None
         gate = ToolTextGate()
         held: list[str] = []
+        unpushed: list[str] = []
         phase = self._call_session.phase if self._call_session is not None else None
         hold_reask = phase is not None and phase.should_reask()
         # A farewell while the reask is still unanswered must not be spoken.
@@ -335,7 +441,11 @@ class FernrufOpenAILLMService(OpenAILLMService):
             if hold:
                 held.append(speakable)
                 return
-            await self._push_llm_text(speakable)
+            unpushed.append(speakable)
+            ready, rest = _split_ready_questions("".join(unpushed))
+            if ready.strip():
+                await self._push_llm_text(ready)
+            unpushed[:] = [rest] if rest else []
 
         async def _emit_model_text(text: str) -> None:
             await _accept_speakable(gate.feed(text))
@@ -455,21 +565,6 @@ class FernrufOpenAILLMService(OpenAILLMService):
         tail = gate.finish()
         if tail:
             await _accept_speakable(tail)
-        if hold and self._call_session is not None:
-            combined = "".join(held)
-            names = [*functions_list, function_name]
-            ending = any(name == "end_call" for name in names) or bool(gate.calls)
-            phrase_for_match = self._call_session.phase.goodbye_phrase
-            is_farewell = farewell_in_text(combined, phrase_for_match)
-            if hold_reask and (ending or is_farewell):
-                self._call_session.phase.pending_reask = True
-            elif hold_unanswered and (ending or is_farewell):
-                pass
-            else:
-                for part in held:
-                    await self._push_llm_text(part)
-                if hold_reask and assistant_turn_asks(combined):
-                    self._call_session.phase.reask_used = True
         if not any(name == "end_call" for name in (*functions_list, function_name)) and gate.calls:
             call = gate.calls[0]
             LOG.info(
@@ -486,6 +581,47 @@ class FernrufOpenAILLMService(OpenAILLMService):
                 ensure_ascii=False,
             )
             tool_call_id = "textual-end-call"
+
+        pairs = list(zip(functions_list, arguments_list, strict=False))
+        if function_name:
+            pairs.append((function_name, arguments or "{}"))
+        goodbye = _goodbye_from_calls(pairs)
+        session = self._call_session
+        raw_pending = "".join(held if hold else unpushed)
+        phrase_for_match = session.phase.goodbye_phrase if session is not None else ""
+        completion = session.llm_completion_text if session is not None else raw_pending
+        already_farewell = farewell_in_text(completion, phrase_for_match or goodbye)
+        suppress = bool(goodbye) and not already_farewell
+        if hold and session is not None:
+            combined = raw_pending
+            ending = any(name == "end_call" for name, _raw in pairs) or bool(gate.calls)
+            is_farewell = farewell_in_text(combined, phrase_for_match)
+            if hold_reask and (ending or is_farewell):
+                session.phase.pending_reask = True
+            elif hold_unanswered and (ending or is_farewell):
+                pass
+            elif suppress and combined.strip():
+                session.companion_text = combined
+                LOG.info(
+                    "Suppressing assistant text (%s chars); end_call speaks the goodbye",
+                    len(combined.strip()),
+                )
+            else:
+                session.companion_text = ""
+                for part in held:
+                    await self._push_llm_text(part)
+                if hold_reask and assistant_turn_asks(combined):
+                    session.phase.reask_used = True
+        elif suppress and raw_pending.strip() and session is not None:
+            session.companion_text = raw_pending
+            LOG.info(
+                "Suppressing assistant text (%s chars); end_call speaks the goodbye",
+                len(raw_pending.strip()),
+            )
+        elif raw_pending.strip():
+            if session is not None:
+                session.companion_text = ""
+            await self._push_llm_text(raw_pending)
 
         if self._call_session is not None and self._call_session.llm_turns == 1:
             from fernruf.voice.must_say import supplement_must_say

@@ -73,6 +73,22 @@ def _json_object(raw: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _unique_texts(items) -> list[str]:
+    """One entry per distinct fact. The model repeats an unanswered question."""
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in items:
+        text = str(item).strip()
+        if not text:
+            continue
+        key = text.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(text)
+    return unique
+
+
 def _parse_summary(raw: str, *, outcome: str) -> dict[str, Any] | None:
     data = _json_object(raw)
     if data is None:
@@ -91,7 +107,7 @@ def _parse_summary(raw: str, *, outcome: str) -> dict[str, Any] | None:
     task_status = str(data.get("task_status") or "completed")
     return {
         "outcome": str(data.get("outcome") or outcome),
-        "key_facts": [str(item) for item in facts if str(item).strip()],
+        "key_facts": _unique_texts(str(item) for item in facts),
         "follow_ups": [str(item) for item in follow if str(item).strip()],
         "consent": consent,
         "one_line": str(data.get("one_line") or ""),
@@ -113,7 +129,8 @@ def _prompt(transcript: list[dict[str, Any]], task: str) -> str:
         "Summarize this completed phone call as JSON with keys "
         "outcome, key_facts, follow_ups, consent, one_line, task_status. "
         "key_facts is a list with one answer for each question in the task, "
-        "in the task's language. one_line is one sentence that states those "
+        "in the task's language. Do not repeat the same key_fact. "
+        "one_line is one sentence that states those "
         "answers. Do not copy filler, laughter, or goodbye lines. "
         "consent is granted, refused, or not_asked. "
         "Use only what was said. Do not include phone numbers.\n\n"
