@@ -12,7 +12,15 @@ def test_mcp_allowed_hosts_from_oauth_urls() -> None:
         allowed_mcp_hosts="alt.example.com",
     )
     hosts = mcp_allowed_hosts(settings)
-    assert "fernruf.example.com" in hosts
-    assert "fernruf.example.com:*" in hosts
-    assert "alt.example.com" in hosts
-    assert "127.0.0.1" in hosts
+    assert hosts == [
+        "127.0.0.1",
+        "127.0.0.1:*",
+        "[::1]",
+        "[::1]:*",
+        "alt.example.com",
+        "alt.example.com:*",
+        "fernruf.example.com",
+        "fernruf.example.com:*",
+        "localhost",
+        "localhost:*",
+    ]
