@@ -31,7 +31,7 @@ async def _wait_until_listening(host: str, port: int, *, timeout_s: float = 120.
                 asyncio.open_connection(connect_host, port),
                 timeout=0.4,
             )
-        except (OSError, asyncio.TimeoutError) as exc:
+        except (TimeoutError, OSError) as exc:
             last = str(exc)
             await asyncio.sleep(0.05)
             continue

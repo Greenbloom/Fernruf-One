@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
 from fernruf.cli import main
 from fernruf.quiet_hours import parse_quiet_hours
@@ -14,7 +15,6 @@ from fernruf.safety_limits import (
     MAX_MONTHLY_BUDGET_EUR_CEILING,
 )
 from fernruf.settings import Settings, load_settings, validate_operational_settings
-from click.testing import CliRunner
 
 
 def test_env_cannot_raise_daily_call_cap() -> None:

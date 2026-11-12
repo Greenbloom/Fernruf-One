@@ -10,10 +10,12 @@ from pathlib import Path
 import httpx
 import pytest
 from click.testing import CliRunner
+from tests.conftest import DEFAULT_TEST_PRINCIPAL, PRINCIPAL_TEST_NAMES
 
 from fernruf.call_record import get_call
-from fernruf.cli import main
 from fernruf.call_settings.store import update_call_settings
+from fernruf.cli import main
+from fernruf.greeting import BERLIN, part_of_day, time_greeting
 from fernruf.language import (
     LANGUAGE_CRITERIA,
     LANGUAGE_INSTRUCTIONS,
@@ -25,12 +27,10 @@ from fernruf.language import (
     resolve_phrases,
     task_detection_text,
 )
-from fernruf.principal import format_phrase_templates
-from tests.conftest import DEFAULT_TEST_PRINCIPAL, PRINCIPAL_TEST_NAMES
-from fernruf.service.manager import format_task
 from fernruf.mood import JEV_URL, JevMoodClient, MoodReading, build_mood_request, reset_mood_notices
+from fernruf.principal import format_phrase_templates
+from fernruf.service.manager import format_task
 from fernruf.settings import Settings
-from fernruf.greeting import BERLIN, part_of_day, time_greeting
 from fernruf.stt.whisper import _transcribe_kwargs
 from fernruf.tts.fish_audio_cache import fish_cache_key
 from fernruf.voice.prompt import build_system_prompt
@@ -139,9 +139,7 @@ def test_detect_de_en_zh_and_explicit_instruction(tmp_path: Path) -> None:
     settings = _settings(tmp_path, llm_model="example/model-b")
 
     async def _run(task: str):
-        return await detect_call_language(
-            settings, task, transport=httpx.MockTransport(handler)
-        )
+        return await detect_call_language(settings, task, transport=httpx.MockTransport(handler))
 
     german = asyncio.run(_run("Frag Herrn Müller, ob der Termin am Dienstag noch passt."))
     english = asyncio.run(_run("Please ask Jordan if Tuesday still works for the handover."))
@@ -246,7 +244,9 @@ def test_prompt_names_the_call_language(tmp_path: Path) -> None:
     assert "May I record this call" in prompt
     assert "genau einmal erneut" in prompt
     evening = datetime(2026, 10, 26, 20, 34, tzinfo=BERLIN)
-    evening_prompt = build_system_prompt(settings, "Please ask if Tuesday still works.", now=evening)
+    evening_prompt = build_system_prompt(
+        settings, "Please ask if Tuesday still works.", now=evening
+    )
     assert "Europe/Berlin: 20:34" in evening_prompt
     assert "Good evening" in evening_prompt
     assert "Hello" in evening_prompt
@@ -256,7 +256,9 @@ def test_prompt_names_the_call_language(tmp_path: Path) -> None:
     assert "auf Deutsch" in german
 
 
-def test_whisper_follows_detection_even_when_env_is_german(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_whisper_follows_detection_even_when_env_is_german(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     """The live kwargs use the detected code. FERNRUF_WHISPER_LANGUAGE does not override it."""
     caplog.set_level("INFO")
     prepared = asyncio.run(
@@ -299,7 +301,9 @@ def test_berlin_evening_greeting_is_not_afternoon() -> None:
     assert time_greeting("zh", morning) == ("早上好", "您好")
 
 
-def test_whisper_env_is_the_fallback_when_detection_fails(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_whisper_env_is_the_fallback_when_detection_fails(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     caplog.set_level("INFO")
 
     def explode(_request: httpx.Request) -> httpx.Response:
@@ -315,17 +319,22 @@ def test_whisper_env_is_the_fallback_when_detection_fails(tmp_path: Path, caplog
     kw = _transcribe_kwargs(prepared)
     assert prepared.call_language == "en"
     assert kw["language"] == "en"
-    assert kw["initial_prompt"] == format_phrase_templates("en", DEFAULT_TEST_PRINCIPAL)[
-        "whisper_initial_prompt"
-    ]
+    assert (
+        kw["initial_prompt"]
+        == format_phrase_templates("en", DEFAULT_TEST_PRINCIPAL)["whisper_initial_prompt"]
+    )
     assert any("detected_language=fallback:short_text" in r.message for r in caplog.records)
     assert any("whisper_language=en" in r.message for r in caplog.records)
 
 
 def test_fish_cache_key_includes_language() -> None:
     text = "One moment…"
-    german = fish_cache_key(text, voice_id="v", model="s2.1-pro-free", latency="balanced", language="de")
-    english = fish_cache_key(text, voice_id="v", model="s2.1-pro-free", latency="balanced", language="en")
+    german = fish_cache_key(
+        text, voice_id="v", model="s2.1-pro-free", latency="balanced", language="de"
+    )
+    english = fish_cache_key(
+        text, voice_id="v", model="s2.1-pro-free", latency="balanced", language="en"
+    )
     assert german != english
 
 
@@ -377,9 +386,9 @@ def test_other_language_uses_fixed_english_without_llm(tmp_path: Path) -> None:
 
     fallen = asyncio.run(resolve_phrases(_settings(tmp_path), "es"))
     assert fallen[1] == "en" and fallen[2] == "fixed_en"
-    assert fallen[0]["ai_notice"] == format_phrase_templates("en", DEFAULT_TEST_PRINCIPAL)[
-        "ai_notice"
-    ]
+    assert (
+        fallen[0]["ai_notice"] == format_phrase_templates("en", DEFAULT_TEST_PRINCIPAL)["ai_notice"]
+    )
 
 
 def test_language_module_does_not_hardcode_a_chat_model() -> None:
@@ -465,7 +474,9 @@ def test_simulate_english_task_speaks_english_notice(tmp_path: Path) -> None:
     assert record["call_language"] == "en"
 
 
-def test_m2_test_call_simulate_english_task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_m2_test_call_simulate_english_task(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("FERNRUF_ENV_FILE", "none")
     monkeypatch.setenv("ASTERISK_ARI_PASSWORD", "fake-ari-password-16bytes")
     monkeypatch.setenv("FERNRUF_ALLOWLIST", "+493023125123")
@@ -520,10 +531,7 @@ def test_m2_test_call_simulate_english_task(tmp_path: Path, monkeypatch: pytest.
 
 
 VROOM_TASK = {
-    "goal": (
-        "Tell Alex that the ExampleApp test release v1.0.0 is ready, "
-        "then end the call."
-    ),
+    "goal": ("Tell Alex that the ExampleApp test release v1.0.0 is ready, then end the call."),
     "context": (
         "Alex asked to be called when the release was ready. "
         "The download link is already in his their team chat. "
@@ -568,9 +576,10 @@ def test_explicit_language_skips_detection(tmp_path: Path) -> None:
     )
     assert hits["n"] == 0
     assert prepared.call_language == "en"
-    assert prepared.disclosure_prefix == format_phrase_templates("en", DEFAULT_TEST_PRINCIPAL)[
-        "ai_notice"
-    ]
+    assert (
+        prepared.disclosure_prefix
+        == format_phrase_templates("en", DEFAULT_TEST_PRINCIPAL)["ai_notice"]
+    )
     assert "Ziel:" in wrapped
     assert "Muss sagen" not in sample
 
@@ -614,9 +623,7 @@ def test_detection_reads_task_text_not_default_language(tmp_path: Path) -> None:
     def explode(_request: httpx.Request) -> httpx.Response:
         raise AssertionError("Jev should not be called for a short text")
 
-    short = asyncio.run(
-        prepare_call_settings(other, "Hi", transport=httpx.MockTransport(explode))
-    )
+    short = asyncio.run(prepare_call_settings(other, "Hi", transport=httpx.MockTransport(explode)))
     assert short.call_language == "de"
 
 
@@ -640,9 +647,10 @@ def test_english_call_ignores_saved_german_opening_line(tmp_path: Path) -> None:
             transport=httpx.MockTransport(explode),
         )
     )
-    assert english.disclosure_prefix == format_phrase_templates("en", DEFAULT_TEST_PRINCIPAL)[
-        "ai_notice"
-    ]
+    assert (
+        english.disclosure_prefix
+        == format_phrase_templates("en", DEFAULT_TEST_PRINCIPAL)["ai_notice"]
+    )
     assert "KI-Assistent" not in english.disclosure_prefix
     assert english.call_language == "en"
 
@@ -660,7 +668,8 @@ def test_english_call_ignores_saved_german_opening_line(tmp_path: Path) -> None:
             transport=httpx.MockTransport(explode),
         )
     )
-    assert matched.disclosure_prefix == format_phrase_templates("de", DEFAULT_TEST_PRINCIPAL)[
-        "ai_notice"
-    ]
+    assert (
+        matched.disclosure_prefix
+        == format_phrase_templates("de", DEFAULT_TEST_PRINCIPAL)["ai_notice"]
+    )
     assert custom not in matched.disclosure_prefix

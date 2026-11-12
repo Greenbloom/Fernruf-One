@@ -7,7 +7,7 @@ import logging
 import socket
 import ssl
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -16,11 +16,16 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
+from tests.m3_support import service_settings
 
-from fernruf.service.notifier import Notice, Notifier, announce_service_started, build_service_started
+from fernruf.service.notifier import (
+    Notice,
+    Notifier,
+    announce_service_started,
+    build_service_started,
+)
 from fernruf.service.startup import FernrufServer
 from fernruf.settings import Settings
-from tests.m3_support import service_settings
 
 PHONE = "+493023125123"
 TOKEN = "mcp-token-SHOULD_NOT_APPEAR_in_mail_or_logs_0123456789abcdef"
@@ -48,7 +53,7 @@ def mail_cert(tmp_path_factory: pytest.TempPathFactory) -> Path:
     directory = tmp_path_factory.mktemp("mailcert")
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "mail.example.com")])
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -203,7 +208,9 @@ def _settings(tmp_path: Path, port: int, **overrides: object) -> tuple[Settings,
 
 
 def _notice() -> Notice:
-    return Notice(kind="service_started", subject="fernruf started on the host (abc)", body=BODY_MARKER + "\n")
+    return Notice(
+        kind="service_started", subject="fernruf started on the host (abc)", body=BODY_MARKER + "\n"
+    )
 
 
 def test_starttls_verifies_mail_name_not_the_dial_address(tmp_path: Path, mail_cert: Path) -> None:
@@ -226,7 +233,9 @@ def test_starttls_verifies_mail_name_not_the_dial_address(tmp_path: Path, mail_c
 def test_wrong_tls_name_is_rejected(tmp_path: Path, mail_cert: Path) -> None:
     context = _client_context(mail_cert)
     with _Inbox(mail_cert) as inbox:
-        settings, _token = _settings(tmp_path, inbox.port, FERNRUF_NOTIFY_SMTP_TLS_NAME="wrong.example")
+        settings, _token = _settings(
+            tmp_path, inbox.port, FERNRUF_NOTIFY_SMTP_TLS_NAME="wrong.example"
+        )
         with pytest.raises(ssl.SSLCertVerificationError):
             Notifier(settings, ssl_context=context).send_sync(_notice())
         assert inbox.messages == []
@@ -261,7 +270,9 @@ def test_ehlo_name_is_configurable(tmp_path: Path, mail_cert: Path) -> None:
         assert ehlo == ["ehlo other.example", "ehlo other.example"]
 
 
-def test_deliver_retries_then_sends(tmp_path: Path, mail_cert: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_deliver_retries_then_sends(
+    tmp_path: Path, mail_cert: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     context = _client_context(mail_cert)
     with _Inbox(mail_cert, fail_first=3) as inbox:
         settings, _token = _settings(tmp_path, inbox.port)

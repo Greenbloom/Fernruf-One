@@ -6,10 +6,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-LOG = logging.getLogger("fernruf.voice.session")
-
 from fernruf.settings import Settings
 from fernruf.voice.call_phase import CallPhase
+
+LOG = logging.getLogger("fernruf.voice.session")
 
 
 def message_text(msg: Any) -> str:
@@ -180,11 +180,7 @@ class M2CallSession:
             if idx < len(lines) and lines[idx]["speaker"] == speaker and lines[idx]["text"] == text:
                 idx += 1
                 continue
-            if (
-                idx > 0
-                and lines[idx - 1]["speaker"] == speaker
-                and lines[idx - 1]["text"] == text
-            ):
+            if idx > 0 and lines[idx - 1]["speaker"] == speaker and lines[idx - 1]["text"] == text:
                 continue
             if any(line["speaker"] == "agent" and line["text"] == text for line in lines):
                 continue
@@ -329,14 +325,11 @@ class M2CallSession:
         if self.phase.callee_said_goodbye or self.phase.callee_refused:
             return None
         if not self.phase.callee_spoke_since_question:
-            return (
-                "end_call blocked: wait until the callee answers or says goodbye."
-            )
+            return "end_call blocked: wait until the callee answers or says goodbye."
         if self.phase.should_reask():
             self.phase.pending_reask = True
             self.phase.reask_used = True
             return (
-                "end_call blocked: the answer is unclear or missing; "
-                "ask once more before ending."
+                "end_call blocked: the answer is unclear or missing; ask once more before ending."
             )
         return None

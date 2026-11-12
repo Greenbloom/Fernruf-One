@@ -5,49 +5,49 @@ from dataclasses import dataclass
 from typing import Any
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.frames.frames import FunctionCallResultProperties
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
     LLMUserAggregatorParams,
 )
-from pipecat.frames.frames import FunctionCallResultProperties
 from pipecat.services.llm_service import FunctionCallParams
 from pipecat_asterisk import AsteriskWebsocketTransport
 
 from fernruf.call_settings.resolver import resolve_llm_endpoint_for_call
-from fernruf.mood import MoodTurn
-from fernruf.voice.processors.mood_turn import MoodTurnProcessor
+from fernruf.language import phrase as call_phrase
 from fernruf.llm.extra import LlmReasoningMode
 from fernruf.llm.service_factory import create_fernruf_llm_service
+from fernruf.mood import MoodTurn
 from fernruf.settings import Settings
+from fernruf.stt.whisper import log_live_stt_kwargs, whisper_language_code
+from fernruf.voice.call_phase import farewell_in_text
 from fernruf.voice.call_session import M2CallSession, coerce_tool_str
 from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.latency import LatencyLog
+from fernruf.voice.must_say import brief_requirements, goal_needs_answer
+from fernruf.voice.processors.call_hangup import CallHangup
 from fernruf.voice.processors.coalesce_user_turns import (
     CoalesceUserTurnFlushProcessor,
     CoalesceUserTurnGateProcessor,
 )
-from fernruf.voice.processors.context_session_sync import ContextSessionSyncProcessor
-from fernruf.voice.processors.call_hangup import CallHangup
-from fernruf.voice.processors.identity_guard import IdentityOutputGuardProcessor
-from fernruf.voice.processors.filler import LlmFillerProcessor
-from fernruf.voice.processors.filler_state import LlmFillerState
-from fernruf.voice.processors.llm_failure import LlmFailureProcessor
-from fernruf.voice.processors.merge_user_context import MergeConsecutiveUserContextProcessor
 from fernruf.voice.processors.consolidate_spoken_assistant import (
     ConsolidateSpokenAssistantProcessor,
 )
+from fernruf.voice.processors.context_session_sync import ContextSessionSyncProcessor
 from fernruf.voice.processors.dedupe_tool_calls import DedupeToolCallFramesProcessor
+from fernruf.voice.processors.filler import LlmFillerProcessor
+from fernruf.voice.processors.filler_state import LlmFillerState
+from fernruf.voice.processors.identity_guard import IdentityOutputGuardProcessor
+from fernruf.voice.processors.llm_failure import LlmFailureProcessor
+from fernruf.voice.processors.merge_user_context import MergeConsecutiveUserContextProcessor
+from fernruf.voice.processors.metrics import ConversationMetricsProcessor
+from fernruf.voice.processors.mood_turn import MoodTurnProcessor
+from fernruf.voice.processors.opener import DisclosureOpenerProcessor
 from fernruf.voice.processors.spoken_assistant_context import SpokenAssistantContextProcessor
 from fernruf.voice.processors.tool_text_guard import ToolTextGuardProcessor
-from fernruf.voice.processors.metrics import ConversationMetricsProcessor
-from fernruf.voice.processors.opener import DisclosureOpenerProcessor
 from fernruf.voice.processors.verify_flow import VerifyFlowProcessor, VerifyFlowState
-from fernruf.language import phrase as call_phrase
-from fernruf.stt.whisper import log_live_stt_kwargs, whisper_language_code
-from fernruf.voice.call_phase import farewell_in_text
-from fernruf.voice.must_say import brief_requirements, goal_needs_answer
 from fernruf.voice.prompt import build_system_prompt
 from fernruf.voice.services.faster_whisper_stt import FasterWhisperSTTService
 from fernruf.voice.services.fish_rest_tts import FishRestTTSService
@@ -184,9 +184,7 @@ def build_m2_pipeline(
         whisper_language_code(settings),
     )
     log_live_stt_kwargs(settings)
-    ep, resolution = resolve_llm_endpoint_for_call(
-        settings, call_model_override=llm_model_override
-    )
+    ep, resolution = resolve_llm_endpoint_for_call(settings, call_model_override=llm_model_override)
     LOG.info(
         "M2 pipeline call=%s llm model=%s provider=%s source=%s verify=%s",
         call_id,
@@ -196,8 +194,8 @@ def build_m2_pipeline(
         verify,
     )
 
-    flow_state = verify_state if verify_state is not None else (
-        VerifyFlowState() if verify else None
+    flow_state = (
+        verify_state if verify_state is not None else (VerifyFlowState() if verify else None)
     )
 
     stt = FasterWhisperSTTService(
@@ -250,9 +248,7 @@ def build_m2_pipeline(
     )
     from fernruf.disclosure import spoken_ai_disclosure
 
-    disclosure_text = (settings.disclosure_prefix or "").strip() or spoken_ai_disclosure(
-        settings
-    )
+    disclosure_text = (settings.disclosure_prefix or "").strip() or spoken_ai_disclosure(settings)
     opener = DisclosureOpenerProcessor(
         disclosure=disclosure_text,
         privacy_line=settings.spoken_privacy_line,

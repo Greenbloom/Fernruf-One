@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from collections.abc import AsyncIterator, Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -127,9 +127,7 @@ class StreamingChatClient:
             if delta.tool_calls:
                 for tc in delta.tool_calls:
                     idx = tc.index
-                    entry = tool_acc.setdefault(
-                        idx, {"id": tc.id, "name": "", "arguments": ""}
-                    )
+                    entry = tool_acc.setdefault(idx, {"id": tc.id, "name": "", "arguments": ""})
                     if tc.id:
                         entry["id"] = tc.id
                     if tc.function and tc.function.name:

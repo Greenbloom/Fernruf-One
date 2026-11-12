@@ -3,14 +3,13 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock
 
+from pipecat.frames.frames import BotStoppedSpeakingFrame, TextType, TTSStartedFrame, TTSTextFrame
+from pipecat.processors.frame_processor import FrameDirection
+
 from fernruf.settings import Settings
 from fernruf.voice.call_session import M2CallSession
 from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.m2_pipeline import _llm_tools
-from pipecat.frames.frames import BotStoppedSpeakingFrame, TextType, TTSStartedFrame, TTSTextFrame
-
-from pipecat.processors.frame_processor import FrameDirection
-
 from fernruf.voice.processors.call_hangup import CallHangup
 
 

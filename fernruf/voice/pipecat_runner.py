@@ -9,8 +9,8 @@ from pathlib import Path
 
 from fastapi import WebSocket
 from pipecat.frames.frames import EndFrame, InterruptionFrame
-from pipecat.processors.frame_processor import FrameDirection
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
+from pipecat.processors.frame_processor import FrameDirection
 from pipecat.workers.runner import WorkerRunner
 
 from fernruf.llm.extra import LlmReasoningMode
@@ -22,8 +22,8 @@ from fernruf.voice.hooks import M2CallHooks
 from fernruf.voice.latency import LatencyLog
 from fernruf.voice.m2_pipeline import build_m2_pipeline
 from fernruf.voice.pipecat_log_guard import PipecatLogGuard
-from fernruf.voice.transport_teardown import cancel_asterisk_output_tasks_async
 from fernruf.voice.processors.verify_flow import VerifyFlowState
+from fernruf.voice.transport_teardown import cancel_asterisk_output_tasks_async
 from fernruf.voice.verify_orchestration import run_verify_orchestration
 
 LOG = logging.getLogger("fernruf.voice.pipecat")
@@ -79,9 +79,7 @@ async def run_pipecat_on_websocket(
     if verify and built.verify_state and built.verify_processor:
 
         async def push_interrupt() -> None:
-            await built.verify_processor.push_frame(
-                InterruptionFrame(), FrameDirection.DOWNSTREAM
-            )
+            await built.verify_processor.push_frame(InterruptionFrame(), FrameDirection.DOWNSTREAM)
 
         async def push_end() -> None:
             await built.verify_processor.push_frame(EndFrame(), FrameDirection.DOWNSTREAM)

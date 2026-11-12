@@ -84,7 +84,6 @@ async def preflight_llm(
     ep, _resolution = resolve_llm_endpoint_for_call(settings, call_model_override=model)
     tool_list = tools or []
     configured = normalize_llm_reasoning(settings.llm_reasoning)
-    reasoning_override: LlmReasoningMode | None = None
     slow_threshold_s = settings.llm_preflight_slow_first_token_s
     fallback = (settings.llm_fallback_model or "").strip()
 
@@ -139,7 +138,6 @@ async def preflight_llm(
                 detail[:200],
             )
             try:
-                reasoning_override = "low"
                 return await _run_and_maybe_fallback(ep.model, "low")
             except TIMEOUT_EXCEPTIONS as retry_exc:
                 msg = f"LLM preflight timed out for model {ep.model} (reasoning low retry)"

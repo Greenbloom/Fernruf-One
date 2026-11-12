@@ -6,12 +6,12 @@ import asyncio
 
 import pytest
 from click.testing import CliRunner
+from tests.m3_support import service_settings
 
 from fernruf.cli import main
 from fernruf.principal import PRINCIPAL_ENV_PLACEHOLDER, PRINCIPAL_PLACEHOLDER_MESSAGE
 from fernruf.service.line_health import StaticLineHealth
 from fernruf.service.manager import CallError, CallManager
-from tests.m3_support import service_settings
 
 
 def test_placeholder_constant_is_documented_example() -> None:
@@ -29,9 +29,7 @@ def test_manager_rejects_placeholder_for_live_dial(tmp_path) -> None:
     manager = CallManager(settings, line_health=StaticLineHealth(True))
 
     with pytest.raises(CallError) as exc:
-        asyncio.run(
-            manager.place(to="+493023125123", task={"goal": "Test"}, wait=False)
-        )
+        asyncio.run(manager.place(to="+493023125123", task={"goal": "Test"}, wait=False))
     assert exc.value.code == "principal_placeholder"
     assert "FERNRUF_PRINCIPAL_NAME" in exc.value.message
     assert PRINCIPAL_PLACEHOLDER_MESSAGE in exc.value.message
@@ -47,9 +45,7 @@ def test_manager_rejects_placeholder_when_only_llm_mock(tmp_path) -> None:
     )
     manager = CallManager(settings, line_health=StaticLineHealth(True))
     with pytest.raises(CallError) as exc:
-        asyncio.run(
-            manager.place(to="+493023125123", task={"goal": "Test"}, wait=False)
-        )
+        asyncio.run(manager.place(to="+493023125123", task={"goal": "Test"}, wait=False))
     assert exc.value.code == "principal_placeholder"
 
 
@@ -70,7 +66,9 @@ def test_manager_allows_placeholder_in_mock_mode(tmp_path) -> None:
     assert queued["status"] == "queued"
 
 
-def test_m2_test_call_simulate_allows_placeholder(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_m2_test_call_simulate_allows_placeholder(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("FERNRUF_ENV_FILE", "none")
     monkeypatch.setenv("FERNRUF_PRINCIPAL_NAME", PRINCIPAL_ENV_PLACEHOLDER)
     monkeypatch.setenv("FERNRUF_ALLOWLIST", "+493023125123")

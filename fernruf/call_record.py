@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +50,7 @@ def remember_call(
     try:
         row = conn.execute("SELECT json FROM calls WHERE call_id = ?", (call_id,)).fetchone()
         current: dict[str, Any] = json.loads(row["json"]) if row else {}
-        now = datetime.now(tz=timezone.utc).isoformat()
+        now = datetime.now(tz=UTC).isoformat()
         current.setdefault("call_id", call_id)
         current.setdefault("started_at", now)
         current["call_language"] = (call_language or "de").strip().lower() or "de"
@@ -62,13 +62,17 @@ def remember_call(
             # The simulate/live path stamps "simulated" while a service call is
             # already in a real lifecycle state. Keep the lifecycle status.
             existing = current.get("status")
-            if not (status == "simulated" and existing in {
-                "queued",
-                "dialing",
-                "ringing",
-                "answered",
-                "finalized",
-            }):
+            if not (
+                status == "simulated"
+                and existing
+                in {
+                    "queued",
+                    "dialing",
+                    "ringing",
+                    "answered",
+                    "finalized",
+                }
+            ):
                 current["status"] = status
         payload = json.dumps(current, ensure_ascii=False)
         conn.execute(

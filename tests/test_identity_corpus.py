@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
+from fernruf.disclosure import spoken_ai_disclosure
 from fernruf.principal import format_phrase_templates
 from fernruf.settings import Settings
 from fernruf.tts.audio import M1_TEST_SENTENCE, _m1_spoken_text
-from fernruf.disclosure import spoken_ai_disclosure
 from fernruf.voice.identity import scrub_identity_text
 
 _CORPUS = Path(__file__).with_name("identity_corpus.tsv")

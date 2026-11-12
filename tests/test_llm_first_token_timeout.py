@@ -8,7 +8,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 from unittest.mock import AsyncMock
 
-import pytest
 from pipecat.processors.aggregators.llm_context import LLMContext
 
 from fernruf.llm.service_factory import create_fernruf_llm_service
@@ -27,7 +26,6 @@ class _SlowFirstTokenHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         _SlowFirstTokenHandler.post_count += 1
-        n = _SlowFirstTokenHandler.post_count
         length = int(self.headers.get("Content-Length", "0"))
         body = json.loads(self.rfile.read(length))
         assert body.get("stream") is True
@@ -55,7 +53,10 @@ class _SlowFirstTokenHandler(BaseHTTPRequestHandler):
                                     "index": 0,
                                     "id": "t1",
                                     "type": "function",
-                                    "function": {"name": "send_dtmf", "arguments": '{"digits":"1"}'},
+                                    "function": {
+                                        "name": "send_dtmf",
+                                        "arguments": '{"digits":"1"}',
+                                    },
                                 }
                             ]
                         },

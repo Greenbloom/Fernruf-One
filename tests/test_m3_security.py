@@ -8,30 +8,28 @@ import logging
 import httpx
 import pytest
 from click.testing import CliRunner
+from tests.m3_support import fresh_token, service_settings
 
 from fernruf.cli import main
 from fernruf.service.mcp_app import create_app
 from fernruf.service.security import (
     AUTH_LOG_LINE,
+    WG_BIND_HOST,
     AuthLockout,
     BindError,
     McpTokenError,
-    WG_BIND_HOST,
     bearer_matches,
     generate_mcp_token,
     validate_bind_host,
     validate_mcp_token,
 )
 from fernruf.settings import Settings
-from tests.m3_support import fresh_token, service_settings
 
 
 def test_token_must_be_32_bytes_and_not_a_placeholder() -> None:
     generated = generate_mcp_token()
     assert validate_mcp_token(generated) == generated
-    embedded_todo = (
-        "0123456789abcdef" * 2 + "todo" + "fedcba9876543210" * 2
-    )
+    embedded_todo = "0123456789abcdef" * 2 + "todo" + "fedcba9876543210" * 2
     assert validate_mcp_token(embedded_todo) == embedded_todo
     with pytest.raises(McpTokenError):
         validate_mcp_token("")
@@ -146,7 +144,9 @@ def test_healthz_is_only_ok_and_other_routes_are_closed(tmp_path, caplog) -> Non
                 missed = await client.get(path)
                 assert missed.status_code == 404
                 assert missed.json() == {"error": "not_found"}
-            bare = await client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+            bare = await client.post(
+                "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize"}
+            )
             assert bare.status_code == 401
             assert bare.json() == {"error": "unauthorized"}
             assert "www-authenticate" in {k.lower() for k in bare.headers}

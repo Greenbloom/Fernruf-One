@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import re
 
-_ASK_GOAL = re.compile(
-    r"(?i)\b(ask|asking|inquire|find out|frag(?:e|en|t)?|erkundig\w*)\b"
-)
+_ASK_GOAL = re.compile(r"(?i)\b(ask|asking|inquire|find out|frag(?:e|en|t)?|erkundig\w*)\b")
 
 
 def goal_needs_answer(goal: str) -> bool:

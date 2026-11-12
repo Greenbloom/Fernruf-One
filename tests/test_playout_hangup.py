@@ -525,9 +525,7 @@ def test_fast_tts_burst_plays_the_whole_final_turn(
             note_queued=out.note_audio_queued,
         )
         await proc.process_frame(BotStoppedSpeakingFrame(), FrameDirection.DOWNSTREAM)
-        await proc.process_frame(
-            TTSStartedFrame(context_id="sentence"), FrameDirection.DOWNSTREAM
-        )
+        await proc.process_frame(TTSStartedFrame(context_id="sentence"), FrameDirection.DOWNSTREAM)
         await proc.process_frame(
             TTSTextFrame(
                 text="Ich werde Alex Example informieren.",
@@ -536,9 +534,7 @@ def test_fast_tts_burst_plays_the_whole_final_turn(
             ),
             FrameDirection.DOWNSTREAM,
         )
-        await proc.process_frame(
-            TTSStoppedFrame(context_id="sentence"), FrameDirection.DOWNSTREAM
-        )
+        await proc.process_frame(TTSStoppedFrame(context_id="sentence"), FrameDirection.DOWNSTREAM)
         assert out._sealed is False
         assert proc._goodbye_tts_done is False
 
@@ -602,10 +598,14 @@ def test_fast_tts_burst_plays_the_whole_final_turn(
 
     caplog.set_level(logging.INFO)
     asyncio.run(run())
-    assert any("Final-turn audio" in r.message and "4000ms written" in r.message for r in caplog.records)
+    assert any(
+        "Final-turn audio" in r.message and "4000ms written" in r.message for r in caplog.records
+    )
     assert any("playout clock end" in r.message for r in caplog.records)
     assert any("QUEUE_DRAINED ignored" in r.message for r in caplog.records)
-    hangup_logs = [r.message for r in caplog.records if r.message.startswith("end_call: hanging up")]
+    hangup_logs = [
+        r.message for r in caplog.records if r.message.startswith("end_call: hanging up")
+    ]
     assert len(hangup_logs) == 1
     assert "final-turn audio" in hangup_logs[0]
     assert "playout clock end" in hangup_logs[0]

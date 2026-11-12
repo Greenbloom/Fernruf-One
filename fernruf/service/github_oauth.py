@@ -30,13 +30,17 @@ GITHUB_SCOPE = "read:user"
 
 
 class GitHubLogin:
-    def __init__(self, settings: Settings, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
+    def __init__(
+        self, settings: Settings, *, transport: httpx.AsyncBaseTransport | None = None
+    ) -> None:
         self.settings = settings
         self._transport = transport
 
     @property
     def configured(self) -> bool:
-        return bool(self.settings.github_client_id.strip() and self.settings.github_client_secret.strip())
+        return bool(
+            self.settings.github_client_id.strip() and self.settings.github_client_secret.strip()
+        )
 
     def authorize_url(self, state: str) -> str:
         query = urlencode(
@@ -85,7 +89,7 @@ class GitHubLogin:
 
 def _page(title: str, body: str) -> HTMLResponse:
     document = (
-        "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
+        '<!DOCTYPE html><html><head><meta charset="utf-8">'
         f"<title>{html.escape(title)}</title></head><body>{body}</body></html>"
     )
     return HTMLResponse(document)
@@ -100,9 +104,9 @@ def _consent(client_name: str, txn_id: str) -> HTMLResponse:
     txn = html.escape(txn_id)
     body = (
         f"<p>Allow <strong>{name}</strong> to place calls with fernruf?</p>"
-        "<form method=\"post\" action=\"/oauth/github/callback\">"
-        f"<input type=\"hidden\" name=\"txn\" value=\"{txn}\">"
-        "<button type=\"submit\" name=\"consent\" value=\"yes\">Allow</button>"
+        '<form method="post" action="/oauth/github/callback">'
+        f'<input type="hidden" name="txn" value="{txn}">'
+        '<button type="submit" name="consent" value="yes">Allow</button>'
         "</form>"
     )
     return _page("fernruf", body)
@@ -187,7 +191,8 @@ def _rewrite_issuer_urls(payload: object) -> object:
                 rewritten[key] = _issuer_without_empty_path(value)
             elif key == "authorization_servers" and isinstance(value, list):
                 rewritten[key] = [
-                    _issuer_without_empty_path(item) if isinstance(item, str) else item for item in value
+                    _issuer_without_empty_path(item) if isinstance(item, str) else item
+                    for item in value
                 ]
             else:
                 rewritten[key] = value
@@ -231,7 +236,9 @@ class _IssuerJSON:
                 if key.lower() != b"content-length"
             ]
             headers.append((b"content-length", str(len(encoded)).encode()))
-            await send({**(started or {"type": "http.response.start", "status": 200}), "headers": headers})
+            await send(
+                {**(started or {"type": "http.response.start", "status": 200}), "headers": headers}
+            )
             await send({"type": "http.response.body", "body": encoded})
 
         await self.app(scope, receive, capture)
@@ -268,7 +275,9 @@ def oauth_routes(
             # Route.app is fixed at construction. Replacing endpoint alone does not
             # change the ASGI app that serves the request.
             route.app = _IssuerJSON(route.app)
-    protected = next(route for route in routes if route.path.startswith("/.well-known/oauth-protected-resource"))
+    protected = next(
+        route for route in routes if route.path.startswith("/.well-known/oauth-protected-resource")
+    )
     routes.append(
         Route(
             "/.well-known/oauth-protected-resource",

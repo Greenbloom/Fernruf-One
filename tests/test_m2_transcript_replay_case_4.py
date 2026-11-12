@@ -11,24 +11,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pipecat.frames.frames import (
-    BotStoppedSpeakingFrame,
-    EndFrame,
     InputTransportMessageFrame,
     LLMMessagesAppendFrame,
     StartFrame,
-    TTSStoppedFrame,
 )
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.workers.runner import WorkerRunner
 from pipecat_asterisk import AsteriskWebsocketTransport
-
-from fernruf.settings import Settings
-from fernruf.tts.audio import _fixture_pcm
-from fernruf.tts.rest_stream import pcm_to_wav
-from fernruf.voice.call_session import M2CallSession
-from fernruf.voice.hooks import M2CallHooks
-from fernruf.voice.m2_pipeline import build_m2_pipeline
 from tests.m2_pipeline_harness import (
     cancel_asterisk_output_tasks,
     prime_transport_flow,
@@ -37,9 +27,15 @@ from tests.m2_pipeline_harness import (
     wire_transport_bot_stopped_to_guard,
 )
 
+from fernruf.settings import Settings
+from fernruf.tts.audio import _fixture_pcm
+from fernruf.tts.rest_stream import pcm_to_wav
+from fernruf.voice.call_session import M2CallSession
+from fernruf.voice.hooks import M2CallHooks
+from fernruf.voice.m2_pipeline import build_m2_pipeline
+
 OPENING = (
-    "Hallo! Schön, dass du dran bist. Dies ist ein kurzer Testanruf – "
-    "kannst du mich gut verstehen?"
+    "Hallo! Schön, dass du dran bist. Dies ist ein kurzer Testanruf – kannst du mich gut verstehen?"
 )
 
 
@@ -98,11 +94,7 @@ class _Replay0107LLMHandler(BaseHTTPRequestHandler):
             },
             {
                 "choices": [
-                    {
-                        "delta": {
-                            "tool_calls": [{"index": 0, "function": {"arguments": args}}]
-                        }
-                    }
+                    {"delta": {"tool_calls": [{"index": 0, "function": {"arguments": args}}]}}
                 ]
             },
             {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
@@ -119,7 +111,9 @@ def _start_server() -> tuple[HTTPServer, str]:
     return server, f"http://127.0.0.1:{server.server_address[1]}/v1"
 
 
-@pytest.mark.skip(reason="Integration hang under full hangup guard; covered by 1141 and consolidate tests")
+@pytest.mark.skip(
+    reason="Integration hang under full hangup guard; covered by 1141 and consolidate tests"
+)
 def test_replay_0107_full_spoken_context_and_real_hangup(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
@@ -145,7 +139,6 @@ def test_replay_0107_full_spoken_context_and_real_hangup(
     session = M2CallSession()
     hangup = AsyncMock()
     shutdown = AsyncMock()
-    end_frames: list[EndFrame] = []
     ws = MagicMock()
     ws.accept = AsyncMock()
     ws.close = AsyncMock()
@@ -204,9 +197,7 @@ def test_replay_0107_full_spoken_context_and_real_hangup(
         )
         await asyncio.sleep(2.0)
         assistants = [
-            m.get("content", "")
-            for m in built.llm_context.messages
-            if m.get("role") == "assistant"
+            m.get("content", "") for m in built.llm_context.messages if m.get("role") == "assistant"
         ]
         assert assistants, built.llm_context.messages
         joined = " ".join(assistants)
@@ -226,7 +217,7 @@ def test_replay_0107_full_spoken_context_and_real_hangup(
         await worker.cancel()
         try:
             await asyncio.wait_for(run_task, timeout=8.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             run_task.cancel()
 
     try:

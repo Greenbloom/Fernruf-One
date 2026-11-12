@@ -24,7 +24,9 @@ def _block(tmp_path: Path) -> Path:
 
 def test_unwritable_audit_log_names_the_mkdir_fix(tmp_path: Path) -> None:
     path = _block(tmp_path) / "audit.jsonl"
-    with pytest.raises(PermissionError, match="mkdir -p data/asterisk-sounds data/asterisk-generated"):
+    with pytest.raises(
+        PermissionError, match="mkdir -p data/asterisk-sounds data/asterisk-generated"
+    ):
         append_audit_event(path, {"event": "m2_test_call_started"})
     with pytest.raises(PermissionError, match=DATA_DIR_FIX):
         append_call_audit(

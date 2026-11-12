@@ -73,7 +73,7 @@ def test_visible_window_strings_are_marked_for_translation() -> None:
 
 def test_german_catalog_covers_every_marked_string() -> None:
     catalog = _catalog()
-    qml = {( "MonitorPlaceholder", source) for source in _sources(_QSTR, QML)}
+    qml = {("MonitorPlaceholder", source) for source in _sources(_QSTR, QML)}
     python = {("CallMonitor", source) for source in _sources(_PYSTR, APP)}
     marked = qml | python
     assert marked

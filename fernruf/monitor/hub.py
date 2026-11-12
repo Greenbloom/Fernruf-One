@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fernruf.monitor.pace import MONITOR_RATE, PlaybackPacer
@@ -72,7 +72,7 @@ class CallMonitor:
             lifecycle_message(
                 call_id=call_id,
                 state=nxt,
-                at=datetime.now(timezone.utc).isoformat(),
+                at=datetime.now(UTC).isoformat(),
                 to_masked=view.to_masked,
                 outcome=view.outcome,
                 summary=view.summary if nxt is CallLifecycle.FINALIZED else None,
@@ -175,7 +175,9 @@ class CallMonitor:
                 dropped += 1
         return dropped
 
-    def subscribe(self, *, listen: bool = False, audio_queue_size: int | None = None) -> Subscription:
+    def subscribe(
+        self, *, listen: bool = False, audio_queue_size: int | None = None
+    ) -> Subscription:
         size = self._audio_queue_size if audio_queue_size is None else max(1, audio_queue_size)
         sub = Subscription(
             events=asyncio.Queue(),

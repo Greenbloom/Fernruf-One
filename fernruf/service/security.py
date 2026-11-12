@@ -81,9 +81,7 @@ def token_byte_length(token: str) -> int:
 def validate_mcp_token(token: str | None) -> str:
     """Return the token or raise McpTokenError. Never echoes the token."""
     if token is None or token == "":
-        raise McpTokenError(
-            "FERNRUF_MCP_TOKEN is not set. Generate one with: fernruf gen-token"
-        )
+        raise McpTokenError("FERNRUF_MCP_TOKEN is not set. Generate one with: fernruf gen-token")
     if token != token.strip() or any(ch.isspace() for ch in token):
         raise McpTokenError("FERNRUF_MCP_TOKEN must be a single token with no whitespace")
     lowered = token.casefold().strip()

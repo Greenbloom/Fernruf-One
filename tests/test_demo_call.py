@@ -10,10 +10,10 @@ import pytest
 from click.testing import CliRunner
 
 from fernruf.cli import main
+from fernruf.demo.callee import settings_for_callee
 from fernruf.demo.captions import FERNRUF_CAPTION, PRAXIS_CAPTION, transcript_to_srt
 from fernruf.demo.dialplan import demo_extensions_conf, monitor_id_from_endpoint
 from fernruf.demo.guard import DemoTrunkError, assert_local_demo_endpoint
-from fernruf.demo.callee import settings_for_callee
 from fernruf.demo.persona import (
     DEFAULT_DEMO_PERSONA,
     DEFAULT_DEMO_TASK,
@@ -22,10 +22,6 @@ from fernruf.demo.persona import (
     apply_demo_caller_voice,
     require_demo_voices,
 )
-from fernruf.language import prepare_call_settings
-from fernruf.settings import Settings
-from fernruf.demo.plan import plan_demo_call
-from fernruf.demo.summary import build_demo_summary
 from fernruf.demo.phone_screen import (
     AVATAR,
     BG,
@@ -42,6 +38,8 @@ from fernruf.demo.phone_screen import (
     format_timer,
     render_phone_frame,
 )
+from fernruf.demo.plan import plan_demo_call
+from fernruf.demo.summary import build_demo_summary
 from fernruf.demo.video import (
     DEMO_VIDEO_DISCLAIMER,
     demo_video_ffmpeg_args,
@@ -50,6 +48,8 @@ from fernruf.demo.video import (
     trim_wav,
     wav_duration_seconds,
 )
+from fernruf.language import prepare_call_settings
+from fernruf.settings import Settings
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -123,8 +123,7 @@ def test_srt_labels_and_timestamps_follow_the_recording() -> None:
         duration_ms=8000,
     )
     assert srt.startswith(
-        "1\n00:00:00,000 --> 00:00:03,120\n"
-        f"{FERNRUF_CAPTION}: Hier ist ein KI-Assistent.\n"
+        f"1\n00:00:00,000 --> 00:00:03,120\n{FERNRUF_CAPTION}: Hier ist ein KI-Assistent.\n"
     )
     assert f"{PRAXIS_CAPTION}: Praxis Beispiel, guten Tag." in srt
     assert "00:00:03,200 --> 00:00:08,000" in srt
@@ -181,7 +180,9 @@ def test_demo_voices_are_required_and_not_the_operator_voice() -> None:
         require_demo_voices(missing_callee)
 
     both_missing = _demo_settings(demo_caller_voice_id="", demo_callee_voice_id="")
-    with pytest.raises(DemoVoiceError, match="FERNRUF_DEMO_CALLER_VOICE_ID and FERNRUF_DEMO_CALLEE_VOICE_ID"):
+    with pytest.raises(
+        DemoVoiceError, match="FERNRUF_DEMO_CALLER_VOICE_ID and FERNRUF_DEMO_CALLEE_VOICE_ID"
+    ):
         require_demo_voices(both_missing)
 
     same_caller = _demo_settings(demo_caller_voice_id="operator-voice")
@@ -438,7 +439,8 @@ def test_short_mix_is_not_published(tmp_path: Path) -> None:
 
 
 def test_unclosed_wav_header_is_repaired_from_the_payload(tmp_path: Path) -> None:
-    from fernruf.demo.recording import publish_recording, wav_duration_seconds as recorded
+    from fernruf.demo.recording import publish_recording
+    from fernruf.demo.recording import wav_duration_seconds as recorded
 
     plan = _recording_plan(tmp_path)
     _silent_wav(plan.bridge_recording_host_path, 18.0)

@@ -4,9 +4,7 @@ from fernruf.tts.fish_clause import split_first_clause
 
 
 def test_en_dash_does_not_split_das_ist_sentence() -> None:
-    text = (
-        "Das ist ein kurzer Testanruf – ist die Verbindung bei Ihnen auch gut verständlich?"
-    )
+    text = "Das ist ein kurzer Testanruf – ist die Verbindung bei Ihnen auch gut verständlich?"
     first, rest = split_first_clause(text)
     assert first is None
     assert rest == text

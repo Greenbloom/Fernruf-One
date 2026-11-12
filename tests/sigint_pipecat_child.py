@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import signal
-import sys
 from unittest.mock import AsyncMock, MagicMock
 
 from fernruf.settings import Settings

@@ -159,6 +159,8 @@ def format_report(stats: RtpStats) -> str:
         lines.append("RFC2833_DIGITS=")
     pcma_ok = stats.pcma_count >= 50
     lines.append(f"PCMA_PAYLOADS={'ok' if pcma_ok else 'fail'}")
-    dtmf_ok = any(ev in (1, 2, 3, 4) for ev in stats.dtmf_events) or stats.telephone_event_count >= 1
+    dtmf_ok = (
+        any(ev in (1, 2, 3, 4) for ev in stats.dtmf_events) or stats.telephone_event_count >= 1
+    )
     lines.append(f"RFC2833_DTMF={'ok' if dtmf_ok else 'fail'}")
     return "\n".join(lines)

@@ -155,10 +155,7 @@ def prepare_stt_for_call(settings: Settings) -> str:
     except Exception as exc:
         errors.append(f"cpu: {exc}")
         _model = None
-        raise SttPreloadError(
-            "STT preload failed on all devices. "
-            + "; ".join(errors)
-        ) from exc
+        raise SttPreloadError("STT preload failed on all devices. " + "; ".join(errors)) from exc
 
 
 def preload_whisper_model(settings: Settings) -> None:

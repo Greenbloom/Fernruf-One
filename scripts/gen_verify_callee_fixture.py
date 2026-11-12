@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Generate loopback callee PCMA fixtures for SIPp (raw alaw + optional RTP pcap)."""
+
 from __future__ import annotations
 
 import struct
 from pathlib import Path
 
-from fernruf.tts.audio import _pcm_to_alaw, _fixture_pcm
+from fernruf.tts.audio import _fixture_pcm, _pcm_to_alaw
 from fernruf.tts.rest_stream import pcm_to_wav
 
 ROOT = Path(__file__).resolve().parents[1]

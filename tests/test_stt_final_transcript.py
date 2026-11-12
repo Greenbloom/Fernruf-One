@@ -27,6 +27,7 @@ def test_every_stt_final_is_stored_in_order() -> None:
         del frame, direction
 
     processor.push_frame = capture  # type: ignore[method-assign]
+
     async def say(text: str) -> None:
         await processor.process_frame(
             TranscriptionFrame(text=text, user_id="u", timestamp="t"),

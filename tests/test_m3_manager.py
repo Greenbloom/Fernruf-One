@@ -6,13 +6,14 @@ import asyncio
 import json
 from datetime import datetime
 
+from tests.m3_support import service_settings
+
 from fernruf.quiet_hours import BERLIN
 from fernruf.service.line_health import StaticLineHealth
 from fernruf.service.manager import CallError, CallManager
 from fernruf.service.records import save_webhook, upsert_call
-from fernruf.service.summary import summarize_completed_call
 from fernruf.service.runner import CallJob, CallRunResult
-from tests.m3_support import service_settings
+from fernruf.service.summary import summarize_completed_call
 
 NOON = datetime(2026, 6, 15, 12, 0, tzinfo=BERLIN)
 TASK = {"goal": "Frag, ob Dienstag passt.", "questions": ["Passt Dienstag?"]}
@@ -175,10 +176,7 @@ def test_configured_model_is_used_when_place_omits_one(tmp_path) -> None:
 
 
 VROOM_TASK = {
-    "goal": (
-        "Tell Alex that the ExampleApp test release v1.0.0 is ready, "
-        "then end the call."
-    ),
+    "goal": ("Tell Alex that the ExampleApp test release v1.0.0 is ready, then end the call."),
     "context": (
         "Alex asked to be called when the release was ready. "
         "The download link is already in his their team chat."
@@ -283,9 +281,7 @@ def test_place_keeps_language_and_detection_text_on_the_job(tmp_path) -> None:
 
     manager, settings = _manager(tmp_path, runner=runner)
     update_call_settings({"default_language": "de"}, settings=settings)
-    view = asyncio.run(
-        manager.place(to="+493023125123", task=VROOM_TASK, language="EN", wait=True)
-    )
+    view = asyncio.run(manager.place(to="+493023125123", task=VROOM_TASK, language="EN", wait=True))
     assert seen["language"] == "en"
     assert seen["hits"] == 0
     assert seen["spoken"] == "en"

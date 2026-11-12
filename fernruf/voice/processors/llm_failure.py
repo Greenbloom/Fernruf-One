@@ -50,8 +50,12 @@ class LlmFailureProcessor(FrameProcessor):
         super().__init__(**kwargs)
         self._hooks = hooks
         self._session = session
-        self._apology = phrase(settings, "llm_failure_apology") if settings is not None else _APOLOGY
-        self._goodbye = phrase(settings, "llm_failure_goodbye") if settings is not None else _GOODBYE
+        self._apology = (
+            phrase(settings, "llm_failure_apology") if settings is not None else _APOLOGY
+        )
+        self._goodbye = (
+            phrase(settings, "llm_failure_goodbye") if settings is not None else _GOODBYE
+        )
         self._consecutive_errors = 0
         self._ending = False
 

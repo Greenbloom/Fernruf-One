@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from pipecat.frames.frames import (
     Frame,
@@ -47,10 +47,7 @@ class MockLLMService(FrameProcessor):
 
         self._turn += 1
         if self._turn == 1:
-            text = (
-                "Danke für Ihre Zeit. Ich habe alles notiert. "
-                "Gibt es noch etwas Wichtiges?"
-            )
+            text = "Danke für Ihre Zeit. Ich habe alles notiert. Gibt es noch etwas Wichtiges?"
         else:
             text = "Vielen Dank, auf Wiederhören."
 

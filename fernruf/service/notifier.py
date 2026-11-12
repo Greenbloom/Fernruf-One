@@ -82,7 +82,6 @@ def _git_fact(args: list[str]) -> str:
 
 
 def auth_mode_label(*, github: bool, static_token: bool) -> str:
-    oauth = "oauth/github" if github else "oauth/github:off"
     static = "static:on" if static_token else "static:off"
     if github:
         return f"oauth/github+{static}"
@@ -101,7 +100,9 @@ class Notifier:
         message["To"] = settings.notify_to
         message["Subject"] = notice.subject
         message.set_content(notice.body)
-        context = self._ssl_context if self._ssl_context is not None else ssl.create_default_context()
+        context = (
+            self._ssl_context if self._ssl_context is not None else ssl.create_default_context()
+        )
         tls_name = (settings.notify_smtp_tls_name or "").strip() or (
             settings.notify_smtp_host or ""
         ).strip()
@@ -208,11 +209,21 @@ def announce_service_started(
     try:
         notice = build_service_started(settings, github=github, static_token=static_token)
     except Exception:
-        LOG.warning("fernruf started bind=%s:%s sha=unknown auth=unknown", settings.bind_host, settings.bind_port)
+        LOG.warning(
+            "fernruf started bind=%s:%s sha=unknown auth=unknown",
+            settings.bind_host,
+            settings.bind_port,
+        )
         return
     mode = auth_mode_label(github=github, static_token=static_token)
     sha = notice.subject.removeprefix("fernruf started on the host (").removesuffix(")")
-    LOG.info("fernruf started bind=%s:%s sha=%s auth=%s", settings.bind_host, settings.bind_port, sha, mode)
+    LOG.info(
+        "fernruf started bind=%s:%s sha=%s auth=%s",
+        settings.bind_host,
+        settings.bind_port,
+        sha,
+        mode,
+    )
     if not settings.notify_enabled:
         return
     try:

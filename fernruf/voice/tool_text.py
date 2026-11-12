@@ -107,7 +107,7 @@ def _maybe_tool_json_prefix(fragment: str) -> bool:
     body = fragment[1:].lstrip() if fragment.startswith("{") else fragment.lstrip()
     if not body:
         return True
-    if body[0] not in "\"{":
+    if body[0] not in '"{':
         return False
     low = body.lower()
     probes = (

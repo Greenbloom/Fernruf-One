@@ -80,7 +80,9 @@ def test_international_allowed_when_enabled_and_listed() -> None:
     ["+499001234567", "+491370000000", "+491800000000", "+497000000000", "+491180000000"],
 )
 def test_blocked_prefixes(number: str) -> None:
-    decision = decide(number, limits=limits(allowlist=frozenset({number}), international_enabled=True))
+    decision = decide(
+        number, limits=limits(allowlist=frozenset({number}), international_enabled=True)
+    )
     assert decision.error_code == "blocked_prefix"
 
 

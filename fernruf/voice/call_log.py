@@ -38,9 +38,7 @@ class RedactingCallLogFormatter(logging.Formatter):
         if isinstance(original, str):
             record.msg = _redact_line(original)
         if record.args:
-            record.args = tuple(
-                _redact_line(a) if isinstance(a, str) else a for a in record.args
-            )
+            record.args = tuple(_redact_line(a) if isinstance(a, str) else a for a in record.args)
         line = super().format(record)
         record.msg = original
         return _redact_line(line)

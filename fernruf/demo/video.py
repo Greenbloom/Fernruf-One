@@ -9,7 +9,6 @@ import wave
 from pathlib import Path
 
 from fernruf.demo.captions import transcript_to_srt
-
 from fernruf.demo.phone_screen import (
     DEMO_CALL_LABEL,
     FPS,
@@ -112,9 +111,7 @@ def demo_video_ffmpeg_args(
 
 def render_demo_video(*, wav: Path, mp4: Path, turns: list[dict]) -> Path:
     if shutil.which("ffmpeg") is None:
-        raise FileNotFoundError(
-            "ffmpeg is required for --video (libx264 and aac)"
-        )
+        raise FileNotFoundError("ffmpeg is required for --video (libx264 and aac)")
     offset = notice_offset_ms(turns)
     with tempfile.TemporaryDirectory(prefix="fernruf-demo-") as tmp:
         work = Path(tmp)

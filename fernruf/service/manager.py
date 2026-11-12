@@ -19,6 +19,9 @@ from fernruf.call_settings.resolver import llm_model_missing_reason, resolve_cal
 from fernruf.call_settings.store import get_call_settings
 from fernruf.dial import normalize_e164
 from fernruf.language import normalize_language_code, task_detection_text
+from fernruf.monitor.hub import CallMonitor
+from fernruf.monitor.state import CallLifecycle
+from fernruf.principal import dial_blocked_placeholder_reason
 from fernruf.quiet_hours import BERLIN, parse_quiet_hours
 from fernruf.service.costs import estimate_cost
 from fernruf.service.line_health import LineHealth
@@ -35,12 +38,9 @@ from fernruf.service.records import (
     spend_snapshot,
     upsert_call,
 )
-from fernruf.service.summary import summarize_completed_call
-from fernruf.monitor.hub import CallMonitor
-from fernruf.monitor.state import CallLifecycle
 from fernruf.service.runner import CallJob, CallRunResult, run_m2_or_simulate
 from fernruf.service.settings_update import monthly_ceiling, per_call_ceiling
-from fernruf.principal import dial_blocked_placeholder_reason
+from fernruf.service.summary import summarize_completed_call
 from fernruf.settings import Settings, validate_operational_settings
 
 LOG = logging.getLogger("fernruf.manager")
@@ -57,7 +57,9 @@ class CallError(Exception):
         self.extra = extra or {}
 
 
-def format_task(task: dict, *, persona: str | None, language: str | None, dtmf_prefix: str | None) -> str:
+def format_task(
+    task: dict, *, persona: str | None, language: str | None, dtmf_prefix: str | None
+) -> str:
     goal = str(task.get("goal") or "").strip()
     lines = [f"Ziel: {goal}"]
     if task.get("context"):
@@ -366,7 +368,9 @@ class CallManager:
             job = CallJob(
                 call_id=call_id,
                 to_e164=e164,
-                task_text=format_task(task, persona=persona, language=language, dtmf_prefix=dtmf_prefix),
+                task_text=format_task(
+                    task, persona=persona, language=language, dtmf_prefix=dtmf_prefix
+                ),
                 max_minutes=requested,
                 model=model,
                 settings=self.settings,
@@ -400,7 +404,11 @@ class CallManager:
         return await self._wait(active, progress, wait_seconds, requested)
 
     def _store_rejection(self, to: str, task: dict, decision: ServiceDecision) -> None:
-        outcome = "line_unavailable" if decision.error_code == "line_unavailable" else "rejected_by_policy"
+        outcome = (
+            "line_unavailable"
+            if decision.error_code == "line_unavailable"
+            else "rejected_by_policy"
+        )
         now = self.now().isoformat()
         upsert_call(
             self.settings,
@@ -513,7 +521,9 @@ class CallManager:
         task: asyncio.Task[Any] = active["task"]
         while not task.done():
             try:
-                await asyncio.wait_for(asyncio.shield(active["done"].wait()), timeout=self.keepalive_s)
+                await asyncio.wait_for(
+                    asyncio.shield(active["done"].wait()), timeout=self.keepalive_s
+                )
             except TimeoutError:
                 elapsed += self.keepalive_s
                 await report(min(elapsed, limit), "in_call")
@@ -521,7 +531,9 @@ class CallManager:
                     break
                 continue
             break
-        await report(limit if task.done() else elapsed, "finalized" if task.done() else "wait_timeout")
+        await report(
+            limit if task.done() else elapsed, "finalized" if task.done() else "wait_timeout"
+        )
         return self.get_call(active["call_id"])
 
     async def _summary_for(self, result: CallRunResult, job: CallJob) -> dict[str, Any] | None:
@@ -557,9 +569,9 @@ class CallManager:
         secret = (self.settings.webhook_secret or "").strip()
         if secret:
             raw = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
-            body["signature"] = "sha256=" + hmac.new(
-                secret.encode(), raw, hashlib.sha256
-            ).hexdigest()
+            body["signature"] = (
+                "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+            )
         for hook in list_webhooks(self.settings):
             events = hook.get("events") or []
             if "call.finalized" not in events:

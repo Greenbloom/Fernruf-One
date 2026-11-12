@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import sys
 from pathlib import Path
 
 import click
@@ -70,7 +69,9 @@ def policy_check(to: str, at_iso: str | None) -> None:
 
 @main.command("m1-test-call")
 @click.option("--to", required=True, help="Callee E.164, e.g. +49151…")
-@click.option("--min-hold", default=32, show_default=True, help="Seconds to keep call up after answer")
+@click.option(
+    "--min-hold", default=32, show_default=True, help="Seconds to keep call up after answer"
+)
 @click.option("--dry-run", is_flag=True, help="Policy + dial format only, no ARI")
 def m1_test_call(to: str, min_hold: int, dry_run: bool) -> None:
     settings = load_settings(require_principal=True)
@@ -256,9 +257,7 @@ def m2_test_call(
             raise SystemExit(2)
         from fernruf.voice.simulate import SimulateConversation
 
-        result = asyncio.run(
-            SimulateConversation(settings, task, llm_model_override=model).run()
-        )
+        result = asyncio.run(SimulateConversation(settings, task, llm_model_override=model).run())
         payload = {
             "mode": "simulate",
             "llm_model": result.llm_model,
@@ -528,7 +527,11 @@ def stt_smoke(wav_path: str | None) -> None:
         raise SystemExit(str(exc)) from None
     if settings.voice_mock:
         raise SystemExit("FERNRUF_VOICE_MOCK is enabled; disable for stt-smoke")
-    path = Path(wav_path) if wav_path else Path(__file__).resolve().parents[1] / "tests/fixtures/stt_smoke_de.wav"
+    path = (
+        Path(wav_path)
+        if wav_path
+        else Path(__file__).resolve().parents[1] / "tests/fixtures/stt_smoke_de.wav"
+    )
     if not path.is_file():
         raise SystemExit(f"Missing STT smoke WAV: {path}")
     try:
@@ -804,8 +807,8 @@ def auth_revoke_all() -> None:
 @click.argument("number")
 def settings_allow_number(number: str) -> None:
     """Add an E.164 number to the allowlist. This is the only way to widen it."""
-    from fernruf.call_settings.store import get_call_settings, update_call_settings
     from fernruf.audit import append_audit_event
+    from fernruf.call_settings.store import get_call_settings, update_call_settings
 
     settings = load_settings()
     try:

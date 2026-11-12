@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Analyze RTP in a pcap (PCMA + RFC4733). Wrapper around fernruf.analysis.rtp_pcap."""
+
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 from fernruf.analysis.rtp_pcap import analyze_pcap, format_report

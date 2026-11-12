@@ -5,7 +5,7 @@ import pytest
 
 from fernruf.call_settings.model import validate_llm_model_id
 from fernruf.call_settings.resolver import resolve_call_llm_model
-from fernruf.call_settings.store import get_call_settings, update_call_settings
+from fernruf.call_settings.store import update_call_settings
 from fernruf.settings import Settings
 from fernruf.voice.simulate import SimulateConversation
 

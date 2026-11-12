@@ -12,7 +12,6 @@ import sys
 import time
 from pathlib import Path
 
-from fernruf.desktop.i18n import install_translator, tr
 from fernruf.desktop.choices import (
     HANGUP_ENABLED,
     RAISE_WINDOW_ON_CALL,
@@ -23,6 +22,7 @@ from fernruf.desktop.choices import (
     listen_from_disk,
     listen_to_store,
 )
+from fernruf.desktop.i18n import install_translator, tr
 from fernruf.desktop.lines import make_line_model
 from fernruf.desktop.prefs import default_pref_path, load_listen_pref, save_listen_pref
 from fernruf.monitor.pace import MONITOR_RATE, PlaybackPacer
@@ -57,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
         print("call window failed to load", file=sys.stderr)
         return 1
     if shot:
+
         def fire() -> None:
             window.show()
             model.show_example()
@@ -81,11 +82,11 @@ def main(argv: list[str] | None = None) -> int:
         if token:
             _connect(model, url, token)
         else:
-            model.set_error(
-                tr("No token. Set FERNRUF_MONITOR_TOKEN or FERNRUF_MCP_TOKEN.")
-            )
+            model.set_error(tr("No token. Set FERNRUF_MONITOR_TOKEN or FERNRUF_MCP_TOKEN."))
     else:
-        model.apply_lifecycle({"state": "dialing", "to_masked": "+49 30 0000 0000", "summary": None})
+        model.apply_lifecycle(
+            {"state": "dialing", "to_masked": "+49 30 0000 0000", "summary": None}
+        )
         QTimer.singleShot(50, app.quit)
     return app.exec()
 
@@ -103,6 +104,7 @@ def _new_frame(opaque: bool):
 
     kind = getattr(_new_frame, "kind", None)
     if kind is None:
+
         class Frame(QObject):
             opaqueChanged = Signal()
 
@@ -194,8 +196,6 @@ def _tray(app, window) -> None:
 
 
 def _connect(model, url: str, token: str) -> None:
-    from PySide6.QtCore import QUrl
-    from PySide6.QtNetwork import QNetworkRequest
     from PySide6.QtWebSockets import QWebSocket
 
     socket = QWebSocket()
@@ -448,9 +448,7 @@ class CallModel:
                     self._timing = True
                     self._elapsed = "00:00"
                     self._ask_dismissed = False
-                    self._listening = listen_from_disk(
-                        bool(load_listen_pref(self._path)["listen"])
-                    )
+                    self._listening = listen_from_disk(bool(load_listen_pref(self._path)["listen"]))
                     self.send_listen()
                     if not self._listening:
                         self._close_sinks()
@@ -502,11 +500,31 @@ class CallModel:
                 self.setVolume(0.7)
                 self.setMuted(False)
                 samples = [
-                    ("agent", "Hello, this is an example assistant. Am I speaking with Max Mustermann?", "14:02:05", True),
+                    (
+                        "agent",
+                        "Hello, this is an example assistant. Am I speaking with Max Mustermann?",
+                        "14:02:05",
+                        True,
+                    ),
                     ("callee", "Yes. What is this about?", "14:02:11", True),
-                    ("agent", "This is a sample call about an appointment on Tuesday at 9:30. Does that still work?", "14:02:14", True),
-                    ("callee", "Tuesday morning is difficult. Is the afternoon open?", "14:02:22", True),
-                    ("agent", "Tuesday at 15:00 is free. Should the appointment move?", "14:02:27", True),
+                    (
+                        "agent",
+                        "This is a sample call about an appointment on Tuesday at 9:30. Does that still work?",
+                        "14:02:14",
+                        True,
+                    ),
+                    (
+                        "callee",
+                        "Tuesday morning is difficult. Is the afternoon open?",
+                        "14:02:22",
+                        True,
+                    ),
+                    (
+                        "agent",
+                        "Tuesday at 15:00 is free. Should the appointment move?",
+                        "14:02:27",
+                        True,
+                    ),
                     ("callee", "Yes, 15:00 works.", "provisional", False),
                 ]
                 for speaker, text, clock, final in samples:

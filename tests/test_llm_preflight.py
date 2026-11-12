@@ -18,9 +18,7 @@ class _StreamingPreflightHandler(BaseHTTPRequestHandler):
     last_body: dict | None = None
     post_count: int = 0
     first_status: int | None = None
-    first_error_message: str = (
-        "Reasoning is mandatory for this endpoint and cannot be disabled."
-    )
+    first_error_message: str = "Reasoning is mandatory for this endpoint and cannot be disabled."
 
     def log_message(self, format: str, *args) -> None:  # noqa: A003
         return
@@ -48,7 +46,11 @@ class _StreamingPreflightHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(
                 json.dumps(
-                    {"error": {"message": "Model example/model-b is deprecated; switch to example/model-b"}}
+                    {
+                        "error": {
+                            "message": "Model example/model-b is deprecated; switch to example/model-b"
+                        }
+                    }
                 ).encode()
             )
             return
@@ -64,9 +66,7 @@ class _StreamingPreflightHandler(BaseHTTPRequestHandler):
         self.send_response(self.status)
         self.send_header("Content-Type", "text/event-stream")
         self.end_headers()
-        chunk = {
-            "choices": [{"index": 0, "delta": {"content": "p"}, "finish_reason": None}]
-        }
+        chunk = {"choices": [{"index": 0, "delta": {"content": "p"}, "finish_reason": None}]}
         self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
         self.wfile.write(b"data: [DONE]\n\n")
 
