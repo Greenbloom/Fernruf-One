@@ -14,8 +14,9 @@ from typing import Any
 import pytest
 from tests.test_call_phase_flows import _drive, _last_user, _pipeline, _start_script, _tool_end_call
 
+from fernruf.call_settings.store import update_call_settings
 from fernruf.settings import Settings
-from fernruf.tts.fish_audio_cache import write_fish_cache
+from fernruf.tts.fish_audio_cache import fish_cache_dir, fish_cache_key, write_fish_cache
 from fernruf.tts.fish_rest_pipeline import FishRestPipeline
 from fernruf.tts.rest_stream import stream_tts_sentences
 from fernruf.voice.identity import scrub_identity_text
@@ -223,3 +224,123 @@ def test_cached_short_goodbye_is_not_half_of_a_longer_farewell(
 
     asyncio.run(_run())
     assert seen == [GOODBYE, "Das Fenster ist offen."]
+
+
+def _voice_settings(tmp_path: Path, *, fish_voice_id: str) -> Settings:
+    return Settings(
+        _env_file=None,
+        fish_audio_api_key="test-key",
+        fish_audio_model="drama-3",
+        fish_voice_id=fish_voice_id,
+        fish_latency="balanced",
+        fish_chunk_length=100,
+        fish_first_clause=True,
+        call_settings_db=str(tmp_path / "calls.sqlite"),
+        call_language="de",
+    )
+
+
+def test_goodbye_request_uses_the_call_voice_when_the_pipeline_snapshot_is_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _voice_settings(tmp_path, fish_voice_id="voice-configured")
+    seen: list[str | None] = []
+
+    async def _stream(text: str, **kwargs):  # noqa: ANN003
+        del text
+        seen.append(kwargs.get("voice_id"))
+        yield b"\x01\x02" * 20, 1.0
+
+    monkeypatch.setattr("fernruf.tts.fish_rest_pipeline.astream_fish_tts_pcm_rest", _stream)
+    monkeypatch.setattr("fernruf.tts.rest_stream.astream_fish_tts_pcm_rest", _stream)
+    pipeline = FishRestPipeline(
+        settings=settings,
+        api_key="test-key",
+        model="drama-3",
+        voice_id=None,
+    )
+
+    async def _run() -> None:
+        async for _pcm, _rate, _ttfa in stream_tts_sentences(
+            GOODBYE, settings=settings, pipeline=pipeline
+        ):
+            pass
+        async for _pcm, _rate, _ttfa in stream_tts_sentences(
+            "Eins zwei drei vier, der Rest bleibt dieselbe Stimme.",
+            settings=settings,
+            pipeline=pipeline,
+        ):
+            pass
+
+    asyncio.run(_run())
+    assert seen
+    assert set(seen) == {"voice-configured"}
+
+
+def test_cache_clip_without_a_voice_record_is_not_played(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _voice_settings(tmp_path, fish_voice_id="voice-configured")
+    key = fish_cache_key(
+        "Auf Wiederhören.",
+        voice_id="voice-configured",
+        model="drama-3",
+        latency="balanced",
+        language="de",
+    )
+    stale = b"\x0a\x0b" * 800
+    (fish_cache_dir(settings) / f"{key}.pcm").write_bytes(stale)
+    seen: list[str | None] = []
+    heard = bytearray()
+
+    async def _stream(text: str, **kwargs):  # noqa: ANN003
+        del text
+        seen.append(kwargs.get("voice_id"))
+        yield b"\x01\x02" * 20, 1.0
+
+    monkeypatch.setattr("fernruf.tts.fish_rest_pipeline.astream_fish_tts_pcm_rest", _stream)
+    monkeypatch.setattr("fernruf.tts.rest_stream.astream_fish_tts_pcm_rest", _stream)
+    pipeline = FishRestPipeline(
+        settings=settings,
+        api_key="test-key",
+        model="drama-3",
+        voice_id=None,
+    )
+
+    async def _run() -> None:
+        async for pcm, _rate, _ttfa in stream_tts_sentences(
+            "Auf Wiederhören.", settings=settings, pipeline=pipeline
+        ):
+            heard.extend(pcm)
+
+    asyncio.run(_run())
+    assert stale not in bytes(heard)
+    assert seen == ["voice-configured"]
+
+
+def test_stored_voice_is_sent_when_the_env_voice_is_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _voice_settings(tmp_path, fish_voice_id="")
+    update_call_settings({"voice_reference_id": "stored-voice"}, settings=settings)
+    seen: list[str | None] = []
+
+    async def _stream(text: str, **kwargs):  # noqa: ANN003
+        del text
+        seen.append(kwargs.get("voice_id"))
+        yield b"\x01\x02" * 20, 1.0
+
+    monkeypatch.setattr("fernruf.tts.fish_rest_pipeline.astream_fish_tts_pcm_rest", _stream)
+    pipeline = FishRestPipeline(
+        settings=settings,
+        api_key="test-key",
+        model="drama-3",
+        voice_id=None,
+    )
+
+    async def _run() -> None:
+        async for _pcm, _ttfa in pipeline.stream_text("Das Fenster ist offen."):
+            pass
+
+    asyncio.run(_run())
+    assert seen == ["stored-voice"]

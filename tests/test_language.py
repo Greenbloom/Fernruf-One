@@ -351,6 +351,32 @@ def test_per_language_fish_voice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert prepared.filler_phrase == format_phrase_templates("en", DEFAULT_TEST_PRINCIPAL)["filler"]
 
 
+def test_prepare_uses_stored_voice_when_env_voice_is_empty(tmp_path: Path) -> None:
+    settings = _settings(tmp_path, fish_voice_id="")
+    update_call_settings({"voice_reference_id": "stored-voice"}, settings=settings)
+    prepared = asyncio.run(
+        prepare_call_settings(
+            settings,
+            "Kurzer Testanruf auf Deutsch.",
+            language="de",
+        )
+    )
+    assert prepared.fish_voice_id == "stored-voice"
+
+
+def test_prepare_keeps_env_voice_ahead_of_the_stored_voice(tmp_path: Path) -> None:
+    settings = _settings(tmp_path, fish_voice_id="env-voice")
+    update_call_settings({"voice_reference_id": "stored-voice"}, settings=settings)
+    prepared = asyncio.run(
+        prepare_call_settings(
+            settings,
+            "Kurzer Testanruf auf Deutsch.",
+            language="de",
+        )
+    )
+    assert prepared.fish_voice_id == "env-voice"
+
+
 def test_german_task_with_accented_names_stays_de(tmp_path: Path) -> None:
     settings = _settings(tmp_path, typesafe_enabled=False)
     detection = detect_call_language_local(
