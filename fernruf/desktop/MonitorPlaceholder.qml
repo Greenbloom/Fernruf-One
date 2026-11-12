@@ -285,6 +285,16 @@ ApplicationWindow {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.topMargin: 4
                 }
+                Label {
+                    objectName: "transcriptOffNote"
+                    visible: !monitor.transcriptAllowed && monitor.state !== "idle"
+                    text: qsTr("Transcript is off.")
+                    color: Qt.rgba(1, 1, 1, 0.8)
+                    font.pixelSize: 13
+                    font.family: "Noto Sans"
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.topMargin: 2
+                }
 
                 StackLayout {
                     Layout.fillWidth: true
@@ -958,13 +968,43 @@ ApplicationWindow {
                     }
                 }
 
+                Label {
+                    objectName: "transcriptNotice"
+                    visible: monitor.transcriptAllowed && monitor.state !== "idle"
+                    text: qsTr("Notice: You are speaking with an AI assistant from Fernruf. This call is being transcribed.")
+                    color: Qt.rgba(1, 1, 1, 0.8)
+                    font.pixelSize: 12
+                    font.family: "Noto Sans"
+                    wrapMode: Text.Wrap
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 16
+                    Layout.rightMargin: 16
+                    Layout.topMargin: 10
+                }
+
+                Label {
+                    objectName: "transcriptDisabled"
+                    visible: !monitor.transcriptAllowed && monitor.state !== "idle"
+                    text: qsTr("Transcript is off.")
+                    color: Qt.rgba(1, 1, 1, 0.8)
+                    font.pixelSize: 14
+                    font.family: "Noto Sans"
+                    wrapMode: Text.Wrap
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 16
+                    Layout.rightMargin: 16
+                    Layout.topMargin: 12
+                }
+
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
                     Column {
                         id: emptyState
-                        visible: transcript.count === 0 && monitor.state !== "finalized"
+                        visible: monitor.transcriptAllowed && transcript.count === 0 && monitor.state !== "finalized"
                         anchors.centerIn: parent
                         spacing: 10
                         width: 280
@@ -1026,7 +1066,7 @@ ApplicationWindow {
                         id: transcript
                         anchors.fill: parent
                         anchors.margins: 8
-                        visible: count > 0
+                        visible: monitor.transcriptAllowed && count > 0
                         clip: true
                         spacing: 10
                         model: lineModel
@@ -1034,32 +1074,6 @@ ApplicationWindow {
                         onMovementStarted: stick = false
                         onAtYEndChanged: if (atYEnd) stick = true
                         onCountChanged: if (stick) Qt.callLater(positionViewAtEnd)
-
-                        header: Item {
-                            width: transcript.width
-                            height: notice.implicitHeight + 12
-                            Label {
-                                id: notice
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                width: Math.min(implicitWidth + 28, parent.width - 24)
-                                horizontalAlignment: Text.AlignHCenter
-                                wrapMode: Text.Wrap
-                                topPadding: 6
-                                bottomPadding: 6
-                                leftPadding: 14
-                                rightPadding: 14
-                                text: qsTr("Notice: You are speaking with an AI assistant from Fernruf. This call is being transcribed.")
-                                color: Qt.rgba(1, 1, 1, 0.8)
-                                font.pixelSize: 12
-                                font.family: "Noto Sans"
-                                background: Rectangle {
-                                    radius: 14
-                                    color: Qt.rgba(1, 1, 1, 0.12)
-                                    border.color: Qt.rgba(1, 1, 1, 0.18)
-                                    border.width: 1
-                                }
-                            }
-                        }
 
                         delegate: Item {
                             id: row

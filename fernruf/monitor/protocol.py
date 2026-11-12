@@ -7,7 +7,7 @@ Text frames are JSON objects with ``v`` 1.
 * ``{"v":1,"type":"auth_ok"}`` server to client.
 * ``{"v":1,"type":"listen","enabled":true}`` client to server. Audio stays
   off until this is true. The server answers with the same shape.
-* ``{"v":1,"type":"lifecycle","call_id","state","at","to_masked","outcome","summary"}``
+* ``{"v":1,"type":"lifecycle","call_id","state","at","to_masked","outcome","summary","transcript_allowed"}``
 * ``{"v":1,"type":"transcript","call_id","speaker","text","t_ms","final"}``
   ``speaker`` is ``agent`` or ``callee``. ``final`` is false only for an
   interim hypothesis. This pipeline currently emits finals.
@@ -294,6 +294,7 @@ def lifecycle_message(
     to_masked: str,
     outcome: str | None,
     summary: dict[str, Any] | None,
+    transcript_allowed: bool = True,
 ) -> dict[str, Any]:
     return {
         "v": 1,
@@ -304,6 +305,7 @@ def lifecycle_message(
         "to_masked": to_masked,
         "outcome": outcome,
         "summary": summary,
+        "transcript_allowed": bool(transcript_allowed),
     }
 
 

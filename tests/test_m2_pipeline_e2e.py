@@ -194,6 +194,7 @@ def test_build_m2_pipeline_llm_reply_reaches_tts(
         llm_mock=False,
         llm_filler_delay_s=5.0,
         disclosure_prefix="",
+        transcript_allowed=True,
     )
 
     ws = MagicMock()
@@ -243,6 +244,7 @@ def test_build_m2_pipeline_delayed_llm_stream(
         voice_mock=False,
         llm_mock=False,
         disclosure_prefix="",
+        transcript_allowed=True,
     )
     ws = MagicMock()
     ws.accept = AsyncMock()

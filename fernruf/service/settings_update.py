@@ -22,6 +22,7 @@ CLI_ONLY_FIELDS = frozenset(
         "mobile_flat_enabled",
         "opening_line",
         "quiet_hours",
+        "transcript_allowed",
     }
 )
 WRITABLE_FIELDS = frozenset(

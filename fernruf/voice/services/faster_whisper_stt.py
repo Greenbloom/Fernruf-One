@@ -22,6 +22,7 @@ from fernruf.stt.whisper import (
     transcribe_pcm,
     whisper_language_code,
 )
+from fernruf.voice.call_log import log_spoken_text
 from fernruf.voice.processors.verify_flow import VerifyFlowState
 
 LOG = logging.getLogger("fernruf.voice.stt")
@@ -93,7 +94,7 @@ class FasterWhisperSTTService(SegmentedSTTService):
             text = seg.text.strip()
         if not text:
             return
-        LOG.info("STT final: %s", text)
+        log_spoken_text(LOG, "STT final", text, self._call_settings)
         if self._verify_state is not None:
             self._verify_state.checks["callee_transcribed"] = True
             self._verify_state.transcript.append(

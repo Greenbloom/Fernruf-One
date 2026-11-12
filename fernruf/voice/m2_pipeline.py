@@ -228,7 +228,7 @@ def build_m2_pipeline(
         on_dtmf = _tap_dtmf
 
     if verify or settings.llm_mock:
-        llm: Any = MockLLMService(hooks=hooks, task=task, on_dtmf=on_dtmf)
+        llm: Any = MockLLMService(hooks=hooks, task=task, on_dtmf=on_dtmf, settings=settings)
     else:
         llm = create_fernruf_llm_service(
             settings,
@@ -245,6 +245,7 @@ def build_m2_pipeline(
         model=ep.model,
         latency_log=latency_log,
         session=session,
+        settings=settings,
     )
     from fernruf.disclosure import spoken_ai_disclosure
 

@@ -4,6 +4,8 @@ import logging
 import re
 from pathlib import Path
 
+from fernruf.settings import Settings
+
 # German-style phone numbers only — do not match ISO timestamps in log lines.
 _PHONE = re.compile(
     r"(?:"
@@ -30,6 +32,13 @@ def _mask_phone(match: re.Match[str]) -> str:
     if len(raw) >= 4:
         return raw[:2] + "…XXXX"
     return "…XXXX"
+
+
+def log_spoken_text(logger: logging.Logger, label: str, text: str, settings: Settings) -> None:
+    if settings.transcript_allowed:
+        logger.info("%s: %s", label, text)
+    else:
+        logger.info("%s: (%s chars)", label, len(text))
 
 
 class RedactingCallLogFormatter(logging.Formatter):

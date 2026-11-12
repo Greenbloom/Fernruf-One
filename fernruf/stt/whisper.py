@@ -286,13 +286,22 @@ def transcribe_pcm(
                 min_avg_logprob=float(settings.whisper_min_avg_logprob),
             )
             if reason:
-                LOG.info(
-                    "STT dropped segment reason=%s no_speech_prob=%.2f avg_logprob=%.2f text=%s",
-                    reason,
-                    float(getattr(segment, "no_speech_prob", 0.0) or 0.0),
-                    float(getattr(segment, "avg_logprob", 0.0) or 0.0),
-                    text[:80],
-                )
+                if settings.transcript_allowed:
+                    LOG.info(
+                        "STT dropped segment reason=%s no_speech_prob=%.2f avg_logprob=%.2f text=%s",
+                        reason,
+                        float(getattr(segment, "no_speech_prob", 0.0) or 0.0),
+                        float(getattr(segment, "avg_logprob", 0.0) or 0.0),
+                        text[:80],
+                    )
+                else:
+                    LOG.info(
+                        "STT dropped segment reason=%s no_speech_prob=%.2f avg_logprob=%.2f (%s chars)",
+                        reason,
+                        float(getattr(segment, "no_speech_prob", 0.0) or 0.0),
+                        float(getattr(segment, "avg_logprob", 0.0) or 0.0),
+                        len(text),
+                    )
                 continue
             kept.append(text)
         text = " ".join(kept)

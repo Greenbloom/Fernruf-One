@@ -87,7 +87,7 @@ def test_monitor_refuses_a_public_bind() -> None:
 
 
 def test_simulated_call_reaches_a_subscriber_without_stalling(tmp_path) -> None:
-    settings, token = service_settings(tmp_path)
+    settings, token = service_settings(tmp_path, FERNRUF_TRANSCRIPT_ALLOWED=True)
     manager = CallManager(
         settings,
         line_health=StaticLineHealth(True),

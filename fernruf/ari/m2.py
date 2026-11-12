@@ -18,6 +18,7 @@ from fastapi import FastAPI, WebSocket
 from fernruf.ari.client import AriSession
 from fernruf.ari.teardown import shielded_ari_teardown
 from fernruf.ari.websocket_endpoint import WS_MEDIA_ENDPOINT
+from fernruf.call_settings.store import transcript_allowed
 from fernruf.quiet_hours import BERLIN
 from fernruf.settings import Settings
 from fernruf.voice.embedded_uvicorn import (
@@ -140,6 +141,7 @@ class M2AriSession(AriSession):
             language=language,
             detection_text=detection_text,
         )
+        settings.transcript_allowed = transcript_allowed(settings)
         from fernruf.stt.whisper import whisper_initial_prompt, whisper_language_code
 
         detected = getattr(settings, "_detected_language_label", None) or settings.call_language
@@ -164,13 +166,15 @@ class M2AriSession(AriSession):
                 {"t_ms": ln.t_ms, "speaker": ln.speaker, "text": ln.text}
                 for ln in result.transcript
             ]
+            if not settings.transcript_allowed:
+                result.transcript.clear()
             return {
                 "mode": "simulate",
                 "call_id": result.call_id,
                 "answered": True,
-                "transcript_lines": len(result.transcript),
+                "transcript_lines": len(transcript),
                 "transcript": transcript,
-                "first_agent_line": result.transcript[0].text if result.transcript else "",
+                "first_agent_line": transcript[0]["text"] if transcript else "",
                 "dtmf_sent": result.dtmf_sent,
                 "median_latency": result.median,
                 "duration_s": 0.0,
@@ -453,6 +457,9 @@ class M2AriSession(AriSession):
             call_id=call_id,
         )
         call_log = Path("data/calls") / f"{call_id}.log"
+        transcript = _transcript_from_session(session)
+        if not settings.transcript_allowed:
+            session.transcript_lines.clear()
         return {
             "mode": "pipecat",
             "call_id": call_id,
@@ -465,7 +472,7 @@ class M2AriSession(AriSession):
             "latency_log": str(settings.latency_log_path),
             "call_log": str(call_log),
             "call_language": settings.call_language,
-            "transcript": _transcript_from_session(session),
+            "transcript": transcript,
         }
 
 

@@ -180,6 +180,10 @@
             <translation>Hinweis: Sie sprechen mit einem KI-Assistenten von Fernruf. Dieses Gespräch wird transkribiert.</translation>
         </message>
         <message>
+            <source>Transcript is off.</source>
+            <translation>Transkript ist aus.</translation>
+        </message>
+        <message>
             <source>Agent (AI)</source>
             <translation>Agent (KI)</translation>
         </message>

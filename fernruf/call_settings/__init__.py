@@ -3,6 +3,8 @@ from fernruf.call_settings.resolver import LlmModelResolution, resolve_call_llm_
 from fernruf.call_settings.store import (
     CallSettingsRecord,
     get_call_settings,
+    log_transcript_mode,
+    transcript_allowed,
     update_call_settings,
 )
 
@@ -10,7 +12,9 @@ __all__ = [
     "CallSettingsRecord",
     "LlmModelResolution",
     "get_call_settings",
+    "log_transcript_mode",
     "resolve_call_llm_model",
+    "transcript_allowed",
     "update_call_settings",
     "validate_llm_model_id",
 ]

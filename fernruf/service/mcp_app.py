@@ -331,7 +331,11 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
 
     @mcp.tool()
     def get_call(call_id: str) -> dict[str, Any]:
-        """Status, timings, outcome, transcript, cost, and the post-call summary."""
+        """Status, timings, outcome, cost, and the post-call summary.
+
+        The transcript is included only when transcript storage is on. Otherwise
+        `transcript` is null and `transcript_reason` is `transcript_disabled`.
+        """
         try:
             return runtime.manager.get_call(call_id)
         except CallError as exc:
@@ -340,13 +344,19 @@ def build_mcp(runtime: ServiceRuntime) -> MCPServer:
 
     @mcp.tool()
     def get_call_transcript(call_id: str) -> dict[str, Any]:
-        """Transcript lines for one call. complete is true once the call is finalized."""
+        """Transcript lines for one call. Null lines when storage is off."""
         try:
             view = runtime.manager.get_call(call_id)
         except CallError as exc:
             _raise_call(exc)
             raise AssertionError("unreachable")
-        return view["transcript"]
+        transcript = view.get("transcript")
+        if transcript is None:
+            return {
+                "lines": None,
+                "reason": view.get("transcript_reason") or "transcript_disabled",
+            }
+        return transcript
 
     @mcp.tool()
     def list_calls(limit: int = 20, since: str | None = None) -> list[dict[str, Any]]:
