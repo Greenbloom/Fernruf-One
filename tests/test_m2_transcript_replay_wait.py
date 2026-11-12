@@ -79,6 +79,7 @@ async def _push_user(user_agg, line: str) -> None:
 def test_replay_wait_does_not_hang_up_and_asks_again(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    caplog.set_level(logging.INFO, logger="fernruf")
     server, base = _start_script(_reply)
     built, transport, session, hangup = _pipeline(
         tmp_path,
@@ -89,7 +90,6 @@ def test_replay_wait_does_not_hang_up_and_asks_again(
         hold_max_s=0.2,
         fish_audio_model="drama-3",
     )
-    caplog.set_level(logging.INFO)
 
     async def run() -> None:
         worker, run_task, user_agg = await _boot(built, transport)

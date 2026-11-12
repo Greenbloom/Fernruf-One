@@ -74,7 +74,7 @@ def _write_m1_prompt(settings: Settings, dest_alaw: Path) -> str:
 
     if settings.fish_audio_api_key.strip():
         api_key = settings.fish_audio_api_key
-        model = settings.fish_audio_model
+        model = settings.effective_fish_model()
         voice = settings.fish_voice_id or None
         fish_errors: list[str] = []
         for label, fn in (

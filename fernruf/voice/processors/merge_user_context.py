@@ -7,6 +7,7 @@ from pipecat.frames.frames import Frame, LLMContextFrame
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
+from fernruf.voice.call_phase import callee_asked_to_wait
 from fernruf.voice.call_session import message_text
 
 LOG = logging.getLogger("fernruf.voice.merge_user")
@@ -54,6 +55,12 @@ def merge_consecutive_user_messages(messages: list[Any]) -> list[Any]:
             prev = message_text(merged[-1])
             if prev_role == "user":
                 if cur and cur == prev:
+                    continue
+                if cur and (callee_asked_to_wait(prev) or callee_asked_to_wait(cur)):
+                    if isinstance(merged[-1], dict):
+                        merged[-1] = {**merged[-1], "content": cur}
+                    else:
+                        merged[-1] = {"role": "user", "content": cur}
                     continue
                 combined = f"{prev} {cur}".strip() if prev else cur
                 if isinstance(merged[-1], dict):

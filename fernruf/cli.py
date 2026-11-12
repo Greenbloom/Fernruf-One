@@ -578,7 +578,7 @@ def fish_smoke(text: str) -> None:
             text,
             settings=settings,
             api_key=settings.fish_audio_api_key,
-            model=settings.fish_audio_model,
+            model=settings.effective_fish_model(),
             voice_id=settings.fish_voice_id or None,
         ):
             if first_ttfa is not None:
@@ -601,7 +601,7 @@ def fish_smoke(text: str) -> None:
                 "sample_rate": rate,
                 "duration_s": round(duration_s, 3),
                 "ttfa_ms": round(ttfa_ms, 1) if ttfa_ms is not None else None,
-                "model": settings.fish_audio_model,
+                "model": settings.effective_fish_model(),
                 "voice_id": settings.fish_voice_id or None,
                 "fish_latency": settings.fish_latency,
                 "fish_chunk_length": settings.fish_chunk_length,

@@ -173,8 +173,25 @@ class Settings(BaseSettings):
             raise ValueError("FERNRUF_FISH_TRANSPORT must be rest or websocket")
         return mode
 
+    @field_validator("hold_max_s")
+    @classmethod
+    def _hold_max_s_valid(cls, v: float) -> float:
+        if v < 0 or v > 120:
+            raise ValueError("FERNRUF_HOLD_MAX_S must be between 0 and 120 seconds")
+        return v
+
     def effective_fish_model(self) -> str:
-        return (self.fish_model or self.fish_audio_model).strip()
+        """FERNRUF_FISH_MODEL if that variable is set, else FISH_AUDIO_MODEL.
+
+        Both fields default to ``s2.1-pro-free``. A truthy ``fish_model`` is
+        therefore not evidence that the operator set it. ``model_fields_set`` is.
+        """
+        if "fish_model" in self.model_fields_set:
+            chosen = (self.fish_model or "").strip()
+            if chosen:
+                return chosen
+        chosen = (self.fish_audio_model or "").strip()
+        return chosen or "s2.1-pro-free"
 
     def fish_prefers_websocket(self) -> bool:
         if self.fish_tts_use_websocket:
@@ -317,6 +334,7 @@ class Settings(BaseSettings):
 
     latency_log_path: str = Field(default="data/latency.jsonl", alias="FERNRUF_LATENCY_LOG")
     silence_timeout_s: float = Field(default=20.0, alias="FERNRUF_SILENCE_TIMEOUT_S")
+    hold_max_s: float = Field(default=20.0, alias="FERNRUF_HOLD_MAX_S")
     llm_filler_delay_s: float = Field(default=1.2, alias="FERNRUF_LLM_FILLER_DELAY_S")
     llm_first_token_timeout_s: float = Field(
         default=4.0,

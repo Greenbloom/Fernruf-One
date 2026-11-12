@@ -186,12 +186,13 @@ def build_m2_pipeline(
     log_live_stt_kwargs(settings)
     ep, resolution = resolve_llm_endpoint_for_call(settings, call_model_override=llm_model_override)
     LOG.info(
-        "M2 pipeline call=%s llm model=%s provider=%s source=%s verify=%s",
+        "M2 pipeline call=%s llm model=%s provider=%s source=%s verify=%s fish_model=%s",
         call_id,
         ep.model,
         ep.provider,
         resolution.source,
         verify,
+        settings.effective_fish_model(),
     )
 
     flow_state = (
@@ -272,6 +273,7 @@ def build_m2_pipeline(
         request_queue_drained=getattr(output, "request_queue_drained", None),
         accept_queue_drained=getattr(output, "accept_queue_drained", None),
         seal_playout=getattr(output, "seal_playout", None),
+        unseal_playout=getattr(output, "unseal_playout", None),
         output_pending=getattr(output, "output_audio_pending", None),
         note_queued_audio=getattr(output, "note_audio_queued", None),
         playout_done=getattr(output, "playback_idle", None),

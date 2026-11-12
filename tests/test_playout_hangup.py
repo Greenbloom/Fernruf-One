@@ -85,6 +85,7 @@ def _hangup(
     request=None,
     accept=None,
     seal=None,
+    unseal=None,
     output_pending=None,
     note_queued=None,
     playout_done=None,
@@ -102,6 +103,7 @@ def _hangup(
         request_queue_drained=request,
         accept_queue_drained=accept,
         seal_playout=seal,
+        unseal_playout=unseal,
         output_pending=output_pending,
         note_queued_audio=note_queued,
         playout_done=playout_done,
@@ -667,13 +669,24 @@ def test_callee_objection_during_playout_cancels_hangup() -> None:
             goodbye="Auf Wiederhören.",
             await_playback=True,
         )
+        sealed = {"on": False}
+
+        def seal() -> None:
+            sealed["on"] = True
+
+        def unseal() -> None:
+            sealed["on"] = False
+
         proc, called = _hangup(
             session=session,
             clock=clock,
             margin_s=0.05,
             playout_done=lambda: False,
+            seal=seal,
+            unseal=unseal,
         )
         await _arm_goodbye(proc)
+        seal()
         await proc.process_frame(
             TranscriptionFrame(
                 text="Na warte, du kannst das noch nicht auflegen.",
@@ -686,6 +699,7 @@ def test_callee_objection_during_playout_cancels_hangup() -> None:
         assert called.await_count == 0
         assert not session.phase.is_ending
         assert not session.hung_up
+        assert sealed["on"] is False
 
     asyncio.run(run())
 
@@ -717,6 +731,20 @@ def test_callee_reply_after_the_goodbye_does_not_wait_for_the_cap() -> None:
         await asyncio.sleep(0.4)
         assert called.await_count == 1
         assert time.monotonic() - started < 1.5
+
+    asyncio.run(run())
+
+
+def test_unseal_playout_accepts_later_audio() -> None:
+    async def run() -> None:
+        out, _flow, _client = _output()
+        frame = OutputAudioRawFrame(audio=_pcm(0.2), sample_rate=_RATE, num_channels=1)
+        out.seal_playout()
+        await out.write_audio_frame(frame)
+        assert out.playout_clock.utterance_total == 0
+        out.unseal_playout()
+        await out.write_audio_frame(frame)
+        assert abs(out.playout_clock.utterance_total - 0.2) < 0.03
 
     asyncio.run(run())
 

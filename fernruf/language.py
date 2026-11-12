@@ -40,6 +40,7 @@ PHRASE_KEYS: tuple[str, ...] = (
     "identity_line",
     "privacy_notice",
     "reask",
+    "hold_reask",
     "farewell_example",
 )
 

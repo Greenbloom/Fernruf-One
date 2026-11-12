@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from openai.types.chat import ChatCompletionChunk
-from pipecat.frames.frames import LLMContextFrame, LLMTextFrame, TTSSpeakFrame
+from pipecat.frames.frames import InterruptionFrame, LLMContextFrame, LLMTextFrame, TTSSpeakFrame
 from pipecat.metrics.metrics import LLMTokenUsage
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
@@ -20,7 +20,7 @@ from fernruf.language import phrase
 from fernruf.llm.stream_liveness import delta_has_llm_liveness
 from fernruf.settings import Settings
 from fernruf.voice.call_phase import assistant_turn_asks, farewell_in_text
-from fernruf.voice.call_session import M2CallSession
+from fernruf.voice.call_session import M2CallSession, message_text
 from fernruf.voice.frames.metrics_frames import LlmFirstTokenFrame, LlmInferenceStartedFrame
 from fernruf.voice.processors.merge_user_context import merge_consecutive_user_messages
 from fernruf.voice.tool_text import ToolTextGate
@@ -39,6 +39,16 @@ def _delta_field(delta: Any, name: str) -> str | None:
     if isinstance(val, str):
         return val
     return str(val)
+
+
+def _latest_user_text(frame: LLMContextFrame) -> str:
+    context = getattr(frame, "context", None)
+    messages = list(getattr(context, "messages", []) or [])
+    for msg in reversed(messages):
+        role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", None)
+        if role == "user":
+            return message_text(msg)
+    return ""
 
 
 def _chunk_provider(chunk: ChatCompletionChunk) -> str | None:
@@ -65,6 +75,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
         self._call_settings = call_settings
         self._call_session = call_session
         self._completion_skipped = False
+        self._hold_task: asyncio.Task | None = None
         self._primary_model: str = ""
         if hasattr(self, "_settings") and self._settings is not None:
             self._primary_model = getattr(self._settings, "model", "") or ""
@@ -107,16 +118,72 @@ class FernrufOpenAILLMService(OpenAILLMService):
         if function_calls:
             await super().run_function_calls(function_calls)
 
+    def _cancel_hold(self) -> None:
+        task = self._hold_task
+        if task is not None and not task.done():
+            task.cancel()
+        self._hold_task = None
+
+    def _arm_hold(self) -> None:
+        self._cancel_hold()
+        delay = 20.0
+        if self._call_settings is not None:
+            delay = float(self._call_settings.hold_max_s)
+        coro = self._hold_then_reask(delay)
+        task_manager = getattr(self, "_task_manager", None)
+        if task_manager:
+            self._hold_task = self.create_task(coro, "silent_hold")
+        else:
+            self._hold_task = asyncio.get_running_loop().create_task(coro)
+
+    async def _hold_then_reask(self, delay: float) -> None:
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+        session = self._call_session
+        if session is None or not session.phase.holding or session.phase.suppresses_llm:
+            return
+        session.phase.holding = False
+        session.phase.question_open = True
+        session.phase.awaiting_answer = True
+        session.phase.callee_spoke_since_question = False
+        text = "Sind Sie soweit? Ich stelle die Frage noch einmal."
+        if self._call_settings is not None:
+            try:
+                text = phrase(self._call_settings, "hold_reask")
+            except (KeyError, ValueError):
+                pass
+        LOG.info("Hold ended; asking again")
+        session.speakable_llm_this_turn = True
+        await self.push_frame(
+            TTSSpeakFrame(text=text, append_to_context=False),
+            FrameDirection.DOWNSTREAM,
+        )
+
     async def process_frame(self, frame, direction: FrameDirection):
         session = self._call_session
-        if (
-            isinstance(frame, LLMContextFrame)
-            and session is not None
-            and session.phase.suppresses_llm
-        ):
-            LOG.info("No assistant turn after end_call")
-            await FrameProcessor.process_frame(self, frame, direction)
-            return
+        if isinstance(frame, InterruptionFrame):
+            self._cancel_hold()
+        if isinstance(frame, LLMContextFrame) and session is not None:
+            if session.phase.is_ending and not session.phase.is_hung_up:
+                latest = _latest_user_text(frame)
+                if latest and session.resume_from_playout(latest):
+                    LOG.info("Callee spoke before hangup; continuing the call")
+                else:
+                    LOG.info("No assistant turn after end_call")
+                    await FrameProcessor.process_frame(self, frame, direction)
+                    return
+            elif session.phase.suppresses_llm:
+                LOG.info("No assistant turn after end_call")
+                await FrameProcessor.process_frame(self, frame, direction)
+                return
+            if session.phase.holding and not session.phase.suppresses_llm:
+                LOG.info("Callee asked to wait; staying silent")
+                await FrameProcessor.process_frame(self, frame, direction)
+                self._arm_hold()
+                return
+            self._cancel_hold()
         await super().process_frame(frame, direction)
 
     async def _push_llm_text(self, text: str) -> None:

@@ -41,7 +41,8 @@ Per-turn INFO/JSONL chain: **STT final → LLM first token → Fish TTFA → fir
 
 ### WebSocket transport (P8, optional)
 
-- `FERNRUF_FISH_TRANSPORT=rest|websocket` (default `rest`), `FERNRUF_FISH_MODEL` (default `s2.1-pro-free`).
+- `FERNRUF_FISH_TRANSPORT=rest|websocket` (default `rest`).
+- Fish model at call start: `FERNRUF_FISH_MODEL` when that variable is set, otherwise `FISH_AUDIO_MODEL`, otherwise `s2.1-pro-free`. The call log line includes `fish_model=`.
 - WebSocket mode uses one live Fish session per call; on model rejection or connect failure, logs WARNING and falls back to REST for the remainder of the call.
 
 ## Other levers

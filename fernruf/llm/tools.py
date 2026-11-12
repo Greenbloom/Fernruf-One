@@ -36,7 +36,11 @@ CALL_TOOLS: list[dict] = [
                 "with a general well-wish. Otherwise a short thanks and the call "
                 "language's goodbye. Never call this in the same turn as a "
                 "question or request, including indirect questions without a question "
-                "mark. Not for early test hangups. Do not call this before every "
+                "mark. Never call this when the callee asked you to wait or hold "
+                "('warte', 'Moment', 'einen Augenblick', 'hold on', 'wait'), and "
+                "never in the same turn as saying you will wait. A wait is not an "
+                "answer, a refusal, or a goodbye. Not for early test hangups. "
+                "Do not call this before every "
                 "must_say line has been spoken, unless the callee clearly hangs "
                 "up or refuses. 'Vielen Dank' or 'thanks' alone is neither."
             ),
