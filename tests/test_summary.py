@@ -116,6 +116,34 @@ def test_failed_model_is_degraded_and_not_the_transcript(
     assert any("upstream timed out" in record.message for record in caplog.records)
 
 
+def test_duplicate_key_facts_collapse_to_one() -> None:
+    """Two unanswered questions must not list the same fact twice."""
+
+    async def complete(_prompt: str) -> str:
+        return json.dumps(
+            {
+                "outcome": "completed",
+                "key_facts": ["Keine Antwort erhalten", "Keine Antwort erhalten"],
+                "follow_ups": ["Callee hat noch eine Frage"],
+                "consent": "not_asked",
+                "one_line": "Keine Antworten erhalten.",
+                "task_status": "incomplete",
+            }
+        )
+
+    summary = asyncio.run(
+        summarize_completed_call(
+            settings=_settings(),
+            transcript=TRANSCRIPT,
+            task="Frage, ob sich das Fenster von selbst geöffnet hat und ob die Knöpfe oben rechts funktionieren.",
+            outcome="completed",
+            complete=complete,
+        )
+    )
+    assert summary["key_facts"] == ["Keine Antwort erhalten"]
+    assert summary["follow_ups"] == ["Callee hat noch eine Frage"]
+
+
 def test_unparsed_model_text_is_degraded(caplog: pytest.LogCaptureFixture) -> None:
     async def complete(_prompt: str) -> str:
         return "Mhm. Goodbye."

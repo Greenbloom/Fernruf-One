@@ -652,6 +652,44 @@ def test_playout_done_signal_hangs_up_without_the_cap(
     assert not any("20s cap" in r.message or "20.0s cap" in r.message for r in caplog.records)
 
 
+def test_callee_objection_during_playout_cancels_hangup() -> None:
+    """Speech after end_call, before the phone is down, keeps the call going.
+
+    A farewell still hangs up. "Nicht auflegen" is not a farewell.
+    """
+
+    async def run() -> None:
+        clock = PlayoutClock()
+        clock.add_chunk(len(_pcm(20.0)), _RATE)
+        session = M2CallSession()
+        session.phase.begin_ending(
+            reason="Testanruf abgeschlossen",
+            goodbye="Auf Wiederhören.",
+            await_playback=True,
+        )
+        proc, called = _hangup(
+            session=session,
+            clock=clock,
+            margin_s=0.05,
+            playout_done=lambda: False,
+        )
+        await _arm_goodbye(proc)
+        await proc.process_frame(
+            TranscriptionFrame(
+                text="Na warte, du kannst das noch nicht auflegen.",
+                user_id="callee",
+                timestamp="0",
+            ),
+            FrameDirection.DOWNSTREAM,
+        )
+        await asyncio.sleep(0.4)
+        assert called.await_count == 0
+        assert not session.phase.is_ending
+        assert not session.hung_up
+
+    asyncio.run(run())
+
+
 def test_callee_reply_after_the_goodbye_does_not_wait_for_the_cap() -> None:
     """A callee line after the goodbye hangs up on the margin, not the 20s cap."""
 
