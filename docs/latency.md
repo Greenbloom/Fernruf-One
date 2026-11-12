@@ -36,7 +36,7 @@ Env flags (defaults tuned for `s2.1-pro-free`):
 - `FERNRUF_FISH_FIRST_CLAUSE=1` — send the first comma/clause chunk (≥ ~4 words) to Fish before the rest of the sentence.
 - Pipelining — while sentence *N* plays, sentence *N+1* is fetched (max two HTTP streams in flight); barge-in cancels in-flight synthesis.
 - A farewell is one request. Sentence splitting and the first-clause split leave it whole, so a cached short goodbye is not spliced into a longer farewell.
-- Disk cache under `data/fish-tts-cache/` for fixed phrases (AI disclosure opener, filler, standard goodbyes), keyed by language+text+voice+model+latency.
+- Disk cache under `data/fish-tts-cache/` for fixed phrases (AI disclosure opener, filler, standard goodbyes), keyed by language+text+voice+model+latency. A clip with no voice record is not replayed.
 - Warm `POST /v1/tts` with `"."` at call start to keep HTTP/2 hot.
 
 Per-turn INFO/JSONL chain: **STT final → LLM first token → Fish TTFA → first RTP out**.

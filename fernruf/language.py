@@ -489,6 +489,12 @@ async def prepare_call_settings(
         voice, voice_source = pinned_voice, "FERNRUF_DEMO_CALLER_VOICE_ID"
     else:
         voice, voice_source = fish_voice_id_for(settings, spoken)
+    if not voice:
+        from fernruf.tts.fish_voice import fish_reference_id
+
+        stored = fish_reference_id(settings)
+        if stored:
+            voice, voice_source = stored, "voice_reference_id"
     LOG.info("call fish voice source=%s language=%s", voice_source, spoken)
     from fernruf.disclosure import spoken_privacy_line
 

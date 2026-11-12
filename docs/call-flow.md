@@ -38,6 +38,8 @@ stateDiagram-v2
 - The goodbye is one Fish request. It is not split on sentences or on the first comma,
   and a cached short "Auf Wiederhören" is not played as the second half. Every Fish
   request in the call uses the same reference id, model, latency, and chunk length.
+  The reference id is the call voice. When that is empty, the stored voice_reference_id
+  is sent instead. A cached clip plays only when a voice record for that key exists.
 
 A refused `end_call` returns the tool error with `run_llm=false`. The bot waits for the
 next user turn. It does not ask the model again, and it does not apologize for the refusal.

@@ -11,6 +11,7 @@ from fernruf.tts.fish import TTS_SAMPLE_RATE, FishTtsError
 from fernruf.tts.fish_audio_cache import read_fish_cache, write_fish_cache
 from fernruf.tts.fish_rest_client import astream_fish_tts_pcm_rest
 from fernruf.tts.fish_rest_pipeline import FishRestPipeline
+from fernruf.tts.fish_voice import fish_reference_id
 from fernruf.tts.fish_ws_session import FishLiveWsSession
 
 LOG = logging.getLogger("fernruf.tts.rest")
@@ -81,7 +82,8 @@ async def stream_tts_sentences(
         return
 
     model = settings.effective_fish_model()
-    voice = settings.fish_voice_id or ""
+    explicit = pipeline.voice_id if pipeline is not None else None
+    voice = fish_reference_id(settings, explicit)
     together = _farewell_utterance(text)
     units = [text.strip()] if together and text.strip() else split_sentences(text)
 
@@ -125,7 +127,7 @@ async def stream_tts_sentences(
                     settings=settings,
                     api_key=settings.fish_audio_api_key,
                     model=model,
-                    voice_id=settings.fish_voice_id or None,
+                    voice_id=voice or None,
                     rest_fixture_path=settings.fish_tts_rest_fixture or None,
                     sample_rate=TTS_SAMPLE_RATE,
                     client=http_client,  # type: ignore[arg-type]
@@ -169,7 +171,7 @@ async def stream_tts_sentences(
                     settings=settings,
                     api_key=settings.fish_audio_api_key,
                     model=model,
-                    voice_id=settings.fish_voice_id or None,
+                    voice_id=voice or None,
                     rest_fixture_path=settings.fish_tts_rest_fixture or None,
                     sample_rate=TTS_SAMPLE_RATE,
                     client=http_client,  # type: ignore[arg-type]

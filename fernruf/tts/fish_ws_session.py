@@ -12,6 +12,7 @@ import websockets
 
 from fernruf.settings import Settings
 from fernruf.tts.fish import TTS_SAMPLE_RATE
+from fernruf.tts.fish_voice import fish_reference_id
 
 LOG = logging.getLogger("fernruf.tts.fish_ws")
 
@@ -57,8 +58,9 @@ class FishLiveWsSession:
                 "model": self.model,
             },
         }
-        if self.voice_id:
-            start["request"]["reference_id"] = self.voice_id
+        voice = fish_reference_id(self.settings, self.voice_id)
+        if voice:
+            start["request"]["reference_id"] = voice
         await self._ws.send(json.dumps(start))
         self._recv_task = asyncio.create_task(self._recv_loop())
 

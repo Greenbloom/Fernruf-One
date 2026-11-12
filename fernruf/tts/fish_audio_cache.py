@@ -43,6 +43,14 @@ def read_fish_cache(
     path = fish_cache_dir(settings) / f"{key}.pcm"
     if not path.is_file():
         return None
+    record = path.with_suffix(".voice")
+    if not record.is_file():
+        LOG.info("Fish TTS cache stale, no voice record text=%s…", text[:40])
+        return None
+    recorded = record.read_text(encoding="utf-8").strip()
+    if recorded != (voice_id or "").strip():
+        LOG.info("Fish TTS cache stale, voice mismatch text=%s…", text[:40])
+        return None
     LOG.info("Fish TTS cache hit (%s bytes) text=%s…", path.stat().st_size, text[:40])
     return path.read_bytes()
 
@@ -62,6 +70,7 @@ def write_fish_cache(
     key = fish_cache_key(text, voice_id=voice_id, model=model, latency=latency, language=language)
     path = fish_cache_dir(settings) / f"{key}.pcm"
     path.write_bytes(pcm)
+    path.with_suffix(".voice").write_text((voice_id or "").strip(), encoding="utf-8")
     LOG.debug("Fish TTS cache store %s bytes -> %s", len(pcm), path.name)
 
 
