@@ -12,7 +12,7 @@ ApplicationWindow {
     flags: Qt.FramelessWindowHint | Qt.Window | Qt.WindowStaysOnTopHint
 
     readonly property color cyan: "#9BE7FF"
-    readonly property int unitRadius: 24
+    readonly property int unitRadius: visibility === Window.Maximized ? 0 : 24
     property bool chatOpen: true
     property int phonePage: 1
     property string tracked: ""
@@ -65,15 +65,6 @@ ApplicationWindow {
 
     Connections {
         target: monitor
-        function onCallStarted() {
-            if (!raiseOnCall)
-                return
-            window.show()
-            if (canRaise) {
-                window.raise()
-                window.requestActivate()
-            }
-        }
         function onChanged() {
             if (monitor.state === "dialing" && window.tracked !== "dialing")
                 window.phonePage = 1
@@ -189,6 +180,45 @@ ApplicationWindow {
                 side: 16
                 anchors.centerIn: parent
             }
+        }
+    }
+
+    component WindowControls: Row {
+        id: controls
+        property bool named: false
+        spacing: 6
+
+        WindowButton {
+            objectName: controls.named ? "minimizeWindow" : ""
+            iconName: "window-minimize"
+            property string tip: qsTr("Minimize")
+            Accessible.name: tip
+            ToolTip.visible: hovered
+            ToolTip.text: tip
+            onClicked: window.showMinimized()
+        }
+        WindowButton {
+            objectName: controls.named ? "maximizeWindow" : ""
+            property string tip: window.visibility === Window.Maximized ? qsTr("Restore") : qsTr("Maximize")
+            iconName: window.visibility === Window.Maximized ? "window-restore" : "window-maximize"
+            Accessible.name: tip
+            ToolTip.visible: hovered
+            ToolTip.text: tip
+            onClicked: {
+                if (window.visibility === Window.Maximized)
+                    window.showNormal()
+                else
+                    window.showMaximized()
+            }
+        }
+        WindowButton {
+            objectName: controls.named ? "closeWindow" : ""
+            iconName: "window-close"
+            property string tip: qsTr("Close")
+            Accessible.name: tip
+            ToolTip.visible: hovered
+            ToolTip.text: tip
+            onClicked: window.hide()
         }
     }
 
@@ -693,23 +723,53 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     height: 52
                     color: "transparent"
-                    RowLayout {
+                    Item {
+                        id: transcriptHeader
+                        readonly property int statusGap: 12
+                        readonly property real statusLimit: Math.max(
+                            0,
+                            headerControls.x - transcriptTitle.x - transcriptTitle.width - statusGap * 2
+                        )
                         anchors.fill: parent
                         anchors.leftMargin: 18
-                        anchors.rightMargin: 86
-                        Tint { iconName: "chat"; side: 18 }
+                        anchors.rightMargin: 12
+
+                        Tint {
+                            id: transcriptIcon
+                            iconName: "chat"
+                            side: 18
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
                         Label {
+                            id: transcriptTitle
                             text: qsTr("Live transcript")
                             color: "white"
                             font.pixelSize: 15
                             font.family: "Noto Sans"
+                            anchors.left: transcriptIcon.right
+                            anchors.leftMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
                         }
-                        Item { Layout.fillWidth: true }
+                        WindowControls {
+                            id: headerControls
+                            named: window.chatOpen
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
                         Label {
+                            objectName: "chatStatus"
                             text: window.chatStatus()
                             color: Qt.rgba(1, 1, 1, 0.65)
                             font.pixelSize: 12
                             font.family: "Noto Sans"
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignRight
+                            verticalAlignment: Text.AlignVCenter
+                            anchors.right: headerControls.left
+                            anchors.rightMargin: transcriptHeader.statusGap
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.min(implicitWidth, transcriptHeader.statusLimit)
                         }
                     }
                     Rectangle {
@@ -1131,26 +1191,14 @@ ApplicationWindow {
             color: Qt.rgba(1, 1, 1, 0.14)
         }
 
-        Row {
+        WindowControls {
+            visible: !window.chatOpen
+            named: !window.chatOpen
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.topMargin: 12
             anchors.rightMargin: 12
-            spacing: 6
             z: 20
-
-            WindowButton {
-                objectName: "minimizeWindow"
-                iconName: "window-minimize"
-                Accessible.name: qsTr("Minimize")
-                onClicked: window.showMinimized()
-            }
-            WindowButton {
-                objectName: "closeWindow"
-                iconName: "window-close"
-                Accessible.name: qsTr("Close")
-                onClicked: window.hide()
-            }
         }
     }
 }

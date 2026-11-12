@@ -43,7 +43,9 @@ def _unwrapped_visible(qml: str) -> list[str]:
         between = window[props[-1].end() :]
         if "qsTr(" in between or re.search(r"[!=]==\s*$", between):
             continue
-        if re.search(r"\b(?:color|font|source|iconName|iconTint|fill|border)\b", between):
+        if re.search(
+            r"\b(?:color|font|source|iconName|iconTint|fill|border|objectName)\b", between
+        ):
             continue
         missing.append(value)
     return missing
@@ -64,6 +66,7 @@ def _catalog() -> dict[tuple[str, str], str]:
 def test_a_bare_label_is_rejected_and_a_marked_label_is_not() -> None:
     assert _unwrapped_visible('Label { text: "Hello" }') == ["Hello"]
     assert _unwrapped_visible('Label { text: qsTr("Hello") }') == []
+    assert _unwrapped_visible('text: "Hello"\nobjectName: "maximizeWindow"') == ["Hello"]
 
 
 def test_visible_window_strings_are_marked_for_translation() -> None:
