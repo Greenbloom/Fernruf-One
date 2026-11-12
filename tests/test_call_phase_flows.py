@@ -168,6 +168,7 @@ def _pipeline(
     fish_audio_model: str | None = None,
     hangup_margin_s: float | None = None,
     fish_http: bool = False,
+    monitor: object | None = None,
 ):
     pcm = _fixture_pcm("phase", sample_rate=16000, duration_s=0.2)
     wav = tmp_path / "fish.wav"
@@ -220,6 +221,7 @@ def _pipeline(
         call_id="phase-flow",
         hooks=hooks,
         session=session,
+        monitor=monitor,
     )
     unblock_asterisk_output(transport)
     wire_transport_bot_stopped_to_guard(transport, built.hangup, delay_s=0.15)
@@ -493,6 +495,59 @@ def test_flow_textual_end_call_is_spoken_as_goodbye_only(
     assert len(goodbye_tts) == 1
     assert any("Parsed textual end_call" in r.message for r in caplog.records)
     assert _tool_reruns() == []
+
+
+def _agent_transcript(monitor) -> list[str]:
+    sub = monitor.subscribe()
+    lines: list[str] = []
+    while not sub.events.empty():
+        event = sub.events.get_nowait()
+        if event.get("type") == "transcript" and event.get("speaker") == "agent":
+            lines.append(event["text"])
+    return lines
+
+
+def test_flow_suppressed_end_call_text_is_not_in_the_transcript(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Text beside end_call is not spoken, so it is not an agent transcript line.
+
+    The monitor socket, the stored transcript, get_call, and webhooks all read
+    these lines. The callee hears only the goodbye.
+    """
+    from fernruf.ari.m2 import _transcript_from_session
+    from fernruf.monitor.hub import CallMonitor
+
+    suppressed = "Vielen Dank. Ich beende das Gespräch jetzt."
+    goodbye = "Auf Wiederhören."
+
+    def reply(_body: dict[str, Any]) -> list[dict[str, Any]]:
+        return [
+            {"delta": {"content": suppressed}},
+            *_tool_end_call("Gespräche beendet", goodbye),
+        ]
+
+    server, base = _start_script(reply)
+    monitor = CallMonitor()
+    assert monitor.begin("phase-flow", to_e164="+493012345678", transcript_allowed=True)
+    built, transport, session, hangup = _pipeline(
+        tmp_path, base, timeout_s=5.0, fallback="", monitor=monitor
+    )
+    caplog.set_level(logging.INFO)
+    try:
+        asyncio.run(_drive(built, transport, ["Tschüss."], settle_s=2.5))
+    finally:
+        server.shutdown()
+    assert hangup.await_count == 1
+    assert session.phase.is_hung_up
+    spoken = [r.message for r in caplog.records if r.message.startswith("TTS start:")]
+    assert any(goodbye in line for line in spoken), spoken
+    assert not any("beende das Gespräch" in line for line in spoken), spoken
+    assert any(r.message.startswith("Suppressing assistant text") for r in caplog.records)
+    lines = _transcript_from_session(session)
+    agent = [line["text"] for line in lines if line["speaker"] == "agent"]
+    assert agent == [goodbye]
+    assert _agent_transcript(monitor) == [goodbye]
 
 
 def test_confirmation_line_counts_as_one_farewell() -> None:
