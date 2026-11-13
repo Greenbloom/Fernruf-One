@@ -97,7 +97,7 @@ def _llm_tools(hooks: M2CallHooks, session: M2CallSession, settings: Settings) -
             text = session.companion_text
             session.companion_text = ""
             if speak and text.strip() and session.speak_companion is not None:
-                session.unspoken_assistant_text = ""
+                session.assistant_completion_withheld = False
                 await session.speak_companion(text)
 
         tool_id = getattr(params, "tool_call_id", None) or ""

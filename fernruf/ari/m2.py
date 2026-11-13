@@ -39,9 +39,9 @@ def _transcript_from_session(session: Any) -> list[dict[str, Any]]:
     from fernruf.voice.call_session import message_text
 
     pending = ""
-    if hasattr(session, "assistant_text_pending_transcript"):
-        pending = session.assistant_text_pending_transcript()
-    elif hasattr(session, "in_flight_assistant_completion"):
+    if not getattr(session, "assistant_completion_withheld", False) and hasattr(
+        session, "in_flight_assistant_completion"
+    ):
         pending = session.in_flight_assistant_completion()
     if hasattr(session, "flush_unrecorded_assistant"):
         session.flush_unrecorded_assistant(pending)

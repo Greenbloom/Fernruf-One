@@ -602,7 +602,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
                 pass
             elif suppress and combined.strip():
                 session.companion_text = combined
-                session.unspoken_assistant_text = combined.strip()
+                session.assistant_completion_withheld = True
                 LOG.info(
                     "Suppressing assistant text (%s chars); end_call speaks the goodbye",
                     len(combined.strip()),
@@ -615,7 +615,7 @@ class FernrufOpenAILLMService(OpenAILLMService):
                     session.phase.reask_used = True
         elif suppress and raw_pending.strip() and session is not None:
             session.companion_text = raw_pending
-            session.unspoken_assistant_text = raw_pending.strip()
+            session.assistant_completion_withheld = True
             LOG.info(
                 "Suppressing assistant text (%s chars); end_call speaks the goodbye",
                 len(raw_pending.strip()),

@@ -510,11 +510,6 @@ def _agent_transcript(monitor) -> list[str]:
 def test_flow_suppressed_end_call_text_is_not_in_the_transcript(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Text beside end_call is not spoken, so it is not an agent transcript line.
-
-    The monitor socket, the stored transcript, get_call, and webhooks all read
-    these lines. The callee hears only the goodbye.
-    """
     from fernruf.ari.m2 import _transcript_from_session
     from fernruf.monitor.hub import CallMonitor
 
