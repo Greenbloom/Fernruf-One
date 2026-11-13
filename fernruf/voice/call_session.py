@@ -75,6 +75,7 @@ class M2CallSession:
     uncommitted_agent_text: str = ""
     spoken_goodbye: str = ""
     companion_text: str = ""
+    assistant_completion_withheld: bool = False
     speak_companion: Callable[[str], Awaitable[None]] | None = None
     transcript_sink: Callable[[str, str, int, bool], None] | None = None
 
@@ -279,9 +280,11 @@ class M2CallSession:
     def reset_assistant_turn(self) -> None:
         self.assistant_turn_text = ""
         self.llm_completion_text = ""
+        self.assistant_completion_withheld = False
 
     def reset_llm_completion(self) -> None:
         self.llm_completion_text = ""
+        self.assistant_completion_withheld = False
 
     def append_llm_completion(self, chunk: str) -> None:
         if chunk:
